@@ -1,0 +1,104 @@
+<!--
+  참고: 원본 파일이 인코딩 손상(mojibake) 상태로 전달되어 한글 텍스트를 문맥으로
+  재구성했다. CSS 변수명/JS 로직/조건 8개·필수 슬롯 3개 구성은 원본 그대로 보존했다.
+
+  주의 — 우리집 PRD v0.4 §5와의 차이:
+  이 목업은 조건 8개(역세권/신축/대단지/평형/마트접근성/병원접근성/공원·녹지/학군),
+  필수 최대 3개 구성이다. 반면 우리집 PRD v0.4·현재 DB 스키마는 분류형 조건을
+  3개(평형/년식/인프라)로 좁히고 필수 최대 2개로 제한한다(역세권은 통근시간에
+  흡수, 대단지·학군은 타겟 축소로 제외 — PRD §5 제외 사유 참조).
+  이 목업은 아마 "가는집"(가족/룸메이트 등 다중 타겟) 쪽 화면으로 보인다.
+  실제 구현은 어느 쪽을 따를지 확인 후 진행한다.
+-->
+<h2 class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">조건을 필수, 선호, 무관으로 분류하는 온보딩 카드 소팅 화면 목업</h2>
+<div style="background: var(--surface-1); border-radius: 16px; padding: 24px; display: flex; justify-content: center;">
+<div style="width: 360px; max-width: 100%; background: var(--surface-2); border: 0.5px solid var(--border); border-radius: 20px; padding: 20px 20px 24px;">
+
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+    <span style="font-size: 13px; color: var(--text-muted);">A의 조건 분류</span>
+    <span id="prog-label" style="font-size: 13px; color: var(--text-secondary); font-weight: 500;">1 / 8</span>
+  </div>
+  <div style="height: 4px; background: var(--surface-1); border-radius: 2px; margin-bottom: 20px;">
+    <div id="prog-bar" style="height: 4px; width: 12.5%; background: var(--fill-accent); border-radius: 2px; transition: width .25s;"></div>
+  </div>
+
+  <p style="font-size: 15px; font-weight: 500; margin: 0 0 12px;">이 조건, 얼마나 중요해요?</p>
+
+  <div id="card" style="border: 0.5px solid var(--border-strong); border-radius: 12px; padding: 24px 20px; text-align: center; margin-bottom: 16px; background: var(--surface-2);">
+    <i id="card-icon" class="ti ti-train" aria-hidden="true" style="font-size: 24px; color: var(--text-secondary);"></i>
+    <p id="card-title" style="font-size: 18px; font-weight: 500; margin: 8px 0 4px;">역세권</p>
+    <p id="card-desc" style="font-size: 13px; color: var(--text-secondary); margin: 0;">지하철 역까지 도보 10분 이내</p>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; margin-bottom: 16px;">
+    <button onclick="pick('must')" id="btn-must" style="border: 0.5px solid #F5C4B3; background: #FAECE7; color: #712B13; border-radius: 10px; padding: 12px 4px; font-size: 14px; font-weight: 500; cursor: pointer;">필수<br><span style="font-size: 11px; font-weight: 400; color: #993C1D;">포기 못 해요</span></button>
+    <button onclick="pick('nice')" style="border: 0.5px solid var(--border-strong); border-radius: 10px; padding: 12px 4px; font-size: 14px; font-weight: 500; cursor: pointer;">선호<br><span style="font-size: 11px; font-weight: 400; color: var(--text-secondary);">있으면 좋아요</span></button>
+    <button onclick="pick('skip')" style="border: 0.5px solid var(--border); border-radius: 10px; padding: 12px 4px; font-size: 14px; font-weight: 500; color: var(--text-secondary); cursor: pointer;">무관<br><span style="font-size: 11px; font-weight: 400; color: var(--text-muted);">상관없어요</span></button>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 14px;">
+    <span style="font-size: 12px; color: var(--text-secondary);">필수 슬롯</span>
+    <span id="slot-1" style="width: 22px; height: 22px; border-radius: 6px; border: 0.5px dashed var(--border-strong); display: inline-flex; align-items: center; justify-content: center; font-size: 12px;"></span>
+    <span id="slot-2" style="width: 22px; height: 22px; border-radius: 6px; border: 0.5px dashed var(--border-strong); display: inline-flex; align-items: center; justify-content: center; font-size: 12px;"></span>
+    <span id="slot-3" style="width: 22px; height: 22px; border-radius: 6px; border: 0.5px dashed var(--border-strong); display: inline-flex; align-items: center; justify-content: center; font-size: 12px;"></span>
+    <span id="slot-hint" style="font-size: 12px; color: var(--text-muted); margin-left: 4px;">최대 3개</span>
+  </div>
+
+  <div id="sorted" style="border-top: 0.5px solid var(--border); padding-top: 12px; display: flex; flex-wrap: wrap; gap: 6px; min-height: 30px;"></div>
+</div>
+</div>
+<script>
+const conds = [
+  { t: "역세권", d: "지하철 역까지 도보 10분 이내", i: "ti-train" },
+  { t: "신축", d: "준공 10년 이내", i: "ti-building" },
+  { t: "대단지", d: "500세대 이상", i: "ti-buildings" },
+  { t: "평형", d: "전용 59㎡ 이상", i: "ti-ruler-2" },
+  { t: "마트 접근성", d: "대형마트 차량 10분 이내", i: "ti-shopping-cart" },
+  { t: "병원 접근성", d: "종합병원 차량 20분 이내", i: "ti-first-aid-kit" },
+  { t: "공원·녹지", d: "도보 10분 내 공원", i: "ti-trees" },
+  { t: "학군", d: "선호 학교 배정 구역", i: "ti-school" }
+];
+let idx = 0, mustCount = 0;
+const results = [];
+function pick(kind) {
+  if (kind === "must") {
+    if (mustCount >= 3) {
+      const hint = document.getElementById("slot-hint");
+      hint.textContent = "필수는 3개까지만 고를 수 있어요";
+      hint.style.color = "#993C1D";
+      setTimeout(() => { hint.textContent = "최대 3개"; hint.style.color = "var(--text-muted)"; }, 1800);
+      return;
+    }
+    mustCount++;
+    const slot = document.getElementById("slot-" + mustCount);
+    slot.innerHTML = '<i class="ti ti-check" aria-hidden="true"></i>';
+    slot.style.background = "#FAECE7";
+    slot.style.border = "0.5px solid #F5C4B3";
+    slot.style.color = "#993C1D";
+  }
+  results.push({ c: conds[idx], k: kind });
+  renderSorted();
+  idx++;
+  if (idx >= conds.length) { finish(); return; }
+  const c = conds[idx];
+  document.getElementById("card-title").textContent = c.t;
+  document.getElementById("card-desc").textContent = c.d;
+  document.getElementById("card-icon").className = "ti " + c.i;
+  document.getElementById("prog-label").textContent = (idx + 1) + " / " + conds.length;
+  document.getElementById("prog-bar").style.width = ((idx + 1) / conds.length * 100) + "%";
+}
+function renderSorted() {
+  const wrap = document.getElementById("sorted");
+  wrap.innerHTML = results.map(r => {
+    const s = r.k === "must" ? "background:#FAECE7;color:#712B13;border:0.5px solid #F5C4B3"
+      : r.k === "nice" ? "background:var(--surface-1);color:var(--text-primary);border:0.5px solid var(--border-strong)"
+      : "background:transparent;color:var(--text-muted);border:0.5px solid var(--border)";
+    const label = r.k === "must" ? "필수" : r.k === "nice" ? "선호" : "무관";
+    return '<span style="font-size:12px;padding:4px 10px;border-radius:20px;' + s + '">' + r.c.t + ' · ' + label + '</span>';
+  }).join("");
+}
+function finish() {
+  document.getElementById("card").innerHTML = '<i class="ti ti-check" aria-hidden="true" style="font-size:24px;color:var(--text-success);"></i><p style="font-size:18px;font-weight:500;margin:8px 0 4px;">분류 완료</p><p style="font-size:13px;color:var(--text-secondary);margin:0;">B의 입력이 끝나면 결과를 보여드릴게요</p>';
+  document.querySelectorAll("button").forEach(b => { b.style.opacity = "0.4"; b.style.pointerEvents = "none"; });
+}
+</script>

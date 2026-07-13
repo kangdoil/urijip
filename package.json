@@ -6,12 +6,27 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "seed:areas": "tsx scripts/seed-areas.ts",
+    "refresh:park-stats": "tsx scripts/refresh-park-stats.ts",
+    "refresh:mart-stats": "tsx scripts/refresh-mart-stats.ts",
+    "refresh:hospital-stats": "tsx scripts/refresh-hospital-stats.ts",
+    "refresh:trade-stats": "tsx scripts/refresh-trade-stats.ts"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.12.0",
+    "@supabase/supabase-js": "^2.110.2",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.24.0",
     "next": "16.2.10",
+    "radix-ui": "^1.6.2",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "shadcn": "^4.13.0",
+    "tailwind-merge": "^3.6.0",
+    "tw-animate-css": "^1.4.0",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -21,6 +36,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
     "tailwindcss": "^4",
+    "tsx": "^4.23.0",
     "typescript": "^5"
   }
 }

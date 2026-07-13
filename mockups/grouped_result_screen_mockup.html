@@ -1,0 +1,106 @@
+<!--
+  신규 목업 (기존 3개와 달리 손상 복구본이 아니라 이번에 새로 설계한 화면).
+
+  배경: integrated_adjust_result_screen_mockup.html은 매칭된 구역(행정동)을
+  전부 평평하게 나열한다. 실사용시 매칭 수가 수십 곳까지 나올 수 있어
+  (실측: 152개 구역 중 필수 조건만으로 72곳 통과) 사용자가 다 훑기 어렵다는
+  문제 제기가 있었다.
+
+  이 목업은 결과 화면(⑤)을 시군구 단위로 1차 그룹핑하고, 그룹마다 랭킹 1위
+  동만 기본 노출 → "더보기"로 그 시군구 안 상위 3곳까지 펼치는 구조를 시험한다.
+  중요: 매칭 계산·통근시간은 여전히 행정동 단위로 정밀하게 하고 있고, 이건
+  결과를 "보여주는 방식"만 계층화한 것이다 — 시군구 대표 좌표로 뭉뚱그려
+  계산하는 것과는 다르다. 그룹 헤드라인도 시군구 평균이 아니라 그 안에서
+  실제로 랭킹이 가장 높은 특정 동의 통근시간·가격을 그대로 보여준다.
+
+  아직 확정안 아님 — 이 목업을 보고 엔진(get_matches) 응답을 시군구별로
+  그룹핑해서 내려줄지, 프론트에서만 그룹핑할지 결정 예정.
+-->
+<h2 class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">매칭된 구역을 시군구 단위로 묶고, 시군구별 상위 3개 동만 더보기로 펼쳐 보여주는 결과 화면 목업</h2>
+<div style="background: var(--surface-1); border-radius: 16px; padding: 24px; display: flex; justify-content: center;">
+<div style="width: 360px; max-width: 100%; background: var(--surface-2); border: 0.5px solid var(--border); border-radius: 20px; padding: 20px 20px 24px;">
+
+  <p style="font-size: 13px; color: var(--text-muted); margin: 0 0 4px;">결과</p>
+  <p style="font-size: 18px; font-weight: 500; margin: 0 0 4px;">함께 갈 수 있는 구역, <span id="group-count">6</span>개 시군구에 걸쳐 있어요</p>
+  <p style="font-size: 12px; color: var(--text-secondary); margin: 0 0 16px;">시군구별 베스트 동부터 보여드려요</p>
+
+  <div id="group-list" style="display: flex; flex-direction: column; gap: 10px;"></div>
+
+  <p style="font-size: 11px; color: var(--text-muted); text-align: center; margin: 16px 0 0;">각 시군구 안에서도 동마다 통근시간이 크게 달라요 — 대표 동 기준으로만 먼저 보여드려요</p>
+</div>
+</div>
+<script>
+const groups = [
+  { sigungu: "경기 성남시 분당구", dongs: [
+      { n: "정자2동", p: 4.2, a: 32, b: 28, tags: ["신축"] },
+      { n: "수내1동", p: 4.5, a: 30, b: 35, tags: ["인프라 충족"] },
+      { n: "서현2동", p: 4.8, a: 33, b: 31, tags: [] },
+      { n: "야탑3동", p: 4.9, a: 36, b: 33, tags: [] }
+  ]},
+  { sigungu: "경기 수원시 영통구", dongs: [
+      { n: "광교1동", p: 7.3, a: 41, b: 38, tags: ["인프라 충족"] },
+      { n: "망포1동", p: 5.6, a: 44, b: 36, tags: ["신축"] },
+      { n: "매탄1동", p: 5.2, a: 46, b: 40, tags: [] }
+  ]},
+  { sigungu: "경기 용인시 기흥구", dongs: [
+      { n: "상하동", p: 5.1, a: 39, b: 45, tags: ["신축"] },
+      { n: "보정동", p: 5.9, a: 42, b: 43, tags: [] }
+  ]},
+  { sigungu: "경기 화성시 동탄구", dongs: [
+      { n: "동탄2동", p: 7.9, a: 48, b: 52, tags: ["인프라 충족"] },
+      { n: "동탄4동", p: 7.9, a: 50, b: 55, tags: [] },
+      { n: "동탄1동", p: 7.9, a: 47, b: 58, tags: [] }
+  ]},
+  { sigungu: "경기 성남시 중원구", dongs: [
+      { n: "중앙동", p: 3.9, a: 31, b: 46, tags: ["구축"] },
+      { n: "성남동", p: 3.7, a: 29, b: 48, tags: [] }
+  ]},
+  { sigungu: "경기 과천시", dongs: [
+      { n: "중앙동", p: 8.6, a: 18, b: 51, tags: ["인프라 충족"] }
+  ]}
+];
+const expanded = new Set();
+
+function cardHtml(x) {
+  const tagHtml = x.tags.map(t => '<span style="font-size:11px;padding:2px 8px;border-radius:20px;background:var(--bg-accent);color:var(--text-accent);margin-left:6px;">' + t + '</span>').join("");
+  return '<div style="border:0.5px solid var(--border);border-radius:12px;padding:11px 14px;">'
+    + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;">'
+    + '<span style="font-size:14px;font-weight:500;">' + x.n + tagHtml + '</span>'
+    + '<span style="font-size:13px;font-weight:500;">' + x.p.toFixed(1) + '억</span></div>'
+    + '<div style="display:flex;gap:10px;font-size:12px;align-items:center;">'
+    + '<span style="color:#534AB7;"><i class="ti ti-clock" aria-hidden="true" style="font-size:12px;vertical-align:-2px;"></i> A ' + x.a + '분</span>'
+    + '<span style="color:#0F6E56;"><i class="ti ti-clock" aria-hidden="true" style="font-size:12px;vertical-align:-2px;"></i> B ' + x.b + '분</span>'
+    + '</div></div>';
+}
+
+function groupHtml(g, idx) {
+  const isOpen = expanded.has(idx);
+  const shown = isOpen ? g.dongs.slice(0, 3) : g.dongs.slice(0, 1);
+  const moreCount = Math.min(g.dongs.length, 3) - 1;
+  const toggle = moreCount > 0
+    ? '<button onclick="toggle(' + idx + ')" style="width:100%;text-align:center;background:none;border:none;padding:8px 0 0;font-size:12px;color:var(--text-accent);cursor:pointer;">'
+      + (isOpen ? '접기 <i class="ti ti-chevron-up" aria-hidden="true" style="font-size:12px;vertical-align:-1px;"></i>'
+                : moreCount + '곳 더보기 <i class="ti ti-chevron-down" aria-hidden="true" style="font-size:12px;vertical-align:-1px;"></i>')
+      + '</button>'
+    : "";
+  return '<div style="border:0.5px solid var(--border-strong);border-radius:14px;padding:14px;">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
+    + '<span style="font-size:14px;font-weight:600;">' + g.sigungu + '</span>'
+    + '<span style="font-size:11px;padding:2px 8px;border-radius:20px;background:var(--surface-1);color:var(--text-secondary);">' + g.dongs.length + '곳</span>'
+    + '</div>'
+    + '<div style="display:flex;flex-direction:column;gap:6px;">' + shown.map(cardHtml).join("") + '</div>'
+    + toggle
+    + '</div>';
+}
+
+function toggle(idx) {
+  if (expanded.has(idx)) expanded.delete(idx); else expanded.add(idx);
+  render();
+}
+
+function render() {
+  document.getElementById("group-count").textContent = groups.length;
+  document.getElementById("group-list").innerHTML = groups.map(groupHtml).join("");
+}
+render();
+</script>

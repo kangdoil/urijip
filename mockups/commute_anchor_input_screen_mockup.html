@@ -1,0 +1,65 @@
+<!--
+  참고: 원본 파일이 인코딩 손상(mojibake) 상태로 전달되어, 아래 한글 텍스트는
+  PRD-우리집.md §6 표현("자주 가는 곳", "문에서 문까지, 도보·환승 대기 포함" 등)과
+  손상된 원문의 문맥을 대조해 재구성한 것이다. CSS 변수명/JS 로직은 원본 그대로다.
+-->
+<h2 class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">거점 위치를 검색하고 교통수단과 통근 상한을 설정하는 입력 화면 목업</h2>
+<div style="background: var(--surface-1); border-radius: 16px; padding: 24px; display: flex; justify-content: center;">
+<div style="width: 360px; max-width: 100%; background: var(--surface-2); border: 0.5px solid var(--border); border-radius: 20px; padding: 20px 20px 24px;">
+
+  <p style="font-size: 13px; color: var(--text-muted); margin: 0 0 4px;">2 / 4 단계</p>
+  <p style="font-size: 18px; font-weight: 500; margin: 0 0 6px;">자주 가는 곳이 어디예요?</p>
+  <p style="font-size: 13px; color: var(--text-secondary); margin: 0 0 14px;">여기서 가까운 순서로 구역을 찾아드려요</p>
+
+  <div style="display: flex; gap: 6px; margin-bottom: 12px;">
+    <button style="border-radius: 20px; padding: 6px 14px; font-size: 12px; font-weight: 500; cursor: pointer; border: 2px solid var(--border-accent); background: var(--bg-accent); color: var(--text-accent);">직장</button>
+    <button style="border-radius: 20px; padding: 6px 14px; font-size: 12px; cursor: pointer;">학교</button>
+    <button style="border-radius: 20px; padding: 6px 14px; font-size: 12px; cursor: pointer;">부모님 집</button>
+    <button style="border-radius: 20px; padding: 6px 14px; font-size: 12px; cursor: pointer;">직접 입력</button>
+  </div>
+
+  <div style="border: 0.5px solid var(--border-strong); border-radius: 10px; padding: 10px 12px; display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+    <i class="ti ti-search" aria-hidden="true" style="font-size: 16px; color: var(--text-muted);"></i>
+    <span style="font-size: 14px;">판교역 테크노밸리</span>
+    <span style="margin-left: auto; font-size: 12px; color: var(--text-accent);">변경</span>
+  </div>
+
+  <div style="position: relative; height: 110px; background: var(--surface-1); border-radius: 12px; margin-bottom: 16px; overflow: hidden;">
+    <svg width="100%" height="110" viewBox="0 0 320 110" role="img" aria-hidden="true" style="display:block;">
+      <path d="M0 70 Q60 55 120 62 T240 50 T320 58" fill="none" stroke="var(--border-strong)" stroke-width="1"/>
+      <path d="M40 0 Q52 40 45 70 T60 110" fill="none" stroke="var(--border)" stroke-width="1"/>
+      <path d="M200 0 Q195 50 210 110" fill="none" stroke="var(--border)" stroke-width="1"/>
+      <circle id="radius-ring" cx="160" cy="58" r="42" fill="#E6F1FB" fill-opacity="0.45" stroke="#378ADD" stroke-width="1" stroke-dasharray="4 3"/>
+      <circle cx="160" cy="58" r="5" fill="#185FA5"/>
+    </svg>
+    <span style="position: absolute; left: 12px; bottom: 8px; font-size: 11px; color: var(--text-muted);">도달 가능 범위 미리보기</span>
+  </div>
+
+  <div style="display: flex; gap: 8px; margin-bottom: 14px;">
+    <button id="mode-transit" onclick="setMode('transit')" style="flex: 1; border: 2px solid var(--border-accent); background: var(--bg-accent); color: var(--text-accent); border-radius: 10px; padding: 9px; font-size: 13px; font-weight: 500; cursor: pointer;"><i class="ti ti-bus" aria-hidden="true" style="font-size:14px; vertical-align:-2px;"></i> 대중교통</button>
+    <button id="mode-car" onclick="setMode('car')" style="flex: 1; border: 0.5px solid var(--border-strong); border-radius: 10px; padding: 9px; font-size: 13px; font-weight: 500; cursor: pointer;"><i class="ti ti-car" aria-hidden="true" style="font-size:14px; vertical-align:-2px;"></i> 자차</button>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+    <span style="font-size: 13px; color: var(--text-secondary); flex-shrink: 0;">통근 상한</span>
+    <input type="range" id="commute" min="20" max="90" step="5" value="40" style="flex: 1;" oninput="setCommute(this.value)">
+    <span id="commute-val" style="font-size: 14px; font-weight: 500; min-width: 44px; text-align: right;">40분</span>
+  </div>
+  <p style="font-size: 11px; color: var(--text-muted); margin: 0 0 16px;">문에서 문까지 기준이에요 · 도보, 환승 대기 포함</p>
+
+  <button style="width: 100%; border-radius: 10px; padding: 12px; font-size: 14px; font-weight: 500; cursor: pointer;">다음</button>
+</div>
+</div>
+<script>
+function setMode(m) {
+  const t = document.getElementById("mode-transit"), c = document.getElementById("mode-car");
+  const on = m === "transit" ? t : c, off = m === "transit" ? c : t;
+  on.style.border = "2px solid var(--border-accent)"; on.style.background = "var(--bg-accent)"; on.style.color = "var(--text-accent)";
+  off.style.border = "0.5px solid var(--border-strong)"; off.style.background = "transparent"; off.style.color = "var(--text-primary)";
+}
+function setCommute(v) {
+  document.getElementById("commute-val").textContent = v + "분";
+  const r = 20 + (v - 20) * 0.55;
+  document.getElementById("radius-ring").setAttribute("r", Math.round(r));
+}
+</script>
