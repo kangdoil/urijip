@@ -1,8 +1,7 @@
 -- =============================================================
 -- decide_proposal 수락 시 세션을 'resolved'로 확정한다.
 -- 흐름: A가 제안 → B가 (자기 조건도 같이 조정하고) 결정하기 → 세션 확정.
--- 확정된 세션은 /s/[id]/decided 화면에서 A/B 조건 전체 + 최종 동네 리스트를
--- 함께 보여준다 (신뢰도 확보 목적).
+-- 확정된 세션은 /s/[id]/result 화면(지도)에서 최종 동네 리스트를 보여준다.
 -- =============================================================
 create or replace function public.decide_proposal(pid uuid, accept boolean)
 returns void language plpgsql security definer as $$

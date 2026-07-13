@@ -65,18 +65,18 @@ export default function BudgetStepPage() {
   if (!ready) return null
 
   return (
-    <main className="flex flex-1 items-center justify-center p-6">
-      <div className="w-full max-w-sm rounded-[20px] border border-neutral-200 bg-white p-5 pb-6">
+    <main className="flex flex-1 justify-center bg-neutral-50 px-5 pt-6 pb-8">
+      <div className="w-full max-w-sm">
         <OnboardStepHeader step={2} total={3} label="예산 상한" />
 
-        <p className="mb-1.5 text-lg font-medium text-neutral-900">
+        <p className="mb-1.5 text-lg font-semibold text-neutral-900">
           예산 상한이 얼마예요?
         </p>
-        <p className="mb-5 text-[13px] text-neutral-500">
+        <p className="mb-6 text-[13px] font-medium text-neutral-500">
           두 분의 상한이 다르면 낮은 쪽을 기본으로 맞추고, 충돌로 표시해드려요
         </p>
 
-        <div className="mb-2 rounded-xl border border-neutral-200 p-4">
+        <div className="mb-4 rounded-[16px] border border-neutral-200 p-4">
           <div className="mb-2 flex items-center justify-between">
             <span className="text-sm font-medium text-neutral-700">
               <span aria-hidden>💰</span> 예산 상한
@@ -102,7 +102,11 @@ export default function BudgetStepPage() {
 
         {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
 
-        <Button onClick={handleNext} disabled={loading} className="mt-3 w-full">
+        <Button
+          onClick={handleNext}
+          disabled={loading}
+          className="h-11 w-full rounded-[12px] bg-primary-500 text-[14px] font-semibold hover:bg-primary-600"
+        >
           {loading ? '저장하는 중...' : '다음'}
         </Button>
       </div>

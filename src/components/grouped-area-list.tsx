@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { CONDITION_LABEL, formatEok } from '@/lib/condition-labels'
+import { groupBySigungu } from '@/lib/group-by-sigungu'
 
 export interface GroupedAreaMatch {
   code: string
@@ -10,6 +11,8 @@ export interface GroupedAreaMatch {
   avg_price_krw: number | null
   a_minutes: number
   b_minutes: number
+  lat?: number
+  lng?: number
   satisfied?: Record<string, boolean>
 }
 
@@ -20,6 +23,44 @@ interface Props {
 }
 
 const MAX_PER_GROUP = 3
+
+// 동 카드 한 장. GroupedAreaList와 ResultMapSheet(지도+바텀시트)가 같이 쓴다.
+export function AreaCard({
+  area,
+  showConditionBadges = false,
+}: {
+  area: GroupedAreaMatch
+  showConditionBadges?: boolean
+}) {
+  return (
+    <div className="rounded-lg border border-neutral-200 bg-white px-3 py-2.5">
+      <div className="mb-1 flex items-baseline justify-between gap-2">
+        <span className="text-sm font-medium text-neutral-900">{area.name}</span>
+        <span className="whitespace-nowrap text-sm font-medium text-neutral-700">
+          {formatEok(area.avg_price_krw)}
+        </span>
+      </div>
+      <div className="flex items-center gap-3 text-xs">
+        <span className="text-primary-600">A {area.a_minutes}분</span>
+        <span className="text-blue-600">B {area.b_minutes}분</span>
+        {showConditionBadges && area.satisfied && (
+          <span className="ml-auto flex gap-1">
+            {Object.entries(area.satisfied)
+              .filter(([, ok]) => ok)
+              .map(([conditionCode]) => (
+                <span
+                  key={conditionCode}
+                  className="rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] text-neutral-600"
+                >
+                  {CONDITION_LABEL[conditionCode] ?? conditionCode}
+                </span>
+              ))}
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
 
 // 시군구별로 묶어서 랭킹 1위 동만 기본 노출하고, "더보기"로 그 시군구 안
 // 상위 최대 3곳까지 펼친다. areas는 이미 랭킹순(선호 충족 수 desc, 통근시간
@@ -32,15 +73,7 @@ export function GroupedAreaList({
 }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
-  const groups = useMemo(() => {
-    const map = new Map<string, GroupedAreaMatch[]>()
-    for (const area of areas) {
-      const list = map.get(area.sigungu) ?? []
-      list.push(area)
-      map.set(area.sigungu, list)
-    }
-    return Array.from(map.entries()).map(([sigungu, list]) => ({ sigungu, list }))
-  }, [areas])
+  const groups = useMemo(() => groupBySigungu(areas), [areas])
 
   if (groups.length === 0) {
     return <p className="py-4 text-center text-sm text-neutral-400">{emptyMessage}</p>
@@ -74,35 +107,7 @@ export function GroupedAreaList({
 
             <div className="flex flex-col gap-1.5">
               {shown.map((area) => (
-                <div
-                  key={area.code}
-                  className="rounded-lg border border-neutral-200 bg-white px-3 py-2.5"
-                >
-                  <div className="mb-1 flex items-baseline justify-between gap-2">
-                    <span className="text-sm font-medium text-neutral-900">{area.name}</span>
-                    <span className="whitespace-nowrap text-sm font-medium text-neutral-700">
-                      {formatEok(area.avg_price_krw)}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3 text-xs">
-                    <span className="text-primary-600">A {area.a_minutes}분</span>
-                    <span className="text-blue-600">B {area.b_minutes}분</span>
-                    {showConditionBadges && area.satisfied && (
-                      <span className="ml-auto flex gap-1">
-                        {Object.entries(area.satisfied)
-                          .filter(([, ok]) => ok)
-                          .map(([conditionCode]) => (
-                            <span
-                              key={conditionCode}
-                              className="rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] text-neutral-600"
-                            >
-                              {CONDITION_LABEL[conditionCode] ?? conditionCode}
-                            </span>
-                          ))}
-                      </span>
-                    )}
-                  </div>
-                </div>
+                <AreaCard key={area.code} area={area} showConditionBadges={showConditionBadges} />
               ))}
             </div>
 

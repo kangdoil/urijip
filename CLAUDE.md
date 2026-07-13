@@ -10,6 +10,9 @@ Zustand, Tailwind + shadcn/ui, Mixpanel, Vercel 배포.
 ## 절대 규칙
 - 외부 API 키(ODsay, 국토부, 카카오)는 클라이언트에 노출 금지.
   반드시 Next.js API Route를 프록시로 경유한다.
+  예외: 카카오 JS 키(NEXT_PUBLIC_KAKAO_JS_KEY, 지도 SDK 전용)는 도메인 제한으로
+  보호되는 공개 키라 클라이언트 노출이 정상이다. 서버 전용 REST 키(KAKAO_REST_API_KEY)와
+  혼동하지 말 것 — 지도가 아닌 다른 카카오 API는 여전히 REST 키 + 서버 프록시를 거친다.
 - 지역(시군구, 행정동) 하드코딩 금지. 지역 정보는 areas 테이블에서만 온다.
 - "상대 입력 완료 전 조건 비공개"는 RLS가 강제한다.
   프론트에서 이 정책을 우회하는 쿼리를 만들지 않는다.

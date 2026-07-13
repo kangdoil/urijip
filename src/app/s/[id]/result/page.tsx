@@ -8,7 +8,7 @@ import { getMyParticipant } from '@/lib/get-my-participant'
 import { CONDITION_LABEL, formatEok } from '@/lib/condition-labels'
 import { Button } from '@/components/ui/button'
 import { FeedbackBanner } from '@/components/feedback-banner'
-import { GroupedAreaList } from '@/components/grouped-area-list'
+import { ResultMapSheet } from '@/components/result-map-sheet'
 import { useCommuteStatus } from '@/lib/use-commute-status'
 
 interface MatchArea {
@@ -18,6 +18,8 @@ interface MatchArea {
   avg_price_krw: number | null
   a_minutes: number
   b_minutes: number
+  lat: number
+  lng: number
   satisfied: Record<string, boolean>
 }
 
@@ -39,6 +41,8 @@ interface FallbackArea {
   code: string
   name: string
   sigungu: string
+  lat: number
+  lng: number
 }
 
 interface FallbackResult {
@@ -58,6 +62,8 @@ export default function ResultPage() {
   const [shareUrl, setShareUrl] = useState<string | null>(null)
   const [sharing, setSharing] = useState(false)
   const [shareError, setShareError] = useState<string | null>(null)
+  const [resolved, setResolved] = useState(false)
+  const [reopening, setReopening] = useState(false)
 
   const { ready: commuteReady, status: commuteStatus } = useCommuteStatus(sessionId)
 
@@ -71,10 +77,7 @@ export default function ResultPage() {
         .select('status')
         .eq('id', sessionId)
         .single()
-      if (sessionRow?.status === 'resolved') {
-        router.replace(`/s/${sessionId}/decided`)
-        return
-      }
+      setResolved(sessionRow?.status === 'resolved')
 
       const { data, error: rpcError } = await supabase.rpc('get_matches', {
         sid: sessionId,
@@ -136,6 +139,22 @@ export default function ResultPage() {
     }
   }
 
+  async function handleReopen() {
+    if (reopening) return
+    setReopening(true)
+    try {
+      const supabase = createClient()
+      const { error: reopenError } = await supabase.rpc('reopen_session', {
+        sid: sessionId,
+      })
+      if (reopenError) throw reopenError
+      router.push(`/s/${sessionId}/adjust`)
+    } catch (e) {
+      setShareError(e instanceof Error ? e.message : '다시 조율하기에 실패했어요')
+      setReopening(false)
+    }
+  }
+
   if (!commuteReady) {
     return (
       <main className="flex flex-1 items-center justify-center p-6">
@@ -175,111 +194,82 @@ export default function ResultPage() {
 
   const sigunguCount = new Set(result.matches.map((m) => m.sigungu)).size
 
-  return (
-    <main className="flex flex-1 justify-center p-6">
-      <div className="w-full max-w-sm">
-        <p className="mb-1 text-[13px] text-neutral-500">결과</p>
-        <p className="mb-1 text-xl font-semibold text-neutral-900">
-          {result.match_count > 0
-            ? `함께 갈 수 있는 구역, ${sigunguCount}개 시군구에 걸쳐 있어요`
-            : '필수 조건을 모두 만족하는 구역이 없어요'}
-        </p>
-        <p className="mb-4 text-[13px] text-neutral-500">
-          {result.must_conditions.length > 0
-            ? `${result.must_conditions.map((c) => CONDITION_LABEL[c] ?? c).join(', ')} 필수 조건과 통근·예산 상한 기준`
-            : '통근·예산 상한 기준'}
-        </p>
+  const header = (
+    <div className="mb-3">
+      <p className="mb-1 text-[13px] text-neutral-500">{resolved ? '결정 완료' : '결과'}</p>
+      <p className="mb-1 text-xl font-semibold text-neutral-900">
+        {result.match_count > 0
+          ? `함께 갈 수 있는 구역, ${sigunguCount}개 시군구에 걸쳐 있어요`
+          : '필수 조건을 모두 만족하는 구역이 없어요'}
+      </p>
+      <p className="mb-3 text-[13px] text-neutral-500">
+        {result.must_conditions.length > 0
+          ? `${result.must_conditions.map((c) => CONDITION_LABEL[c] ?? c).join(', ')} 필수 조건과 통근·예산 상한 기준`
+          : '통근·예산 상한 기준'}
+      </p>
 
-        {result.budget.conflict && (
-          <div className="mb-4 rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-[13px] text-primary-700">
-            예산 상한이 서로 달라요 · 낮은 쪽({formatEok(result.budget.applied_krw)})을
-            기본으로 적용했어요
-          </div>
-        )}
+      {result.budget.conflict && (
+        <div className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-[13px] text-primary-700">
+          예산 상한이 서로 달라요 · 낮은 쪽({formatEok(result.budget.applied_krw)})을
+          기본으로 적용했어요
+        </div>
+      )}
+    </div>
+  )
 
-        {result.match_count > 0 ? (
-          <GroupedAreaList areas={result.matches} showConditionBadges />
+  const footer = (
+    <div className="mt-4">
+      <div className="flex gap-2">
+        {resolved ? (
+          <Button
+            onClick={handleReopen}
+            disabled={reopening}
+            variant="outline"
+            className="flex-1"
+          >
+            다시 조율하기
+          </Button>
         ) : (
-          fallback && (
-            <div className="flex flex-col gap-4">
-              <p className="text-[13px] text-neutral-500">
-                대신, 한쪽 필수 조건만 반영했을 때의 후보를 보여드릴게요
-              </p>
-              <div>
-                <p className="mb-2 text-sm font-medium text-primary-700">
-                  A의 필수만 반영 ({fallback.a_only.length}곳)
-                </p>
-                <div className="flex flex-col gap-1.5">
-                  {fallback.a_only.map((a) => (
-                    <div
-                      key={a.code}
-                      className="rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-700"
-                    >
-                      {a.sigungu} {a.name}
-                    </div>
-                  ))}
-                  {fallback.a_only.length === 0 && (
-                    <p className="text-xs text-neutral-400">후보가 없어요</p>
-                  )}
-                </div>
-              </div>
-              <div>
-                <p className="mb-2 text-sm font-medium text-blue-700">
-                  B의 필수만 반영 ({fallback.b_only.length}곳)
-                </p>
-                <div className="flex flex-col gap-1.5">
-                  {fallback.b_only.map((a) => (
-                    <div
-                      key={a.code}
-                      className="rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-700"
-                    >
-                      {a.sigungu} {a.name}
-                    </div>
-                  ))}
-                  {fallback.b_only.length === 0 && (
-                    <p className="text-xs text-neutral-400">후보가 없어요</p>
-                  )}
-                </div>
-              </div>
-            </div>
-          )
-        )}
-
-        <div className="mt-5 flex gap-2">
           <Button asChild variant="outline" className="flex-1">
             <Link href={`/s/${sessionId}/adjust`}>다시 조율하기</Link>
           </Button>
-          {result.match_count > 0 && (
-            <Button
-              onClick={handleShare}
-              disabled={sharing}
-              variant="outline"
-              className="flex-1"
-            >
-              공유하기
-            </Button>
-          )}
-        </div>
-
-        {shareUrl && (
-          <div className="mt-3 flex gap-2">
-            <input
-              readOnly
-              value={shareUrl}
-              className="flex-1 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm"
-            />
-            <Button
-              variant="outline"
-              onClick={() => navigator.clipboard.writeText(shareUrl)}
-            >
-              복사
-            </Button>
-          </div>
         )}
-
-        {shareError && <p className="mt-3 text-sm text-red-600">{shareError}</p>}
+        {result.match_count > 0 && (
+          <Button onClick={handleShare} disabled={sharing} variant="outline" className="flex-1">
+            공유하기
+          </Button>
+        )}
       </div>
+
+      {shareUrl && (
+        <div className="mt-3 flex gap-2">
+          <input
+            readOnly
+            value={shareUrl}
+            className="flex-1 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm"
+          />
+          <Button variant="outline" onClick={() => navigator.clipboard.writeText(shareUrl)}>
+            복사
+          </Button>
+        </div>
+      )}
+
+      {shareError && <p className="mt-3 text-sm text-red-600">{shareError}</p>}
+
       <FeedbackBanner sessionId={sessionId} />
+    </div>
+  )
+
+  return (
+    <main className="flex-1">
+      <ResultMapSheet
+        areas={result.matches}
+        matchCount={result.match_count}
+        fallback={fallback}
+        showConditionBadges
+        header={header}
+        footer={footer}
+      />
     </main>
   )
 }

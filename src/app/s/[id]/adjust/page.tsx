@@ -86,7 +86,7 @@ export default function AdjustPage() {
       .eq('id', sessionId)
       .single()
     if (sessionRow?.status === 'resolved') {
-      router.replace(`/s/${sessionId}/decided`)
+      router.replace(`/s/${sessionId}/result`)
       return
     }
 
@@ -259,7 +259,7 @@ export default function AdjustPage() {
         sid: sessionId,
       })
       if (finalizeError) throw finalizeError
-      router.push(`/s/${sessionId}/decided`)
+      router.push(`/s/${sessionId}/result`)
     } catch (e) {
       setError(e instanceof Error ? e.message : '확정에 실패했어요')
       setSubmitting(false)
@@ -280,7 +280,7 @@ export default function AdjustPage() {
       })
       if (decideError) throw decideError
 
-      router.push(`/s/${sessionId}/decided`)
+      router.push(`/s/${sessionId}/result`)
     } catch (e) {
       setError(e instanceof Error ? e.message : '처리에 실패했어요')
       setSubmitting(false)

@@ -162,38 +162,67 @@ export async function ensureCommuteForOrigin(
   let computed = 0
   let failed = 0
   const reasons: Record<string, number> = {}
-  const REQUEST_DELAY_MS = mode === 'car' ? 150 : 400
 
-  for (const area of missing) {
-    let minutes: number | null = null
-    let reason: string | undefined
+  type Row = { origin_key: string; area_code: string; mode: Mode; minutes: number }
 
-    try {
-      if (mode === 'car') {
-        const result = await callKakaoWithRetry(originLat, originLng, area.lat, area.lng)
-        minutes = result.minutes
-        reason = result.reason
-      } else {
+  async function upsertRows(rows: Row[]) {
+    if (rows.length === 0) return
+    await supabase.from('commute_cache').upsert(rows, { onConflict: 'origin_key,area_code,mode' })
+  }
+
+  if (mode === 'car') {
+    // 카카오모빌리티는 일일 호출 한도가 10,000건으로 넉넉해 짧은 시간 단위
+    // 요청 제한이 없다(ODsay와 다름) — 구역을 CAR_CONCURRENCY개씩 묶어
+    // 동시 호출하면 순차 호출(구역당 150ms 대기) 대비 대기 시간이 거의
+    // CAR_CONCURRENCY배 줄어든다.
+    const CAR_CONCURRENCY = 8
+
+    for (let i = 0; i < missing.length; i += CAR_CONCURRENCY) {
+      const chunk = missing.slice(i, i + CAR_CONCURRENCY)
+      const results = await Promise.all(
+        chunk.map(async (area) => ({
+          area,
+          ...(await callKakaoWithRetry(originLat, originLng, area.lat, area.lng)),
+        }))
+      )
+
+      const rows: Row[] = []
+      for (const { area, minutes, reason } of results) {
+        if (minutes != null) {
+          rows.push({ origin_key: key, area_code: area.code, mode, minutes })
+          computed += 1
+        } else {
+          failed += 1
+          if (reason) reasons[reason] = (reasons[reason] ?? 0) + 1
+        }
+      }
+      await upsertRows(rows)
+    }
+  } else {
+    // ODsay는 짧은 시간에 약 30건 내외로 제한돼 있어 동시 호출이 위험하다 —
+    // 순차 호출 + 요청 간 400ms 대기를 그대로 유지한다.
+    for (const area of missing) {
+      let minutes: number | null = null
+      let reason: string | undefined
+
+      try {
         const result = await callOdsayWithRetry(originLat, originLng, area.lat, area.lng)
         minutes = result.minutes
         reason = result.reason
+      } catch (e) {
+        reason = e instanceof Error ? e.message : 'unknown'
       }
-    } catch (e) {
-      reason = e instanceof Error ? e.message : 'unknown'
-    }
 
-    if (minutes != null) {
-      await supabase.from('commute_cache').upsert(
-        [{ origin_key: key, area_code: area.code, mode, minutes }],
-        { onConflict: 'origin_key,area_code,mode' }
-      )
-      computed += 1
-    } else {
-      failed += 1
-      if (reason) reasons[reason] = (reasons[reason] ?? 0) + 1
-    }
+      if (minutes != null) {
+        await upsertRows([{ origin_key: key, area_code: area.code, mode, minutes }])
+        computed += 1
+      } else {
+        failed += 1
+        if (reason) reasons[reason] = (reasons[reason] ?? 0) + 1
+      }
 
-    await sleep(REQUEST_DELAY_MS)
+      await sleep(400)
+    }
   }
 
   return { computed, cached: cachedCodes.size, failed, reasons }

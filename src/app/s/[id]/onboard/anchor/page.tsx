@@ -146,14 +146,14 @@ export default function AnchorStepPage() {
   if (!ready) return null
 
   return (
-    <main className="flex flex-1 items-center justify-center p-6">
-      <div className="w-full max-w-sm rounded-[20px] border border-neutral-200 bg-white p-5 pb-6">
+    <main className="flex flex-1 justify-center bg-neutral-50 px-5 pt-6 pb-8">
+      <div className="w-full max-w-sm">
         <OnboardStepHeader step={1} total={3} label="거점·통근" />
 
-        <p className="mb-1.5 text-lg font-medium text-neutral-900">
+        <p className="mb-1.5 text-lg font-semibold text-neutral-900">
           자주 가는 곳이 어디예요?
         </p>
-        <p className="mb-3.5 text-[13px] text-neutral-500">
+        <p className="mb-4 text-[13px] font-medium text-neutral-500">
           여기서 가까운 순서로 구역을 찾아드려요
         </p>
 
@@ -181,7 +181,7 @@ export default function AnchorStepPage() {
               setSelected(null)
             }}
             placeholder="예: 판교역 테크노밸리"
-            className="rounded-[10px]"
+            className="h-11 rounded-[12px] border-neutral-200 bg-neutral-50 px-4"
           />
           {selected && (
             <p className="mt-1.5 text-[11px] text-primary-600">
@@ -189,7 +189,7 @@ export default function AnchorStepPage() {
             </p>
           )}
           {!selected && query.trim() && (
-            <div className="absolute inset-x-0 top-full z-10 mt-1 max-h-56 overflow-y-auto rounded-[10px] border border-neutral-200 bg-white shadow-md">
+            <div className="absolute inset-x-0 top-full z-10 mt-1 max-h-56 overflow-y-auto rounded-[12px] border border-neutral-200 bg-neutral-50 shadow-md">
               {searching && (
                 <p className="px-3 py-2 text-xs text-neutral-400">검색 중...</p>
               )}
@@ -200,7 +200,7 @@ export default function AnchorStepPage() {
                 <button
                   key={i}
                   onClick={() => pickResult(r)}
-                  className="block w-full px-3 py-2 text-left hover:bg-neutral-50"
+                  className="block w-full px-3 py-2 text-left hover:bg-neutral-100"
                 >
                   <p className="text-sm font-medium text-neutral-900">{r.label}</p>
                   <p className="text-xs text-neutral-500">{r.address}</p>
@@ -211,7 +211,7 @@ export default function AnchorStepPage() {
         </div>
 
         <div className="mb-1 flex items-center gap-2.5">
-          <span className="shrink-0 text-[13px] text-neutral-600">통근 상한</span>
+          <span className="shrink-0 text-[13px] font-medium text-neutral-600">통근 상한</span>
           <input
             type="range"
             min={20}
@@ -221,17 +221,21 @@ export default function AnchorStepPage() {
             onChange={(e) => setCommuteMin(Number(e.target.value))}
             className="flex-1 accent-primary-500"
           />
-          <span className="min-w-11 text-right text-sm font-medium text-neutral-900">
+          <span className="min-w-11 text-right text-sm font-semibold text-neutral-900">
             {commuteMin}분
           </span>
         </div>
-        <p className="mb-4 text-[11px] text-neutral-500">
+        <p className="mb-6 text-[11px] text-neutral-500">
           문에서 문까지, 자동차 기준이에요
         </p>
 
         {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
 
-        <Button onClick={handleNext} disabled={loading} className="w-full">
+        <Button
+          onClick={handleNext}
+          disabled={loading}
+          className="h-11 w-full rounded-[12px] bg-primary-500 text-[14px] font-semibold hover:bg-primary-600"
+        >
           {loading ? '저장하는 중...' : '다음'}
         </Button>
       </div>
