@@ -67,7 +67,7 @@ export default function BudgetStepPage() {
   if (!ready) return null
 
   return (
-    <main className="flex flex-1 flex-col bg-neutral-50">
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col bg-neutral-50">
       <div className="shrink-0 px-4">
         <OnboardBackBar onBack={() => router.push(`/s/${sessionId}/onboard/anchor`)} />
       </div>
