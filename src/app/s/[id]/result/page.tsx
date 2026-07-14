@@ -11,6 +11,18 @@ import { FeedbackBanner } from '@/components/feedback-banner'
 import { ResultMapSheet } from '@/components/result-map-sheet'
 import { useCommuteStatus } from '@/lib/use-commute-status'
 
+type Tier = 'must' | 'nice' | 'skip'
+const CODES = ['area_size', 'build_year', 'infra'] as const
+const TIER_LABEL: Record<Tier, string> = { must: '필수', nice: '선호', skip: '무관' }
+
+interface ParticipantSummary {
+  role: 'A' | 'B'
+  display_name: string | null
+  budget_max_krw: number | null
+  commute_max_min: number | null
+  conditions: Record<string, Tier>
+}
+
 interface MatchArea {
   code: string
   name: string
@@ -64,6 +76,8 @@ export default function ResultPage() {
   const [shareError, setShareError] = useState<string | null>(null)
   const [resolved, setResolved] = useState(false)
   const [reopening, setReopening] = useState(false)
+  const [participants, setParticipants] = useState<ParticipantSummary[] | null>(null)
+  const [showDetail, setShowDetail] = useState(false)
 
   const { ready: commuteReady, status: commuteStatus } = useCommuteStatus(sessionId)
 
@@ -95,6 +109,33 @@ export default function ResultPage() {
         })
         setFallback(fb as FallbackResult)
       }
+
+      // "자세히 보기" 펼침용 — 어차피 가벼운 조회라 펼치기 전에 미리 받아둔다.
+      const { data: rows } = await supabase
+        .from('participants')
+        .select('role, display_name, budget_max_krw, commute_max_min, id')
+        .eq('session_id', sessionId)
+        .order('role')
+      if (rows) {
+        const summaries: ParticipantSummary[] = []
+        for (const row of rows) {
+          const { data: conds } = await supabase
+            .from('participant_conditions')
+            .select('condition_code, tier')
+            .eq('participant_id', row.id)
+          const conditions: Record<string, Tier> = {}
+          for (const c of conds ?? []) conditions[c.condition_code] = c.tier as Tier
+          summaries.push({
+            role: row.role,
+            display_name: row.display_name,
+            budget_max_krw: row.budget_max_krw,
+            commute_max_min: row.commute_max_min,
+            conditions,
+          })
+        }
+        setParticipants(summaries)
+      }
+
       setLoading(false)
     })()
   }, [sessionId, router, commuteReady])
@@ -194,31 +235,72 @@ export default function ResultPage() {
 
   const sigunguCount = new Set(result.matches.map((m) => m.sigungu)).size
 
+  const mustLabel =
+    result.must_conditions.length > 0
+      ? `${result.must_conditions.map((c) => CONDITION_LABEL[c] ?? c).join(', ')} 필수`
+      : '필수 조건 없음'
+  const budgetLabel = `예산 ${formatEok(result.budget.applied_krw)} 이하`
+
   const header = (
     <div className="mb-3">
       <p className="mb-1 text-[13px] text-neutral-500">{resolved ? '결정 완료' : '결과'}</p>
-      <p className="mb-1 text-xl font-semibold text-neutral-900">
+      <p className="mb-3 text-xl font-semibold text-neutral-900">
         {result.match_count > 0
           ? `함께 갈 수 있는 구역, ${sigunguCount}개 시군구에 걸쳐 있어요`
           : '필수 조건을 모두 만족하는 구역이 없어요'}
       </p>
-      <p className="mb-3 text-[13px] text-neutral-500">
-        {result.must_conditions.length > 0
-          ? `${result.must_conditions.map((c) => CONDITION_LABEL[c] ?? c).join(', ')} 필수 조건과 통근·예산 상한 기준`
-          : '통근·예산 상한 기준'}
-      </p>
 
-      {result.budget.conflict && (
-        <div className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-[13px] text-primary-700">
-          예산 상한이 서로 달라요 · 낮은 쪽({formatEok(result.budget.applied_krw)})을
-          기본으로 적용했어요
-        </div>
-      )}
+      <div className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-3">
+        <p className="text-[13px] text-primary-700">
+          {mustLabel} · {budgetLabel}
+          {result.budget.conflict && ' (예산은 낮은 쪽 기준)'}
+        </p>
+        <button
+          onClick={() => setShowDetail((v) => !v)}
+          className="mt-1.5 text-[12px] font-medium text-primary-600"
+        >
+          {showDetail ? '접기' : '자세히 보기'}
+        </button>
+
+        {showDetail && participants && (
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {participants.map((p) => (
+              <div key={p.role} className="rounded-lg border border-primary-100 bg-white px-3 py-2.5">
+                <p
+                  className={`mb-1.5 text-xs font-medium ${
+                    p.role === 'A' ? 'text-primary-700' : 'text-blue-700'
+                  }`}
+                >
+                  {p.display_name ?? p.role} ({p.role})
+                </p>
+                <dl className="flex flex-col gap-1 text-[11px] text-neutral-600">
+                  <div className="flex justify-between">
+                    <dt>예산</dt>
+                    <dd className="font-medium text-neutral-800">{formatEok(p.budget_max_krw)}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt>통근 상한</dt>
+                    <dd className="font-medium text-neutral-800">{p.commute_max_min}분</dd>
+                  </div>
+                  {CODES.map((code) => (
+                    <div key={code} className="flex justify-between">
+                      <dt>{CONDITION_LABEL[code]}</dt>
+                      <dd className="font-medium text-neutral-800">
+                        {p.conditions[code] ? TIER_LABEL[p.conditions[code]] : '-'}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 
-  const footer = (
-    <div className="mt-4">
+  const actions = (
+    <div>
       <div className="flex gap-2">
         {resolved ? (
           <Button
@@ -254,8 +336,12 @@ export default function ResultPage() {
         </div>
       )}
 
-      {shareError && <p className="mt-3 text-sm text-red-600">{shareError}</p>}
+      {shareError && <p className="mt-2 text-center text-sm text-red-600">{shareError}</p>}
+    </div>
+  )
 
+  const footer = (
+    <div className="mt-4">
       <FeedbackBanner sessionId={sessionId} />
     </div>
   )
@@ -269,6 +355,7 @@ export default function ResultPage() {
         showConditionBadges
         header={header}
         footer={footer}
+        actions={actions}
       />
     </main>
   )

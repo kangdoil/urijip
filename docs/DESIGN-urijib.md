@@ -1,551 +1,168 @@
----
-version: alpha
-name: Clay-design-analysis
-description: A vibrant claymation-meets-data interface for Clay.com (GTM data-orchestration platform). Anchors on a light neutral canvas with pink primary CTAs, Pretendard Variable typography, and saturated single-color feature cards — pink, teal, coral, and lavender — that punctuate long-scroll explainer pages. Brand voltage comes from 3D-rendered claymation illustrations (mountains, characters, mascots) used as full-bleed hero artifacts and the bright multi-color card surfaces showing product UI fragments.
+# 우리집 — 디자인 토큰 & 컴포넌트 가이드
 
-colors:
-  pink-50: "#FFF0F5"
-  pink-100: "#FFE1E9"
-  pink-200: "#FFC2D3"
-  pink-300: "#FF99B3"
-  pink-400: "#FF7096"
-  pink-500: "#FF4D8B"
-  pink-600: "#E63973"
-  pink-700: "#C21A56"
-  pink-800: "#8F0D3C"
-  pink-900: "#400418"
-  neutral-50: "#F8FAFC"
-  neutral-100: "#F1F5F9"
-  neutral-300: "#CBD5E1"
-  neutral-500: "#64748B"
-  neutral-900: "#0F172A"
-  primary: "#FF4D8B"
-  primary-active: "#E63973"
-  primary-disabled: "#FFE1E9"
-  ink: "#0F172A"
-  body: "#64748B"
-  body-strong: "#0F172A"
-  muted: "#64748B"
-  muted-soft: "#CBD5E1"
-  hairline: "#CBD5E1"
-  hairline-soft: "#F1F5F9"
-  canvas: "#F8FAFC"
-  surface-soft: "#F1F5F9"
-  surface-card: "#F8FAFC"
-  surface-strong: "#CBD5E1"
-  surface-dark: "#0F172A"
-  surface-dark-elevated: "#64748B"
-  on-primary: "#0F172A"
-  on-dark: "#F8FAFC"
-  on-dark-soft: "#CBD5E1"
-  brand-pink: "#FF4D8B"
-  brand-teal: "#3EDAD8"
-  brand-coral: "#FF8A71"
-  brand-lavender: "#D0C3FF"
-  success: "#3EDAD8"
-  warning: "#FF8A71"
-  error: "#E63973"
+이 문서는 실제 코드에 반영된 색상·타이포·radius 토큰과, 그 토큰으로 만들어진 컴포넌트 패턴을 정리한다.
+Source of truth는 이 문서가 아니라 아래 파일들이다 — 값이 바뀌면 이 문서도 같이 갱신할 것.
 
-typography:
-  display-xl:
-    fontFamily: "Pretendard Variable, sans-serif"
-    fontSize: 72px
-    fontWeight: 500
-    lineHeight: 1
-    letterSpacing: -2.5px
-  display-lg:
-    fontFamily: "Pretendard Variable, sans-serif"
-    fontSize: 56px
-    fontWeight: 500
-    lineHeight: 1.05
-    letterSpacing: -2px
-  display-md:
-    fontFamily: "Pretendard Variable, sans-serif"
-    fontSize: 40px
-    fontWeight: 500
-    lineHeight: 1.1
-    letterSpacing: -1px
-  display-sm:
-    fontFamily: "Pretendard Variable, sans-serif"
-    fontSize: 32px
-    fontWeight: 500
-    lineHeight: 1.15
-    letterSpacing: -0.5px
-  title-lg:
-    fontFamily: "Pretendard Variable, sans-serif"
-    fontSize: 24px
-    fontWeight: 600
-    lineHeight: 1.3
-    letterSpacing: -0.3px
-  title-md:
-    fontFamily: "Pretendard Variable, sans-serif"
-    fontSize: 18px
-    fontWeight: 600
-    lineHeight: 1.4
-    letterSpacing: 0
-  title-sm:
-    fontFamily: "Pretendard Variable, sans-serif"
-    fontSize: 16px
-    fontWeight: 600
-    lineHeight: 1.4
-    letterSpacing: 0
-  body-md:
-    fontFamily: "Pretendard Variable, sans-serif"
-    fontSize: 16px
-    fontWeight: 400
-    lineHeight: 1.55
-    letterSpacing: 0
-  body-sm:
-    fontFamily: "Pretendard Variable, sans-serif"
-    fontSize: 14px
-    fontWeight: 400
-    lineHeight: 1.55
-    letterSpacing: 0
-  caption:
-    fontFamily: "Pretendard Variable, sans-serif"
-    fontSize: 13px
-    fontWeight: 500
-    lineHeight: 1.4
-    letterSpacing: 0
-  caption-uppercase:
-    fontFamily: "Pretendard Variable, sans-serif"
-    fontSize: 12px
-    fontWeight: 600
-    lineHeight: 1.4
-    letterSpacing: 1.5px
-  button:
-    fontFamily: "Pretendard Variable, sans-serif"
-    fontSize: 14px
-    fontWeight: 600
-    lineHeight: 1
-    letterSpacing: 0
-  nav-link:
-    fontFamily: "Pretendard Variable, sans-serif"
-    fontSize: 14px
-    fontWeight: 500
-    lineHeight: 1.4
-    letterSpacing: 0
+- 색상·타이포·radius 토큰: `src/app/globals.css`
+- 폰트 로딩: `src/app/layout.tsx`
+- 공용 컴포넌트: `src/components/ui/*`
+- 온보딩 전용 컴포넌트: `src/components/onboard-*.tsx`
+- 기준 화면: `src/app/s/[id]/onboard/budget/page.tsx`, `src/app/s/[id]/onboard/conditions/page.tsx` (Figma 그대로 구현된 현재 기준 디자인)
 
-rounded:
-  xs: 6px
-  sm: 8px
-  md: 12px
-  lg: 16px
-  xl: 24px
-  2xl: 48px
-  3xl: 60px
-  pill: 9999px
-  full: 9999px
+## 1. Colors
 
-spacing:
-  xxs: 4px
-  xs: 8px
-  sm: 12px
-  md: 16px
-  lg: 24px
-  xl: 32px
-  xxl: 48px
-  section: 96px
+### Pink (primary)
+| 토큰 | 값 |
+|---|---|
+| pink-50 | #fff0f5 |
+| pink-100 | #ffe1e9 |
+| pink-200 | #ffc2d3 |
+| pink-300 | #ff99b3 |
+| pink-400 | #ff7096 |
+| pink-500 (primary) | #ff4d8b |
+| pink-600 | #e63973 |
+| pink-700 | #c21a56 |
+| pink-800 | #8f0d3c |
+| pink-900 | #400418 |
 
-components:
-  button-primary:
-    backgroundColor: "{colors.primary}"
-    textColor: "{colors.on-primary}"
-    typography: "{typography.button}"
-    rounded: "{rounded.3xl}"
-    padding: 12px 20px
-    height: 44px
-  button-primary-active:
-    backgroundColor: "{colors.primary-active}"
-    textColor: "{colors.on-primary}"
-    rounded: "{rounded.3xl}"
-  button-primary-disabled:
-    backgroundColor: "{colors.primary-disabled}"
-    textColor: "{colors.muted}"
-    rounded: "{rounded.3xl}"
-  button-secondary:
-    backgroundColor: "{colors.canvas}"
-    textColor: "{colors.ink}"
-    typography: "{typography.button}"
-    rounded: "{rounded.3xl}"
-    padding: 12px 20px
-    height: 44px
-  button-on-color:
-    backgroundColor: "{colors.canvas}"
-    textColor: "{colors.ink}"
-    typography: "{typography.button}"
-    rounded: "{rounded.3xl}"
-    padding: 12px 20px
-    height: 44px
-  button-text-link:
-    backgroundColor: transparent
-    textColor: "{colors.ink}"
-    typography: "{typography.button}"
-  text-link:
-    backgroundColor: transparent
-    textColor: "{colors.ink}"
-    typography: "{typography.body-md}"
-  top-nav:
-    backgroundColor: "{colors.canvas}"
-    textColor: "{colors.ink}"
-    typography: "{typography.nav-link}"
-    height: 64px
-  hero-band:
-    backgroundColor: "{colors.canvas}"
-    textColor: "{colors.ink}"
-    typography: "{typography.display-xl}"
-    padding: 96px
-  hero-illustration-card:
-    backgroundColor: "{colors.surface-soft}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.3xl}"
-  feature-card-pink:
-    backgroundColor: "{colors.brand-pink}"
-    textColor: "{colors.on-primary}"
-    typography: "{typography.title-md}"
-    rounded: "{rounded.3xl}"
-    padding: 32px
-  feature-card-teal:
-    backgroundColor: "{colors.brand-teal}"
-    textColor: "{colors.ink}"
-    typography: "{typography.title-md}"
-    rounded: "{rounded.3xl}"
-    padding: 32px
-  feature-card-lavender:
-    backgroundColor: "{colors.brand-lavender}"
-    textColor: "{colors.ink}"
-    typography: "{typography.title-md}"
-    rounded: "{rounded.3xl}"
-    padding: 32px
-  feature-card-coral:
-    backgroundColor: "{colors.brand-coral}"
-    textColor: "{colors.ink}"
-    typography: "{typography.title-md}"
-    rounded: "{rounded.3xl}"
-    padding: 32px
-  feature-card-cream:
-    backgroundColor: "{colors.surface-card}"
-    textColor: "{colors.ink}"
-    typography: "{typography.title-md}"
-    rounded: "{rounded.3xl}"
-    padding: 32px
-  product-mockup-card:
-    backgroundColor: "{colors.canvas}"
-    textColor: "{colors.ink}"
-    typography: "{typography.title-md}"
-    rounded: "{rounded.3xl}"
-    padding: 24px
-  testimonial-card:
-    backgroundColor: "{colors.surface-card}"
-    textColor: "{colors.ink}"
-    typography: "{typography.body-md}"
-    rounded: "{rounded.3xl}"
-    padding: 24px
-  pricing-tier-card:
-    backgroundColor: "{colors.canvas}"
-    textColor: "{colors.ink}"
-    typography: "{typography.title-lg}"
-    rounded: "{rounded.3xl}"
-    padding: 32px
-  pricing-tier-card-featured:
-    backgroundColor: "{colors.brand-teal}"
-    textColor: "{colors.on-dark}"
-    typography: "{typography.title-lg}"
-    rounded: "{rounded.3xl}"
-    padding: 32px
-  text-input:
-    backgroundColor: "{colors.canvas}"
-    textColor: "{colors.ink}"
-    typography: "{typography.body-md}"
-    rounded: "{rounded.pill}"
-    padding: 12px 16px
-    height: 44px
-  text-input-focused:
-    backgroundColor: "{colors.canvas}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.pill}"
-  category-tab:
-    backgroundColor: transparent
-    textColor: "{colors.muted}"
-    typography: "{typography.nav-link}"
-    rounded: "{rounded.pill}"
-    padding: 8px 16px
-  category-tab-active:
-    backgroundColor: "{colors.surface-card}"
-    textColor: "{colors.ink}"
-    typography: "{typography.nav-link}"
-    rounded: "{rounded.pill}"
-  badge-pill:
-    backgroundColor: "{colors.surface-card}"
-    textColor: "{colors.ink}"
-    typography: "{typography.caption}"
-    rounded: "{rounded.pill}"
-    padding: 4px 12px
-  expert-card:
-    backgroundColor: "{colors.canvas}"
-    textColor: "{colors.ink}"
-    typography: "{typography.title-md}"
-    rounded: "{rounded.3xl}"
-    padding: 24px
-  cta-band-illustrated:
-    backgroundColor: "{colors.surface-soft}"
-    textColor: "{colors.ink}"
-    typography: "{typography.display-md}"
-    rounded: "{rounded.3xl}"
-    padding: 80px
-  footer:
-    backgroundColor: "{colors.surface-soft}"
-    textColor: "{colors.body}"
-    typography: "{typography.body-sm}"
-    padding: 80px
----
+### Neutral (cool-blue tinted)
+| 토큰 | 값 |
+|---|---|
+| neutral-0 | #ffffff |
+| neutral-50 | #f6f7f9 |
+| neutral-100 | #eceef3 |
+| neutral-200 | #dfe3ec |
+| neutral-300 | #ccd2e0 |
+| neutral-400 | #a8b0c4 |
+| neutral-500 | #8e98b4 |
+| neutral-600 | #6b7694 |
+| neutral-700 | #4d5570 |
+| neutral-800 | #33384a |
+| neutral-900 | #1f2024 |
 
-## Overview
+### Accent
+- teal `#3edad8`, coral `#ff8a71`, lavender `#d0c3ff` — 포인트로만 쓰고 아직 넓은 면적 사용처는 없음
 
-Clay.com is the most playful B2B SaaS interface in the GTM-data category. The base atmosphere is a **light neutral canvas** (`{colors.canvas}` — #F8FAFC) holding neutral-900 ink type and **3D-rendered claymation illustrations** (mountains, mascot characters, teal/coral/lavender landscapes) as the dominant brand voltage. Where most data-platform brands play it cool with grids and gradients, Clay leans hard into hand-crafted-looking 3D illustrations and saturated single-color feature cards.
+### Blue (secondary/info)
+50~900 스케일 존재 (`#eef2ff` ~ `#0d1a47`), 현재 UI에서 실사용처는 없음 — 정보성 배지/알림용으로 예약
 
-Type voice runs **Pretendard Variable** across display, body, navigation, and UI. Display headings use weight 500 with negative letter-spacing; body and UI use the existing token weights. The display weight stays at 500, never bolder — its measured character keeps the page warm without needing extra weight.
+### 시맨틱 매핑
+- `--background`: #ffffff, `--foreground`: neutral-900
+- `--primary`: pink-500, `--primary-foreground`: #ffffff
+- `--secondary` / `--muted`: neutral-50, `--accent`: neutral-100
+- `--border` / `--input`: neutral-200, `--ring`: primary-300
 
-Component voltage comes from **saturated single-color feature cards** in a 5-color palette: pink, teal, coral, lavender, and neutral-card. Each card shows product UI fragments at small scale — Claygent agent runs, sequencer flows, CRM enrichment outputs. The colored card IS the primary visual element on every long-scroll page.
+### 기본 배경 규칙
+- **페이지 배경**: `bg-neutral-50`
+- **카드·컨트롤 면**: `bg-white` (= neutral-0)
+- **아이콘 배지 면**: `bg-pink-100`
 
-**Key Characteristics:**
-- Light neutral canvas (`{colors.canvas}` — #F8FAFC). The calm base lets the accent cards carry the visual energy.
-- Pink primary CTAs (`{colors.primary}` — #FF4D8B). Buttons rounded `{rounded.3xl}` (60px) — a full capsule shape at button height.
-- 5-color feature card palette: `{colors.brand-pink}`, `{colors.brand-teal}`, `{colors.brand-coral}`, `{colors.brand-lavender}`, `{colors.surface-card}` (neutral).
-- 3D claymation illustrations (mountains, characters, abstract shapes) as full-bleed hero artifacts — the brand's most-recognized visual element.
-- Pretendard Variable display type at 500 weight with -1 to -2.5px letter-spacing on display sizes.
-- Border radius is generous: `{rounded.pill}` for search/text inputs, `{rounded.3xl}` (60px) for buttons and every content/feature card. The capsule-like radius matches the rounded display type's character.
-- Product UI fragments embedded inside colored cards at small scale — agent run logs, sequencer flows, enrichment results.
-- Section rhythm `{spacing.section}` (96px) between major bands.
-- Footer is light neutral (`{colors.surface-soft}`) — Clay does NOT use a dark footer. Even the closing band stays light.
+## 2. Typography
 
-## Colors
+### 폰트 패밀리
+| 용도 | 패밀리 | CSS 변수 | 비고 |
+|---|---|---|---|
+| 본문·제목 기본 | Pretendard Variable | `--font-sans` | 로컬 가변 폰트(`public/fonts/PretendardVariable.woff2`) |
+| 영문 CTA·숫자 강조 | Montserrat | `--font-montserrat` | weight 700/800만 로드 |
+| 예비 | Geist Mono | `--font-mono` | 현재 UI 실사용처 없음 |
 
-### Palette
-- **Pink scale:** `{colors.pink-50}` #FFF0F5 · `{colors.pink-100}` #FFE1E9 · `{colors.pink-200}` #FFC2D3 · `{colors.pink-300}` #FF99B3 · `{colors.pink-400}` #FF7096 · `{colors.pink-500}` #FF4D8B · `{colors.pink-600}` #E63973 · `{colors.pink-700}` #C21A56 · `{colors.pink-800}` #8F0D3C · `{colors.pink-900}` #400418.
-- **Neutral scale:** `{colors.neutral-50}` #F8FAFC · `{colors.neutral-100}` #F1F5F9 · `{colors.neutral-300}` #CBD5E1 · `{colors.neutral-500}` #64748B · `{colors.neutral-900}` #0F172A.
-- **Primary** (`{colors.primary}` — #FF4D8B): Primary CTA surface and emphasis.
-- **Brand Pink** (`{colors.brand-pink}` — #FF4D8B): Outbound / sequencer feature card surface.
-- **Brand Teal** (`{colors.brand-teal}` — #3EDAD8): Teal feature-card and success accent.
-- **Brand Coral** (`{colors.brand-coral}` — #FF8A71): Warm feature-card and warning accent.
-- **Brand Lavender** (`{colors.brand-lavender}` — #D0C3FF): Soft feature-card surface.
+### Pretendard 스케일
+line-height 1.4, **자간 = 폰트 크기의 -3%** 고정.
 
-### Surface
-- **Canvas** (`{colors.canvas}` — #F8FAFC): The default page floor.
-- **Surface Soft** (`{colors.surface-soft}` — #F1F5F9): Footer and CTA-band background.
-- **Surface Card** (`{colors.surface-card}` — #F8FAFC): Quiet feature cards and testimonial cards.
-- **Surface Strong** (`{colors.surface-strong}` — #CBD5E1): Stronger neutral for emphasized bands.
-- **Surface Dark** (`{colors.surface-dark}` — #0F172A): Dark neutral for occasional dark cards (rare).
-- **Surface Dark Elevated** (`{colors.surface-dark-elevated}` — #64748B): Elevated dark-card treatment.
-- **Hairline** (`{colors.hairline}` — #CBD5E1): 1px borders on cards and inputs.
-
-### Text
-- **Ink** (`{colors.ink}` — #0F172A): Headlines and primary text.
-- **Body Strong** (`{colors.body-strong}` — #0F172A): Emphasized body, lead paragraphs.
-- **Body** (`{colors.body}` — #64748B): Default running-text.
-- **Muted** (`{colors.muted}` — #64748B): Sub-headings, breadcrumbs, footer body.
-- **Muted Soft** (`{colors.muted-soft}` — #CBD5E1): Captions, fine-print.
-- **On Primary** (`{colors.on-primary}` — #0F172A): Text on pink primary surfaces.
-- **On Dark** (`{colors.on-dark}` — #F8FAFC): Text on dark neutral surfaces.
-
-### Semantic
-- **Success** (`{colors.success}` — #3EDAD8): Success states.
-- **Warning** (`{colors.warning}` — #FF8A71): Warning callouts.
-- **Error** (`{colors.error}` — #E63973): Validation errors.
-
-## Typography
-
-### Font Family
-The system runs **Pretendard Variable** for headlines, body, navigation, and UI. Display headings use weight 500 with negative letter-spacing; body and UI use the token weights defined above. The fallback stack is `"Pretendard Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`.
-
-### Hierarchy
-
-| Token | Size | Weight | Line Height | Letter Spacing | Use |
-|---|---|---|---|---|---|
-| `{typography.display-xl}` | 72px | 500 | 1.0 | -2.5px | Homepage h1 ("Go to market with unique data") — Pretendard Variable |
-| `{typography.display-lg}` | 56px | 500 | 1.05 | -2px | Section heads — Pretendard Variable |
-| `{typography.display-md}` | 40px | 500 | 1.1 | -1px | Sub-section heads, product names |
-| `{typography.display-sm}` | 32px | 500 | 1.15 | -0.5px | CTA-band heads, feature card titles |
-| `{typography.title-lg}` | 24px | 600 | 1.3 | -0.3px | Pricing plan names, larger feature titles |
-| `{typography.title-md}` | 18px | 600 | 1.4 | 0 | Card titles, intro paragraphs |
-| `{typography.title-sm}` | 16px | 600 | 1.4 | 0 | Small card titles, list labels |
-| `{typography.body-md}` | 16px | 400 | 1.55 | 0 | Default running-text |
-| `{typography.body-sm}` | 14px | 400 | 1.55 | 0 | Footer body, fine-print |
-| `{typography.caption}` | 13px | 500 | 1.4 | 0 | Badge labels, captions |
-| `{typography.caption-uppercase}` | 12px | 600 | 1.4 | 1.5px | Section labels, "FEATURED" badges |
-| `{typography.button}` | 14px | 600 | 1.0 | 0 | Standard button labels |
-| `{typography.nav-link}` | 14px | 500 | 1.4 | 0 | Top-nav menu items |
-
-### Principles
-Pretendard Variable at weight 500 + negative letter-spacing is the display voice. Going to weight 700 reads as bombastic; restraint keeps the large display hierarchy warm and measured.
-
-The hierarchy comes from size, weight, and spacing rather than a font-family split: Pretendard Variable serves both display headlines and UI text through the defined tokens.
-
-### Font Fallback
-Prefer Pretendard Variable. When unavailable, use the system fallback stack defined above; do not introduce a second display family as a substitute.
-
-## Layout
-
-### Spacing System
-- **Base unit:** 4px.
-- **Tokens:** `{spacing.xxs}` 4px · `{spacing.xs}` 8px · `{spacing.sm}` 12px · `{spacing.md}` 16px · `{spacing.lg}` 24px · `{spacing.xl}` 32px · `{spacing.xxl}` 48px · `{spacing.section}` 96px.
-- **Section padding:** `{spacing.section}` (96px) between major editorial bands.
-- **Card internal padding:** `{spacing.xl}` (32px) for feature cards and pricing tiers; `{spacing.lg}` (24px) for testimonial and product mockup cards.
-
-### Grid & Container
-- **Max content width:** ~1280px centered.
-- **Editorial body:** Single 12-column grid; hero often uses 7/5 split (h1 left, illustration right).
-- **Feature card grids:** 3-up at desktop, 2-up at tablet, 1-up at mobile.
-- **Pricing grid:** 3-4 up at desktop, 1-up at mobile.
-
-### Whitespace Philosophy
-Clay uses generous whitespace around big rounded display headlines and saturated feature cards. The neutral canvas + colored cards + 3D illustrations create a playful warmth that competing data-platform sites lack.
-
-## Elevation & Depth
-
-| Level | Treatment | Use |
+| 토큰 | 크기 | 자간 |
 |---|---|---|
-| Flat | No shadow, no border | Body sections, top nav, hero |
-| Soft hairline | 1px `{colors.hairline}` border | Inputs, small content cards |
-| Saturated card | Brand pink/teal/coral/lavender fill — no shadow | Feature cards |
-| Neutral card | `{colors.surface-card}` background — no shadow | Testimonial, secondary cards |
-| Subtle drop shadow | Faint shadow at low alpha | Hover-elevated states (rare) |
+| headline-l | 42px | -1.26px |
+| headline-m | 32px | -0.96px |
+| title-l | 28px | -0.84px |
+| title-m | 22px | -0.66px |
+| title-sb | 20px | -0.6px |
+| body-l | 18px | -0.54px |
+| body-m | 16px | -0.48px |
+| body-sb | 14px | -0.42px |
+| body-s | 14px | -0.42px |
+| caption-l | 12px | -0.36px |
+| caption-m | 10px | -0.3px |
 
-The system uses no heavy shadows. Depth comes from the saturated color contrast between the neutral canvas and bright feature cards.
+### Montserrat 스케일
+line-height 1, **자간 = 0%(트래킹 없음)**.
 
-### Decorative Depth
-- **3D claymation illustrations** — mountains, characters, mascots rendered in a hand-crafted 3D style. The brand's most-recognized depth element. Not a token — these are illustrated assets.
-- **Mascot characters** appear as inline figures in feature cards and CTAs.
+| 토큰 | 크기 |
+|---|---|
+| mont-headline-l | 56px |
+| mont-headline-m | 48px |
+| mont-title-l | 24px |
+| mont-title-m | 20px |
 
-## Shapes
+두 스케일의 자간 기준이 다른 이유: Pretendard는 압축된 -3% 트래킹이 브랜드 톤이지만, Montserrat은 영문 대문자·숫자 위주라 기본 트래킹을 그대로 쓴다. 새 사이즈를 추가할 때도 이 규칙을 따른다.
 
-### Border Radius Scale
+## 3. Radius
 
-| Token | Value | Use |
-|---|---|---|
-| `{rounded.xs}` | 6px | Small badges, dropdown items |
-| `{rounded.sm}` | 8px | Small buttons, hairline-border accent |
-| `{rounded.md}` | 12px | Legacy/minor UI accents |
-| `{rounded.lg}` | 16px | Legacy secondary containers |
-| `{rounded.xl}` | 24px | Legacy feature-card radius (superseded by `{rounded.3xl}`) |
-| `{rounded.2xl}` | 48px | Large illustrated bands, oversized surfaces |
-| `{rounded.3xl}` | 60px | All buttons, all content/feature cards — capsule radius |
-| `{rounded.pill}` | 9999px | Search/text inputs, category tabs, badge pills |
-| `{rounded.full}` | 9999px / 50% | Avatars, icon buttons |
+| 토큰 | 값 |
+|---|---|
+| radius-xs | 6px |
+| radius-sm | 8px |
+| radius-md | 12px |
+| radius-lg | 16px |
+| radius-xl | 24px |
+| radius-2xl | 32px |
+| radius-3xl | 40px |
+| radius-4xl | 48px |
+| radius-5xl | 60px |
 
-## Components
+- pill류(버튼, input, tier 선택 버튼, 스텝 도트, 배지)는 스케일과 무관하게 전부 `rounded-full`
+- 실사용 매핑: 공용 `<Card>` = `rounded-2xl`(32px), 온보딩 Feature Card = `rounded-3xl`(40px)
 
-### Top Navigation
+## 4. Surface & Fill 규칙
 
-**`top-nav`** — Light-neutral nav bar pinned to top. 64px tall, `{colors.canvas}` background. Carries the Clay logo + wordmark at left, primary horizontal menu (Product, Solutions, Resources, Pricing, Customers) center, right-side cluster with "Sign in" + "Try free" `{component.button-primary}`. Menu items use `{typography.nav-link}` (Pretendard Variable 14px / 500).
+**카드는 스트로크가 아니라 면으로 구분한다.** 온보딩 Feature Card(budget/conditions)는 테두리·ring 없이 `bg-white` + `shadow-[0_10px_20px_rgba(0,0,0,0.04)]`만으로 배경과 분리된다.
 
-### Buttons
+> 참고: 기존 공용 `<Card>`(`ui/card.tsx`)는 아직 `ring-1 ring-pink-100`을 쓰고 있어 이 규칙과 어긋난다. 지금 당장 고치는 범위는 아니지만, 다음에 Card를 만질 일이 있으면 면 채움 방식으로 맞추는 걸 고려할 것.
 
-**`button-primary`** — Background `{colors.primary}` (pink), text `{colors.on-primary}` (light neutral), type `{typography.button}` (Pretendard Variable 14px / 600), padding 12px × 20px, height 44px, rounded `{rounded.3xl}` (60px — a full capsule at this height).
+아이콘 배지는 `size-20 rounded-full bg-pink-100` 원형 안에 아이콘을 얹는 패턴을 쓴다(`budget.svg`, `infra.svg` 참고).
 
-**`button-secondary`** — Light-neutral button with hairline outline. Background `{colors.canvas}`, text `{colors.ink}`, 1px hairline border, rounded `{rounded.3xl}` (60px, same capsule shape as primary).
+## 5. Components
 
-**`button-on-color`** — White button used over saturated brand-color feature cards. Same shape as primary but inverted (white background, ink text).
+### Button (`ui/button.tsx`)
+- variant: `default`(primary) / `outline` / `secondary` / `ghost` / `destructive` / `link`
+- size: `default` / `sm` / `lg` / `icon` / `icon-sm`
+- 모양: `rounded-full`, `font-bold`
+- **primary 규칙**: 배경 `bg-primary`(pink-500), 텍스트는 항상 `text-neutral-0`(흰색) — `text-primary-foreground`가 아니라 `text-neutral-0`을 직접 쓴다(이유: 커스텀 텍스트 크기 토큰과 twMerge가 충돌하는 문제가 있어 `lib/utils.ts`의 `cn()`을 `extendTailwindMerge`로 확장해 해결함)
+- 기본 폰트는 Pretendard bold. 영문 CTA(Next/Done처럼 라벨이 영문일 때)는 `font-montserrat text-mont-title-m`로 오버라이드
 
-**`button-text-link`** — Inline text button, no background. Used for "Sign in" and inline link CTAs.
+### Slider (`ui/slider.tsx`)
+- track 배경 `bg-neutral-100`, 채워진 range `bg-primary`
+- thumb: `border-4 border-white bg-primary shadow-md`
 
-**`text-link`** — Inline body links in `{colors.ink}` with underline.
+### Input (`ui/input.tsx`)
+- `rounded-full border border-neutral-300 bg-white`, 포커스 시 `border-2 border-primary`
 
-### Cards & Containers
+### Badge (`ui/badge.tsx`)
+- variant: `default`(pink) / `secondary`(pink-100 면) / `accent`(teal) / `destructive` / `outline` / `ghost` / `link`
+- `rounded-full`, `text-body-sb`
 
-**`hero-band`** — Neutral-canvas hero with 7-5 grid: h1 + sub-headline + button row on the left, 3D claymation illustration on the right. Vertical padding `{spacing.section}` (96px).
+### OnboardBackBar (`components/onboard-back-bar.tsx`)
+- 온보딩 화면 상단 뒤로가기 바. lucide-react `ChevronLeft` 아이콘, `disabled`일 때 `opacity-0`으로 자리만 차지
+- 사용처: anchor/budget/conditions 온보딩 3단계 전부
 
-**`hero-illustration-card`** — Right-side artifact holding 3D claymation illustration (mountains, mascot character, abstract shapes). Background `{colors.surface-soft}`, rounded `{rounded.3xl}` (60px). The illustration IS the artifact.
+### OnboardStepDots (`components/onboard-step-dots.tsx`)
+- 3세그먼트 pill 스텝 인디케이터. 활성 `bg-pink-500`(그림자 포함), 비활성 `bg-pink-200`
+- 사용처: anchor(0) → budget(1) → conditions(2), `activeIndex`로 현재 단계 표시. 이름 입력 페이지(`app/page.tsx`)는 온보딩 3단계 이전 진입 화면이라 이 인디케이터를 넣지 않는다.
 
-**`feature-card-pink`** / **`feature-card-teal`** / **`feature-card-coral`** / **`feature-card-lavender`** — Saturated single-color feature cards. Background varies per variant; rounded `{rounded.3xl}` (60px); padding `{spacing.xl}` (32px). Each card carries an h3 in `{typography.title-md}`, a body description, and a product UI fragment or mascot illustration. Text uses `{colors.ink}` on teal, coral, and lavender; pink uses `{colors.on-dark}` for contrast.
+### Feature Card 패턴 (인라인, 공용 컴포넌트 아님)
+`bg-white rounded-3xl p-8 shadow-[0_10px_20px_rgba(0,0,0,0.04)]` 카드 안에:
+1. 아이콘 배지(`size-20 rounded-full bg-pink-100`, 선택)
+2. 콘텐츠(값 표시, 조건 이름·설명, 또는 이름 입력/거점 검색 같은 폼)
+3. 필요 시 구분선(`h-px bg-neutral-100`) + 하단 안내 문구
 
-**`feature-card-cream`** — Lower-key feature card variant on `{colors.surface-card}`. Used for less-emphasized features that don't warrant a saturated color; its name is retained for compatibility, but the surface is neutral.
+사용처: 이름 입력(`app/page.tsx`), anchor/budget/conditions 온보딩 페이지 전부. 아직 공용 컴포넌트로 추출되지 않아, 다른 화면에서 재사용하려면 클래스를 그대로 옮겨야 한다.
 
-**`product-mockup-card`** — Card showing actual Clay product UI (Claygent agent runs, sequencer flows, CRM enrichment tables). Background `{colors.canvas}` with hairline border, rounded `{rounded.3xl}` (60px), padding `{spacing.lg}` (24px).
+### Tier 선택 버튼 패턴 (conditions 페이지)
+세로로 쌓은 전체 너비 pill 버튼 3개(`필수`/`선호`/`무관`):
+- 미선택: `bg-neutral-100 text-neutral-900`
+- 선택: `border-2 border-pink-500 bg-white text-pink-500` — tier 종류(필수/선호/무관)와 무관하게 동일한 스타일
 
-**`testimonial-card`** — Customer quote cards. Background `{colors.surface-card}` (neutral), rounded `{rounded.3xl}` (60px), padding `{spacing.lg}` (24px). Top row has avatar + name + role; below sits the testimonial in `{typography.body-md}`.
+## 6. 주의사항 / Known Gaps
 
-**`pricing-tier-card`** — Standard tier card. Background `{colors.canvas}` with hairline, rounded `{rounded.3xl}` (60px), padding `{spacing.xl}` (32px).
-
-**`pricing-tier-card-featured`** — The featured tier flips to `{colors.brand-teal}` (teal), rounded `{rounded.3xl}` (60px) same as the standard tier. The teal surface is the featured signal.
-
-**`expert-card`** — Used on /experts page. Background `{colors.canvas}` with hairline, rounded `{rounded.3xl}` (60px), padding `{spacing.lg}`. Carries an avatar at top, expert name, specialization, and a "Book session" link.
-
-### Inputs & Forms
-
-**`text-input`** — Background `{colors.canvas}`, text `{colors.ink}`, type `{typography.body-md}`, rounded `{rounded.pill}` (search fields and text inputs are fully pill-shaped), padding 12px × 16px, height 44px. 1px hairline border.
-
-**`text-input-focused`** — Border thickens to ink for emphasis.
-
-### Tabs / Badges
-
-**`category-tab`** + **`category-tab-active`** — Pill-shaped tabs in sub-nav. Inactive: transparent + muted text. Active: neutral-card background + ink text. Padding 8px × 16px.
-
-**`badge-pill`** — Small neutral-fill pill labels in `{typography.caption}` (13px / 500), rounded `{rounded.pill}`.
-
-### CTA / Footer
-
-**`cta-band-illustrated`** — Pre-footer "Turn your growth ideas into reality today" band. Background `{colors.surface-soft}`, rounded `{rounded.3xl}` (60px), padding 80px. Carries an h2 in `{typography.display-md}`, a sub-line, and a `{component.button-primary}` — usually paired with a 3D illustration of a mascot or scene.
-
-**`footer`** — Light-neutral footer (NOT dark navy unlike most SaaS sites). Background `{colors.surface-soft}`, text `{colors.body}`. 4-column link list. Vertical padding 80px. Often features a horizon-style 3D mountain illustration at the very bottom — Clay's signature footer mountain.
-
-## Do's and Don'ts
-
-### Do
-- Anchor every page on the neutral canvas (`{colors.canvas}` — #F8FAFC). The light base lets the accent palette carry the visual hierarchy.
-- Use 3D claymation illustrations as hero artifacts. Hand-crafted 3D characters and mountains ARE the brand.
-- Cycle saturated feature cards across the page — pink → teal → coral → lavender → neutral. Repeating the same color twice in a row reads as off-rhythm.
-- Use Pretendard Variable at weight 500 with negative letter-spacing on every display headline.
-- Show product UI fragments inside saturated feature cards. The brand voltage is product-driven, not abstract.
-- Use a light-neutral footer (NOT dark). Clay deliberately closes pages with a light surface rather than the standard dark-footer SaaS template.
-- Anchor every band with `{spacing.section}` (96px) vertical rhythm.
-
-### Don't
-- Don't introduce a canvas color outside the neutral scale.
-- Don't use a 6th brand-color card. The 5-color palette is saturated enough.
-- Don't bold display weight beyond 500. Pretendard Variable at 700 reads as bombastic.
-- Don't repeat the same brand-color card twice in a row.
-- Don't replace claymation illustrations with flat vector art. The hand-crafted 3D character IS the brand voice.
-- Don't use a dark footer. The light-neutral footer is part of the system's pacing.
-- Don't add hover state styling beyond what the system already encodes.
-
-## Responsive Behavior
-
-### Breakpoints
-
-| Name | Width | Key Changes |
-|---|---|---|
-| Mobile | < 768px | Hamburger nav; hero h1 72→36px; hero-illustration-card stacks below; feature grids 1-up; pricing 1-up |
-| Tablet | 768–1024px | Top nav tightens; feature cards 2-up; pricing 2-up |
-| Desktop | 1024–1440px | Full top-nav; 3-up feature cards; 3-up pricing tiers |
-| Wide | > 1440px | Same as desktop with more breathing room; max content 1280px |
-
-### Touch Targets
-- `{component.button-primary}` at minimum 44 × 44px (matches WCAG AAA).
-- `{component.text-input}` height is 44px.
-
-### Collapsing Strategy
-- Top nav collapses to hamburger at < 768px.
-- Hero 7-5 grid → single-column on mobile.
-- Feature card grids reduce columns rather than scaling.
-- Saturated feature cards retain their colored fill at every breakpoint.
-- Pricing tier cards collapse 4 → 2 → 1.
-
-## Iteration Guide
-
-1. Focus on ONE component at a time. Reference its YAML key (`{component.feature-card-pink}`, `{component.pricing-tier-card-featured}`).
-2. Pick the right brand-color card for the feature: pink for outbound/sequencer, teal for enterprise/featured, lavender for AI-agent products, coral for general SaaS warmth, neutral for secondary content.
-3. Variants of an existing component (`-active`, `-disabled`) live as separate entries.
-4. Use `{token.refs}` everywhere — never inline hex.
-5. Never document hover.
-6. Display headlines stay Pretendard Variable 500 with negative letter-spacing. Body stays Pretendard Variable 400.
-7. The light-neutral palette is a system contract — don't add a dark footer.
-
-## Known Gaps
-
-- Pretendard Variable must be available to the product runtime; use the defined system fallback stack only when it cannot be loaded.
-- 3D claymation illustrations are commissioned assets, not system tokens — they're rendered per-page.
-- The mascot characters (named characters that recur across the site) are illustrated assets; their exact lineage and naming are not formalized in tokens.
-- Animation and transition timings (3D illustration parallax on scroll, feature card entrance animations) are not in scope.
-- Form validation states beyond `{component.text-input-focused}` are not extracted.
-- The actual Clay product surface (in-app data tables, formula editor, agent builder) shares some tokens with the marketing site but adds many product-specific components that are out of scope.
+- `public/icons/budget.svg`, `public/icons/infra.svg`는 Figma에서 내려받은 정적 SVG로 `fill="#FF4D8B"`가 하드코딩돼 있다. pink-500 토큰 값이 바뀌면 이 두 파일도 수동으로 맞춰야 한다.
+- Feature Card, Tier 선택 버튼 모두 아직 공용 컴포넌트로 추출되지 않았다.
+- 공용 `<Card>`의 스트로크(ring) 방식은 4장의 면 채움 규칙과 다르다(위 각주 참고).

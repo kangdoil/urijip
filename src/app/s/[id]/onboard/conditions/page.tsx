@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { getMyParticipant } from '@/lib/get-my-participant'
+import { OnboardBackBar } from '@/components/onboard-back-bar'
+import { OnboardStepDots } from '@/components/onboard-step-dots'
 import { Button } from '@/components/ui/button'
 
 const MUST_LIMIT = 2
@@ -14,14 +16,24 @@ interface Condition {
   descr: string | null
 }
 
-const ICON: Record<string, string> = {
-  area_size: '📐',
-  build_year: '🏗️',
-  infra: '🏥',
-}
+// Figma에서 내려받은 실제 아이콘은 '인프라'만 있다 — 나머지 조건은 기존 이모지를 그대로 쓴다.
+const ICON_SRC: Record<string, string> = { infra: '/icons/infra.svg' }
+const ICON_EMOJI: Record<string, string> = { area_size: '📐', build_year: '🏗️', infra: '🏥' }
 
 type Tier = 'must' | 'nice' | 'skip'
+
+const TIER_OPTIONS: { tier: Tier; label: string }[] = [
+  { tier: 'must', label: '필수' },
+  { tier: 'nice', label: '선호' },
+  { tier: 'skip', label: '무관' },
+]
+
 const TIER_LABEL: Record<Tier, string> = { must: '필수', nice: '선호', skip: '무관' }
+
+function tierButtonClass(selected: boolean) {
+  if (!selected) return 'bg-neutral-100 text-neutral-900'
+  return 'border-2 border-pink-500 bg-white text-pink-500'
+}
 
 export default function ConditionsStepPage() {
   const router = useRouter()
@@ -75,13 +87,13 @@ export default function ConditionsStepPage() {
   const mustCountExcludingCurrent = results.filter(
     (r) => r.tier === 'must' && r.code !== current?.code
   ).length
-  // 아직 저장 전이어도 지금 고른 값이 필수면 슬롯에 바로 반영해서 보여준다.
-  const mustCount = mustCountExcludingCurrent + (pendingTier === 'must' ? 1 : 0)
 
   function goBack() {
     if (idx > 0 && !done && !saving) {
       setError(null)
       setIdx(idx - 1)
+    } else if (idx === 0 && !done && !saving) {
+      router.push(`/s/${sessionId}/onboard/budget`)
     }
   }
 
@@ -141,155 +153,109 @@ export default function ConditionsStepPage() {
 
   if (!ready) return null
 
-  const progressPct = done ? 100 : conditions.length > 0 ? ((idx + (pendingTier ? 1 : 0)) / conditions.length) * 100 : 0
-
   return (
     <main className="flex flex-1 flex-col bg-neutral-50">
-      <div className="shrink-0 px-5 pt-4">
-        <div className="mb-3 grid grid-cols-[32px_1fr_32px] items-center">
-          <button
-            onClick={goBack}
-            disabled={done || idx === 0 || saving}
-            aria-label="이전 조건으로"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-lg text-neutral-500 transition-opacity disabled:opacity-0"
-          >
-            ←
-          </button>
-          <p className="truncate text-center text-[16px] font-semibold text-neutral-900">
-            {done ? '분류 완료' : (current?.name ?? '')}
-          </p>
-          <span aria-hidden />
-        </div>
-        <div className="h-1 rounded-full bg-neutral-200">
-          <div
-            className="h-1 rounded-full bg-primary-500 transition-all duration-300 ease-out"
-            style={{ width: `${progressPct}%` }}
-          />
-        </div>
+      <div className="shrink-0 px-4">
+        <OnboardBackBar onBack={goBack} disabled={done || idx === 0 || saving} />
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 pt-10 pb-6">
+      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-6">
         {done ? (
-          <div className="flex flex-col items-center pt-10 text-center">
+          <div className="flex flex-col items-center pt-16 text-center">
             <div className="mb-3 text-3xl" aria-hidden>
               ✅
             </div>
             <p className="mb-1 text-lg font-semibold text-neutral-900">분류 완료</p>
-            <p className="text-[13px] text-neutral-500">
+            <p className="text-sm text-neutral-500">
               상대의 입력이 끝나면 결과를 보여드릴게요
             </p>
           </div>
         ) : (
           current && (
-            <>
-              <div className="flex flex-col items-center text-center">
-                <div className="text-3xl" aria-hidden>
-                  {ICON[current.code] ?? '📋'}
-                </div>
-                <p className="mt-3 mb-1 text-lg font-semibold text-neutral-900">
-                  이 조건, 얼마나 중요해요?
+            <div className="mx-auto flex w-full max-w-sm flex-col items-center gap-6">
+              <div className="flex flex-col items-center gap-3 text-center">
+                <h1 className="text-2xl leading-8 font-semibold tracking-[-0.03em] text-neutral-900">
+                  이 조건, 얼마나 중요한가요?
+                </h1>
+                <p className="text-base leading-[1.4] tracking-[-0.015em] text-neutral-500">
+                  {idx + 1}/{conditions.length}
                 </p>
-                <p className="text-[13px] text-neutral-500">{current.descr}</p>
               </div>
 
-              <div className="mt-8 grid grid-cols-3 gap-2">
-                <button
-                  onClick={() => pick('must')}
-                  disabled={saving}
-                  className={`rounded-[12px] border px-1 py-3 text-sm font-medium transition-colors ${
-                    pendingTier === 'must'
-                      ? 'border-2 border-primary-400 bg-primary-50 text-primary-700'
-                      : 'border-primary-200 bg-primary-50/60 text-primary-700'
-                  }`}
-                >
-                  필수
-                  <br />
-                  <span className="text-[11px] font-normal text-primary-500">
-                    포기 못 해요
-                  </span>
-                </button>
-                <button
-                  onClick={() => pick('nice')}
-                  disabled={saving}
-                  className={`rounded-[12px] border px-1 py-3 text-sm font-medium transition-colors ${
-                    pendingTier === 'nice'
-                      ? 'border-2 border-neutral-400 text-neutral-900'
-                      : 'border-neutral-200 text-neutral-800'
-                  }`}
-                >
-                  선호
-                  <br />
-                  <span className="text-[11px] font-normal text-neutral-500">
-                    있으면 좋아요
-                  </span>
-                </button>
-                <button
-                  onClick={() => pick('skip')}
-                  disabled={saving}
-                  className={`rounded-[12px] border px-1 py-3 text-sm font-medium transition-colors ${
-                    pendingTier === 'skip'
-                      ? 'border-2 border-neutral-300 text-neutral-600'
-                      : 'border-neutral-100 text-neutral-500'
-                  }`}
-                >
-                  무관
-                  <br />
-                  <span className="text-[11px] font-normal text-neutral-400">
-                    상관없어요
-                  </span>
-                </button>
+              <div className="flex w-full flex-col items-center gap-6 rounded-3xl bg-white p-8 shadow-[0_10px_20px_rgba(0,0,0,0.04)]">
+                <div className="flex flex-col items-center gap-5">
+                  <div className="flex size-20 items-center justify-center rounded-full bg-pink-100">
+                    {ICON_SRC[current.code] ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={ICON_SRC[current.code]} alt="" className="h-[27px] w-[33px]" />
+                    ) : (
+                      <span className="text-3xl" aria-hidden>
+                        {ICON_EMOJI[current.code] ?? '📋'}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-col items-center gap-3">
+                    <h2 className="text-2xl leading-7 font-bold tracking-[-0.03em] text-neutral-900">
+                      {current.name}
+                    </h2>
+                    <p className="text-center text-base leading-[1.4] text-neutral-500">
+                      {current.descr}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex w-full flex-col items-start gap-3">
+                  {TIER_OPTIONS.map(({ tier, label }) => (
+                    <button
+                      key={tier}
+                      onClick={() => pick(tier)}
+                      disabled={saving}
+                      className={`w-full rounded-full px-7 py-5 text-base font-bold transition-colors ${tierButtonClass(
+                        pendingTier === tier
+                      )}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              <div className="mt-5 flex items-center gap-1.5">
-                <span className="text-xs text-neutral-500">필수 슬롯</span>
-                {Array.from({ length: MUST_LIMIT }).map((_, i) => (
-                  <span
-                    key={i}
-                    className={`inline-flex h-5.5 w-5.5 items-center justify-center rounded-md border border-dashed text-xs ${
-                      i < mustCount
-                        ? 'border-primary-300 bg-primary-50 text-primary-600'
-                        : 'border-neutral-300'
-                    }`}
-                  >
-                    {i < mustCount ? '✓' : ''}
-                  </span>
-                ))}
-                <span className="ml-1 text-xs text-neutral-400">최대 {MUST_LIMIT}개</span>
-              </div>
-            </>
+              {error && <p className="text-center text-sm text-red-600">{error}</p>}
+
+              {results.length > 0 && (
+                <div className="flex w-full flex-wrap justify-center gap-1.5 border-t border-neutral-200 pt-4">
+                  {results.map((r) => (
+                    <span
+                      key={r.code}
+                      className={`rounded-full px-2.5 py-1 text-xs ${
+                        r.tier === 'must'
+                          ? 'bg-pink-50 text-pink-700'
+                          : r.tier === 'nice'
+                            ? 'bg-neutral-100 text-neutral-800'
+                            : 'text-neutral-400'
+                      }`}
+                    >
+                      {conditions.find((c) => c.code === r.code)?.name} · {TIER_LABEL[r.tier]}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
           )
-        )}
-
-        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-
-        {results.length > 0 && !done && (
-          <div className="mt-6 flex flex-wrap gap-1.5 border-t border-neutral-200 pt-4">
-            {results.map((r) => (
-              <span
-                key={r.code}
-                className={`rounded-full px-2.5 py-1 text-xs ${
-                  r.tier === 'must'
-                    ? 'bg-primary-50 text-primary-700'
-                    : r.tier === 'nice'
-                      ? 'bg-neutral-100 text-neutral-800'
-                      : 'text-neutral-400'
-                }`}
-              >
-                {conditions.find((c) => c.code === r.code)?.name} · {TIER_LABEL[r.tier]}
-              </span>
-            ))}
-          </div>
         )}
       </div>
 
       {!done && (
-        <div className="shrink-0 px-5 pb-6 pt-2">
+        <div className="shrink-0 px-4 pb-6">
+          <div className="mb-4">
+            <OnboardStepDots total={3} activeIndex={2} />
+          </div>
           <Button
             onClick={handleNext}
             disabled={!pendingTier || saving}
-            className="h-11 w-full rounded-[12px] bg-primary-500 text-[14px] font-semibold hover:bg-primary-600"
+            className="w-full font-montserrat text-mont-title-m"
           >
-            {saving ? '저장하는 중...' : isLast ? '완료' : '다음'}
+            {saving ? '저장하는 중...' : isLast ? 'Done' : 'Next'}
           </Button>
         </div>
       )}

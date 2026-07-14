@@ -26,6 +26,9 @@ interface ResultMapSheetProps {
   showConditionBadges?: boolean
   header?: ReactNode
   footer?: ReactNode
+  // 리스트를 아무리 스크롤해도 화면(뷰포트) 하단에 항상 고정으로 보여줄 액션
+  // 영역 — footer와 달리 스크롤 컨테이너 밖에 별도로 렌더링된다.
+  actions?: ReactNode
 }
 
 // 지원 지역(경기 동남부) 대략 중심 — 핀이 하나도 없을 때만 쓰는 기본 좌표.
@@ -95,6 +98,7 @@ export function ResultMapSheet({
   showConditionBadges = false,
   header,
   footer,
+  actions,
 }: ResultMapSheetProps) {
   // react-kakao-maps-sdk 기본값이 프로토콜 상대경로("//dapi.kakao.com/...")라
   // 로컬 개발 서버(http://localhost:3000)에서는 http로 풀려서 브라우저 ORB에
@@ -182,7 +186,10 @@ export function ResultMapSheet({
         <Drawer.Portal>
           <Drawer.Content className="fixed inset-x-0 bottom-0 z-10 mx-auto flex h-full max-h-[90vh] w-full max-w-md flex-col rounded-t-2xl bg-white outline-none">
             <div className="mx-auto mt-3 h-1 w-10 shrink-0 rounded-full bg-neutral-300" />
-            <div className="flex-1 overflow-y-auto px-4 pb-4 pt-3">
+            <div
+              className="flex-1 overflow-y-auto px-4 pt-3"
+              style={{ paddingBottom: actions ? 'calc(96px + env(safe-area-inset-bottom))' : '16px' }}
+            >
               {header}
 
               {!isFallback && groups.length > 0 && (
@@ -218,6 +225,14 @@ export function ResultMapSheet({
           </Drawer.Content>
         </Drawer.Portal>
       </Drawer.Root>
+
+      {/* 바텀시트는 드래그 위치(snap)에 따라 내용 높이가 달라지므로, 액션
+          버튼은 시트 안에 두지 않고 화면(뷰포트) 하단에 항상 고정으로 별도 렌더링한다. */}
+      {actions && (
+        <div className="fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-md border-t border-neutral-100 bg-white px-4 pt-3 pb-[max(16px,env(safe-area-inset-bottom))]">
+          {actions}
+        </div>
+      )}
     </div>
   )
 }

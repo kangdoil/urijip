@@ -4,9 +4,11 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { getMyParticipant } from '@/lib/get-my-participant'
-import { OnboardStepHeader } from '@/components/onboard-step-header'
+import { OnboardBackBar } from '@/components/onboard-back-bar'
+import { OnboardStepDots } from '@/components/onboard-step-dots'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Slider } from '@/components/ui/slider'
 
 const CATEGORIES = [
   { key: 'work', label: '직장' },
@@ -146,97 +148,105 @@ export default function AnchorStepPage() {
   if (!ready) return null
 
   return (
-    <main className="flex flex-1 justify-center bg-neutral-50 px-5 pt-6 pb-8">
-      <div className="w-full max-w-sm">
-        <OnboardStepHeader step={1} total={3} label="거점·통근" />
+    <main className="flex flex-1 flex-col bg-neutral-50">
+      <div className="shrink-0 px-4">
+        <OnboardBackBar onBack={() => router.push('/')} />
+      </div>
 
-        <p className="mb-1.5 text-lg font-semibold text-neutral-900">
-          자주 가는 곳이 어디예요?
-        </p>
-        <p className="mb-4 text-[13px] font-medium text-neutral-500">
-          여기서 가까운 순서로 구역을 찾아드려요
-        </p>
-
-        <div className="mb-3 flex gap-1.5">
-          {CATEGORIES.map((c) => (
-            <button
-              key={c.key}
-              onClick={() => setCategory(c.key)}
-              className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
-                category === c.key
-                  ? 'border-2 border-primary-300 bg-primary-50 text-primary-600'
-                  : 'border border-neutral-200 text-neutral-600'
-              }`}
-            >
-              {c.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="relative mb-3">
-          <Input
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value)
-              setSelected(null)
-            }}
-            placeholder="예: 판교역 테크노밸리"
-            className="h-11 rounded-[12px] border-neutral-200 bg-neutral-50 px-4"
-          />
-          {selected && (
-            <p className="mt-1.5 text-[11px] text-primary-600">
-              ✓ 위치를 선택했어요
+      <div className="flex-1 overflow-y-auto px-4 pt-6 pb-6">
+        <div className="mx-auto flex w-full max-w-sm flex-col items-center gap-6">
+          <div className="flex flex-col items-center gap-3 text-center">
+            <h1 className="text-2xl leading-8 font-semibold tracking-[-0.03em] text-neutral-900">
+              자주 가는 곳이 어디예요?
+            </h1>
+            <p className="text-base leading-[1.4] tracking-[-0.015em] text-neutral-500">
+              여기서 가까운 순서로 구역을 찾아드려요
             </p>
-          )}
-          {!selected && query.trim() && (
-            <div className="absolute inset-x-0 top-full z-10 mt-1 max-h-56 overflow-y-auto rounded-[12px] border border-neutral-200 bg-neutral-50 shadow-md">
-              {searching && (
-                <p className="px-3 py-2 text-xs text-neutral-400">검색 중...</p>
-              )}
-              {!searching && results.length === 0 && (
-                <p className="px-3 py-2 text-xs text-neutral-400">검색 결과가 없어요</p>
-              )}
-              {results.map((r, i) => (
+          </div>
+
+          <div className="flex w-full flex-col gap-5 rounded-3xl bg-white p-8 shadow-[0_10px_20px_rgba(0,0,0,0.04)]">
+            <div className="flex flex-wrap gap-1.5">
+              {CATEGORIES.map((c) => (
                 <button
-                  key={i}
-                  onClick={() => pickResult(r)}
-                  className="block w-full px-3 py-2 text-left hover:bg-neutral-100"
+                  key={c.key}
+                  onClick={() => setCategory(c.key)}
+                  className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
+                    category === c.key
+                      ? 'border-2 border-primary-300 bg-primary-50 text-primary-600'
+                      : 'border border-neutral-200 text-neutral-600'
+                  }`}
                 >
-                  <p className="text-sm font-medium text-neutral-900">{r.label}</p>
-                  <p className="text-xs text-neutral-500">{r.address}</p>
+                  {c.label}
                 </button>
               ))}
             </div>
-          )}
+
+            <div className="relative">
+              <Input
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value)
+                  setSelected(null)
+                }}
+                placeholder="예: 판교역 테크노밸리"
+              />
+              {selected && (
+                <p className="mt-1.5 text-[11px] text-primary-600">
+                  ✓ 위치를 선택했어요
+                </p>
+              )}
+              {!selected && query.trim() && (
+                <div className="absolute inset-x-0 top-full z-10 mt-1 max-h-56 overflow-y-auto rounded-2xl border border-neutral-200 bg-white shadow-md">
+                  {searching && (
+                    <p className="px-3 py-2 text-xs text-neutral-400">검색 중...</p>
+                  )}
+                  {!searching && results.length === 0 && (
+                    <p className="px-3 py-2 text-xs text-neutral-400">검색 결과가 없어요</p>
+                  )}
+                  {results.map((r, i) => (
+                    <button
+                      key={i}
+                      onClick={() => pickResult(r)}
+                      className="block w-full px-3 py-2 text-left hover:bg-neutral-100"
+                    >
+                      <p className="text-sm font-medium text-neutral-900">{r.label}</p>
+                      <p className="text-xs text-neutral-500">{r.address}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-neutral-600">통근 상한</span>
+                <span className="text-sm font-semibold text-neutral-900">{commuteMin}분</span>
+              </div>
+              <Slider
+                value={[commuteMin]}
+                onValueChange={([v]) => setCommuteMin(v)}
+                min={20}
+                max={90}
+                step={5}
+              />
+              <p className="text-body-s text-neutral-500">문에서 문까지, 자동차 기준이에요</p>
+            </div>
+          </div>
         </div>
 
-        <div className="mb-1 flex items-center gap-2.5">
-          <span className="shrink-0 text-[13px] font-medium text-neutral-600">통근 상한</span>
-          <input
-            type="range"
-            min={20}
-            max={90}
-            step={5}
-            value={commuteMin}
-            onChange={(e) => setCommuteMin(Number(e.target.value))}
-            className="flex-1 accent-primary-500"
-          />
-          <span className="min-w-11 text-right text-sm font-semibold text-neutral-900">
-            {commuteMin}분
-          </span>
+        {error && <p className="mt-4 text-center text-sm text-red-600">{error}</p>}
+      </div>
+
+      <div className="shrink-0 px-4 pb-6">
+        <div className="mb-4">
+          <OnboardStepDots total={3} activeIndex={0} />
         </div>
-        <p className="mb-6 text-[11px] text-neutral-500">
-          문에서 문까지, 자동차 기준이에요
-        </p>
-
-        {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
-
         <Button
           onClick={handleNext}
           disabled={loading}
-          className="h-11 w-full rounded-[12px] bg-primary-500 text-[14px] font-semibold hover:bg-primary-600"
+          className="w-full font-montserrat text-mont-title-m"
         >
-          {loading ? '저장하는 중...' : '다음'}
+          {loading ? '저장하는 중...' : 'Next'}
         </Button>
       </div>
     </main>
