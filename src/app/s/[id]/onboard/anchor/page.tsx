@@ -9,6 +9,7 @@ import { OnboardStepDots } from '@/components/onboard-step-dots'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Slider } from '@/components/ui/slider'
+import { Chip } from '@/components/ui/chip'
 
 const CATEGORIES = [
   { key: 'work', label: '직장' },
@@ -167,17 +168,13 @@ export default function AnchorStepPage() {
           <div className="flex w-full flex-col gap-5 rounded-3xl bg-white p-8 shadow-[0_10px_20px_rgba(0,0,0,0.04)]">
             <div className="flex flex-wrap gap-1.5">
               {CATEGORIES.map((c) => (
-                <button
+                <Chip
                   key={c.key}
+                  selected={category === c.key}
                   onClick={() => setCategory(c.key)}
-                  className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
-                    category === c.key
-                      ? 'border-2 border-primary-300 bg-primary-50 text-primary-600'
-                      : 'border border-neutral-200 text-neutral-600'
-                  }`}
                 >
                   {c.label}
-                </button>
+                </Chip>
               ))}
             </div>
 

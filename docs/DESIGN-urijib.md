@@ -46,6 +46,12 @@ Source of truth는 이 문서가 아니라 아래 파일들이다 — 값이 바
 ### Blue (secondary/info)
 50~900 스케일 존재 (`#eef2ff` ~ `#0d1a47`), 현재 UI에서 실사용처는 없음 — 정보성 배지/알림용으로 예약
 
+### 역할(A/B) 컬러 규칙
+- **A(초대자)**: `pink-500`
+- **B(피초대자)**: `accent-teal`
+- 통근시간, 지도 핀, 조건 비교 등 두 사람을 색으로 구분해야 하는 모든 곳에 이 규칙을 쓴다. `blue-*` 스케일을 B에 쓰지 않는다 — 위 "Blue" 항목은 A/B 구분과 무관한 별도 용도로 예약된 스케일이다.
+- 새로 만드는 화면에서 A/B를 구분해야 하면 이 규칙을 그대로 따르고, 이미 있는 화면에서 다른 색(예전 `blue-600`, `violet`/`teal` 조합 등)을 발견하면 이 규칙으로 맞춰나간다.
+
 ### 시맨틱 매핑
 - `--background`: #ffffff, `--foreground`: neutral-900
 - `--primary`: pink-500, `--primary-foreground`: #ffffff
@@ -140,6 +146,10 @@ line-height 1, **자간 = 0%(트래킹 없음)**.
 - variant: `default`(pink) / `secondary`(pink-100 면) / `accent`(teal) / `destructive` / `outline` / `ghost` / `link`
 - `rounded-full`, `text-body-sb`
 
+### Chip (`ui/chip.tsx`)
+- 단일 선택 카테고리 pill(예: anchor 페이지의 직장/학교/부모님 집/직접 입력). `selected` prop으로 상태 제어
+- **스트로크 없이 면으로만 구분**: 선택 `bg-neutral-900 text-neutral-0`, 미선택 `bg-neutral-50 text-neutral-600` — Badge/Tier 선택 버튼과 달리 primary(pink)가 아니라 neutral 대비로 선택 상태를 표현한다
+
 ### OnboardBackBar (`components/onboard-back-bar.tsx`)
 - 온보딩 화면 상단 뒤로가기 바. lucide-react `ChevronLeft` 아이콘, `disabled`일 때 `opacity-0`으로 자리만 차지
 - 사용처: anchor/budget/conditions 온보딩 3단계 전부
@@ -160,6 +170,38 @@ line-height 1, **자간 = 0%(트래킹 없음)**.
 세로로 쌓은 전체 너비 pill 버튼 3개(`필수`/`선호`/`무관`):
 - 미선택: `bg-neutral-100 text-neutral-900`
 - 선택: `border-2 border-pink-500 bg-white text-pink-500` — tier 종류(필수/선호/무관)와 무관하게 동일한 스타일
+
+### ResultHeaderPill (`components/result-header-pill.tsx`)
+- 지도 위에 떠 있는 글래스 헤더. `border border-white bg-neutral-50/50 backdrop-blur-[10px] shadow-[0_10px_40px_rgba(0,0,0,0.04)] rounded-xl`
+- 제목 + 카운트 칩(`bg-neutral-900 text-pink-500`, 다크 배경 위 핑크 텍스트가 포인트) — 폴백(매칭 0건) 상태는 `count`를 생략해서 칩을 숨긴다
+
+### ResultAreaCard (`components/result-area-card.tsx`)
+- 결과 화면 가로 스크롤 캐러셀 전용 동네 카드. `w-[304px] h-[150px] rounded-2xl border-[0.6px] border-neutral-300`(이 카드만 예외적으로 얇은 스트로크 사용 — Figma 원본 그대로)
+- 동네명(`text-title-sb`) + 가격(`text-body-m` neutral-500) → 통근시간 A/B(역할 컬러 규칙에 따라 pink-500/accent-teal, 앞에 lucide `Car` 아이콘) → 충족 조건 배지(`bg-neutral-500 text-neutral-0`)
+- 통근시간은 Figma엔 없었지만 두 사람이 실제로 비교하는 핵심 정보라 UX 판단으로 추가했다(그룹 결과 목업에서도 같은 이유로 넣었던 정보)
+
+### SigunguFilterSheet / MustConditionSheet (`components/sigungu-filter-sheet.tsx`, `components/must-condition-sheet.tsx`)
+- 공용 `ui/drawer.tsx`(그동안 안 쓰이던 컴포넌트)를 재사용한 두 개의 보조 바텀시트
+- SigunguFilterSheet: "N개 시군구" 트리거를 누르면 전체 시군구를 `Chip`으로 나열, 하나 고르면 자동으로 닫힘
+- MustConditionSheet: "필수 조건 : ..." 줄을 누르면 거의 풀페이지(`h-[92vh]`)로 열려서 위에는 A/B 조건 비교, 아래는 추천 이유 설명을 보여준다
+
+### 시군구 필터 칩 줄 (ResultMapSheet 내부)
+"N개 시군구" 트리거는 `shrink-0`로 고정하고, 개별 시군구 `Chip` 목록만 별도의 `overflow-x-auto` 컨테이너로 감싸 가로 스크롤한다 — 트리거를 스크롤 밖에 항상 붙잡아두기 위한 구조. 인라인엔 전체 시군구를 다 보여주고(예전엔 상위 2개만 잘랐었음), 그중 아무거나 눌러도 되고 트리거로 전체 목록 시트를 열어도 된다.
+
+### 결과 화면 바텀시트 collapse 규칙
+`ResultMapSheet`는 vaul snapPoints를 `[0.3, 0.6]` 두 단계만 쓴다. 가장 낮은 스냅(0.3)일 때는 핸들+시군구 칩 줄(+액션 바)만 남기고 나머지(필수조건 트리거, 동네 카드)는 렌더링하지 않는다 — 시트를 끝까지 내리면 지도가 최대한 보이면서도 필터는 계속 손닿는 곳에 있게 하려는 의도.
+- **Retry/Share 액션 바는 반드시 Drawer.Content 밖에 별도 `fixed` 오버레이로 둔다.** vaul의 Drawer.Content는 snap 값과 무관하게 항상 `h-full`(고정 높이) 박스이고 snap은 그 박스를 translate로 가리는 방식이라, 액션 바를 시트 레이아웃 안(예: flex 마지막 자식)에 두면 완전히 펼친 상태(snap 1) 말고는 시트 박스 하단이 뷰포트 아래로 밀려나면서 액션 바가 화면 밖으로 사라진다. 대신 액션 바를 뷰포트 기준 `fixed bottom-0`으로 띄우고, collapsed snap 값을 "핸들+칩 줄 높이"가 액션 바 높이보다 커지도록 넉넉히 잡아서 겹치지 않게 한다.
+- 바텀시트 상단 라운드는 `rounded-t-3xl`(40px, radius 토큰) — 48px이었다가 이 값으로 조정됨.
+
+### 세션 대기실(`/s/[id]`) — 딤드 바텀시트 패턴
+결과 화면과 달리 이 페이지는 지도가 없다. 대신 제목/설명을 배경(딤드) 레이어에 띄우고, 그 위에 `Drawer.Overlay`(딤 있음, `modal` 기본값)로 감싼 바텀시트를 얹는다. snapPoints는 `[0.68, 0.92]` — 콘텐츠를 숨기는 용도가 아니라 드래그 여지를 주기 위한 2단계라, 두 지점 모두 같은 카드 내용을 보여준다. `dismissible={false}`라 완전히 닫히지 않는다.
+- **A/B 아바타**: `public/asset/urijip_A.png`/`urijip_B.png`(70×70), 원형 배경(A: `bg-pink-100 border-pink-500`, B: `bg-accent-teal/10 border-accent-teal`) 안에 넣는다. 완료(`completed_at`) 여부에 따라 우측 상단에 체크 배지(lucide `Check`, 본인 역할 컬러)를 얹는다. 상대가 아직 참여 전이면 `opacity-20`으로 흐리게.
+- **이름 필(pill)**: `h-10 w-[88px] rounded-full`, 배경은 역할 컬러(A=pink-500, B=accent-teal), 참여 전이면 역시 `opacity-20`.
+- **상대 이름 노출**: `participants` 테이블 RLS는 상대 행 전체를 세션 ready 이후로 막는다(조건·예산 보호). 그래서 이름·완료여부만 `get_session_presence` RPC(SECURITY DEFINER, `supabase/migrations/20260715000000_presence_names.sql`)로 미리 공개한다 — 조건/예산 컬럼은 여전히 노출하지 않는다.
+- **상태별 하단 고정 액션**(Drawer 밖 `fixed bottom-0`, 위 collapse 규칙과 동일한 이유로 시트 안에 두지 않음): 초대 전=아웃라인 "초대 링크 복사" 버튼, 상대 참여 후=원형 새로고침 버튼(`RefreshCw`, `bg-neutral-900`), 둘 다 완료=풀와이드 "View results"(Montserrat).
+
+### 초대장(`/j/[code]`) — JoinForm
+홈 화면과 같은 톤(면 채움 카드, `urijip_logo.png` 184px)이되 카드 배경만 `bg-pink-100`(초대받은 느낌을 위한 유일한 컬러 카드). 입력창 placeholder는 홈 화면과 동일하게 "예: 도일" — 로그인 화면과 문구를 통일해서 어느 쪽에서 와도 같은 안내를 받는다. CTA는 `Start! (with B)`(Montserrat), 홈 화면의 `Start! (with A)`와 짝을 이룬다.
 
 ## 6. 주의사항 / Known Gaps
 

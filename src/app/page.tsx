@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { ensureAnonSession } from '@/lib/supabase/ensure-anon'
@@ -44,11 +45,11 @@ export default function HomePage() {
     <main className="flex flex-1 items-center justify-center bg-neutral-50 px-4 py-6">
       <div className="flex w-full max-w-sm flex-col gap-6 rounded-3xl bg-white p-8 shadow-[0_10px_20px_rgba(0,0,0,0.04)]">
         <div className="flex flex-col items-center gap-3 text-center">
-          <h1 className="text-2xl leading-8 font-semibold tracking-[-0.03em] text-neutral-900">
-            우리집
-          </h1>
+          <Image src="/urijip_logo.png" alt="우리집" width={184} height={184} priority />
           <p className="text-base leading-[1.4] tracking-[-0.015em] text-neutral-500">
-            신혼부부 2인이 주거 조건을 조율해 함께 살 구역을 찾아요
+            둘이서 주거 조건을 조율해
+            <br />
+            함께 살 구역을 찾아요
           </p>
         </div>
 
@@ -64,8 +65,12 @@ export default function HomePage() {
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
-        <Button onClick={handleCreateSession} disabled={loading} className="w-full">
-          {loading ? '만드는 중...' : '세션 만들기 (A로 시작)'}
+        <Button
+          onClick={handleCreateSession}
+          disabled={loading}
+          className="w-full font-montserrat text-mont-title-m"
+        >
+          {loading ? '만드는 중...' : 'Start! (with A)'}
         </Button>
       </div>
     </main>

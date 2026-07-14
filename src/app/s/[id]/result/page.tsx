@@ -5,15 +5,10 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { getMyParticipant } from '@/lib/get-my-participant'
-import { CONDITION_LABEL, formatEok } from '@/lib/condition-labels'
+import { formatEok, type Tier } from '@/lib/condition-labels'
 import { Button } from '@/components/ui/button'
-import { FeedbackBanner } from '@/components/feedback-banner'
 import { ResultMapSheet } from '@/components/result-map-sheet'
 import { useCommuteStatus } from '@/lib/use-commute-status'
-
-type Tier = 'must' | 'nice' | 'skip'
-const CODES = ['area_size', 'build_year', 'infra'] as const
-const TIER_LABEL: Record<Tier, string> = { must: '필수', nice: '선호', skip: '무관' }
 
 interface ParticipantSummary {
   role: 'A' | 'B'
@@ -77,7 +72,6 @@ export default function ResultPage() {
   const [resolved, setResolved] = useState(false)
   const [reopening, setReopening] = useState(false)
   const [participants, setParticipants] = useState<ParticipantSummary[] | null>(null)
-  const [showDetail, setShowDetail] = useState(false)
 
   const { ready: commuteReady, status: commuteStatus } = useCommuteStatus(sessionId)
 
@@ -233,92 +227,32 @@ export default function ResultPage() {
 
   if (!result) return null
 
-  const sigunguCount = new Set(result.matches.map((m) => m.sigungu)).size
-
-  const mustLabel =
-    result.must_conditions.length > 0
-      ? `${result.must_conditions.map((c) => CONDITION_LABEL[c] ?? c).join(', ')} 필수`
-      : '필수 조건 없음'
   const budgetLabel = `예산 ${formatEok(result.budget.applied_krw)} 이하`
-
-  const header = (
-    <div className="mb-3">
-      <p className="mb-1 text-[13px] text-neutral-500">{resolved ? '결정 완료' : '결과'}</p>
-      <p className="mb-3 text-xl font-semibold text-neutral-900">
-        {result.match_count > 0
-          ? `함께 갈 수 있는 구역, ${sigunguCount}개 시군구에 걸쳐 있어요`
-          : '필수 조건을 모두 만족하는 구역이 없어요'}
-      </p>
-
-      <div className="rounded-xl border border-primary-200 bg-primary-50 px-4 py-3">
-        <p className="text-[13px] text-primary-700">
-          {mustLabel} · {budgetLabel}
-          {result.budget.conflict && ' (예산은 낮은 쪽 기준)'}
-        </p>
-        <button
-          onClick={() => setShowDetail((v) => !v)}
-          className="mt-1.5 text-[12px] font-medium text-primary-600"
-        >
-          {showDetail ? '접기' : '자세히 보기'}
-        </button>
-
-        {showDetail && participants && (
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            {participants.map((p) => (
-              <div key={p.role} className="rounded-lg border border-primary-100 bg-white px-3 py-2.5">
-                <p
-                  className={`mb-1.5 text-xs font-medium ${
-                    p.role === 'A' ? 'text-primary-700' : 'text-blue-700'
-                  }`}
-                >
-                  {p.display_name ?? p.role} ({p.role})
-                </p>
-                <dl className="flex flex-col gap-1 text-[11px] text-neutral-600">
-                  <div className="flex justify-between">
-                    <dt>예산</dt>
-                    <dd className="font-medium text-neutral-800">{formatEok(p.budget_max_krw)}</dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt>통근 상한</dt>
-                    <dd className="font-medium text-neutral-800">{p.commute_max_min}분</dd>
-                  </div>
-                  {CODES.map((code) => (
-                    <div key={code} className="flex justify-between">
-                      <dt>{CONDITION_LABEL[code]}</dt>
-                      <dd className="font-medium text-neutral-800">
-                        {p.conditions[code] ? TIER_LABEL[p.conditions[code]] : '-'}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  )
 
   const actions = (
     <div>
-      <div className="flex gap-2">
+      <div className="flex gap-3">
         {resolved ? (
           <Button
             onClick={handleReopen}
             disabled={reopening}
             variant="outline"
-            className="flex-1"
+            className="w-auto font-montserrat text-mont-title-m"
           >
-            다시 조율하기
+            Retry
           </Button>
         ) : (
-          <Button asChild variant="outline" className="flex-1">
-            <Link href={`/s/${sessionId}/adjust`}>다시 조율하기</Link>
+          <Button asChild variant="outline" className="w-auto font-montserrat text-mont-title-m">
+            <Link href={`/s/${sessionId}/adjust`}>Retry</Link>
           </Button>
         )}
         {result.match_count > 0 && (
-          <Button onClick={handleShare} disabled={sharing} variant="outline" className="flex-1">
-            공유하기
+          <Button
+            onClick={handleShare}
+            disabled={sharing}
+            className="flex-1 font-montserrat text-mont-title-m"
+          >
+            Share
           </Button>
         )}
       </div>
@@ -328,7 +262,7 @@ export default function ResultPage() {
           <input
             readOnly
             value={shareUrl}
-            className="flex-1 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm"
+            className="flex-1 rounded-full border border-neutral-200 bg-neutral-50 px-4 py-2 text-sm"
           />
           <Button variant="outline" onClick={() => navigator.clipboard.writeText(shareUrl)}>
             복사
@@ -340,21 +274,17 @@ export default function ResultPage() {
     </div>
   )
 
-  const footer = (
-    <div className="mt-4">
-      <FeedbackBanner sessionId={sessionId} />
-    </div>
-  )
-
   return (
     <main className="flex-1">
       <ResultMapSheet
         areas={result.matches}
         matchCount={result.match_count}
         fallback={fallback}
-        showConditionBadges
-        header={header}
-        footer={footer}
+        resolved={resolved}
+        mustConditions={result.must_conditions}
+        budgetLabel={budgetLabel}
+        conflict={result.budget.conflict}
+        participants={participants}
         actions={actions}
       />
     </main>

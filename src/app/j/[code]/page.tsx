@@ -1,13 +1,6 @@
 import type { Metadata } from 'next'
 import { getInvitePreview } from '@/lib/invite-preview'
 import { JoinForm } from '@/components/join-form'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
 
 type Props = {
   params: Promise<{ code: string }>
@@ -35,20 +28,23 @@ export default async function InvitePage({ params }: Props) {
   const inviterName = preview?.inviter_name ?? '배우자'
 
   return (
-    <main className="flex flex-1 items-center justify-center p-6">
-      <Card className="w-full max-w-sm border-teal-200">
-        <CardHeader>
-          <CardTitle className="text-teal-700">
-            {inviterName}님이 초대했어요
-          </CardTitle>
-          <CardDescription>
-            내 조건은 상대가 입력을 마치기 전까지 공개되지 않아요
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+    <main className="flex flex-1 flex-col bg-neutral-50">
+      <div className="flex-1 overflow-y-auto px-4 pt-6 pb-6">
+        <div className="mx-auto flex w-full max-w-sm flex-col items-center gap-6">
+          <div className="flex flex-col items-center gap-3 text-center">
+            <h1 className="text-2xl leading-8 font-semibold tracking-[-0.03em] text-neutral-900">
+              &ldquo;{inviterName}&rdquo;님이 우리 집에 초대했어요
+            </h1>
+            <p className="text-base leading-[1.4] tracking-[-0.015em] text-neutral-500">
+              지금 바로 내 조건을 입력하고
+              <br />
+              {inviterName}님과 함께 조율해 보세요
+            </p>
+          </div>
+
           <JoinForm code={code} />
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </main>
   )
 }

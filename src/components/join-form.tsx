@@ -1,13 +1,13 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { ensureAnonSession } from '@/lib/supabase/ensure-anon'
 import { useProfileStore } from '@/store/use-profile-store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 
 export function JoinForm({ code }: { code: string }) {
   const router = useRouter()
@@ -41,20 +41,34 @@ export function JoinForm({ code }: { code: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="join-display-name">내 이름</Label>
+    <>
+      <div className="flex w-full flex-col items-center gap-6 rounded-3xl bg-pink-100 p-8 shadow-[0_0_17px_rgba(15,23,42,0.08)]">
+        <Image src="/urijip_logo.png" alt="우리집" width={184} height={184} priority />
+        <p className="text-center text-base leading-[1.4] font-semibold tracking-[-0.015em] text-pink-500">
+          둘이서 주거 조건을 조율해
+          <br />
+          함께 살 동네를 찾아요
+        </p>
+        <div className="h-px w-full bg-pink-200" />
         <Input
-          id="join-display-name"
-          placeholder="예: 도일"
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
+          placeholder="예: 도일"
+          aria-label="내 이름"
         />
       </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      <Button onClick={handleJoin} disabled={loading}>
-        {loading ? '참여하는 중...' : '참여하기 (B로 시작)'}
-      </Button>
-    </div>
+
+      {error && <p className="mt-3 text-center text-sm text-red-600">{error}</p>}
+
+      <div className="fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-sm px-4 pb-[max(24px,env(safe-area-inset-bottom))]">
+        <Button
+          onClick={handleJoin}
+          disabled={loading}
+          className="w-full font-montserrat text-mont-title-m"
+        >
+          {loading ? '참여하는 중...' : 'Start! (with B)'}
+        </Button>
+      </div>
+    </>
   )
 }
