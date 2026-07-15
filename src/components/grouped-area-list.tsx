@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { Car } from 'lucide-react'
 import { CONDITION_LABEL, formatEok } from '@/lib/condition-labels'
 import { groupBySigungu } from '@/lib/group-by-sigungu'
 
@@ -33,16 +34,20 @@ export function AreaCard({
   showConditionBadges?: boolean
 }) {
   return (
-    <div className="rounded-lg border border-neutral-200 bg-white px-3 py-2.5">
-      <div className="mb-1 flex items-baseline justify-between gap-2">
-        <span className="text-sm font-medium text-neutral-900">{area.name}</span>
-        <span className="whitespace-nowrap text-sm font-medium text-neutral-700">
+    <div className="rounded-2xl border border-neutral-100 bg-white px-4 py-3 shadow-[0_4px_12px_rgba(0,0,0,0.03)]">
+      <div className="mb-1.5 flex items-baseline justify-between gap-2">
+        <span className="text-body-sb font-bold text-neutral-900">{area.name}</span>
+        <span className="whitespace-nowrap text-body-sb font-semibold text-neutral-500">
           {formatEok(area.avg_price_krw)}
         </span>
       </div>
-      <div className="flex items-center gap-3 text-xs">
-        <span className="text-primary-600">A {area.a_minutes}분</span>
-        <span className="text-blue-600">B {area.b_minutes}분</span>
+      <div className="flex items-center gap-3 text-caption-l font-medium">
+        <span className="flex items-center gap-1 text-pink-500">
+          <Car className="size-3.5" />A {area.a_minutes}분
+        </span>
+        <span className="flex items-center gap-1 text-accent-teal">
+          <Car className="size-3.5" />B {area.b_minutes}분
+        </span>
         {showConditionBadges && area.satisfied && (
           <span className="ml-auto flex gap-1">
             {Object.entries(area.satisfied)
@@ -50,7 +55,7 @@ export function AreaCard({
               .map(([conditionCode]) => (
                 <span
                   key={conditionCode}
-                  className="rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] text-neutral-600"
+                  className="rounded-full bg-neutral-500 px-2.5 py-1 text-caption-m font-medium text-neutral-0"
                 >
                   {CONDITION_LABEL[conditionCode] ?? conditionCode}
                 </span>
@@ -76,7 +81,7 @@ export function GroupedAreaList({
   const groups = useMemo(() => groupBySigungu(areas), [areas])
 
   if (groups.length === 0) {
-    return <p className="py-4 text-center text-sm text-neutral-400">{emptyMessage}</p>
+    return <p className="py-4 text-center text-body-s text-neutral-400">{emptyMessage}</p>
   }
 
   function toggle(sigungu: string) {
@@ -89,7 +94,7 @@ export function GroupedAreaList({
   }
 
   return (
-    <div className="flex flex-col gap-2.5">
+    <div className="flex flex-col gap-3">
       {groups.map(({ sigungu, list }) => {
         const capped = list.slice(0, MAX_PER_GROUP)
         const isOpen = expanded.has(sigungu)
@@ -97,15 +102,15 @@ export function GroupedAreaList({
         const moreCount = capped.length - 1
 
         return (
-          <div key={sigungu} className="rounded-xl border border-neutral-200 bg-neutral-50 p-3">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-sm font-semibold text-neutral-900">{sigungu}</span>
-              <span className="rounded-full bg-white px-2 py-0.5 text-[11px] text-neutral-500">
+          <div key={sigungu} className="rounded-[28px] border border-neutral-100 bg-neutral-50 p-4">
+            <div className="mb-2.5 flex items-center justify-between px-0.5">
+              <span className="text-body-sb font-bold text-neutral-900">{sigungu}</span>
+              <span className="rounded-full bg-white px-2.5 py-1 text-caption-l font-medium text-neutral-500">
                 {list.length}곳
               </span>
             </div>
 
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
               {shown.map((area) => (
                 <AreaCard key={area.code} area={area} showConditionBadges={showConditionBadges} />
               ))}
@@ -114,7 +119,7 @@ export function GroupedAreaList({
             {moreCount > 0 && (
               <button
                 onClick={() => toggle(sigungu)}
-                className="mt-2 w-full text-center text-xs font-medium text-primary-600"
+                className="mt-2.5 w-full text-center text-caption-l font-semibold text-pink-500"
               >
                 {isOpen ? '접기 ▲' : `${moreCount}곳 더보기 ▼`}
               </button>

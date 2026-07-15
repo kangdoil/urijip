@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button'
 import { GroupedAreaList } from '@/components/grouped-area-list'
 import { useCommuteStatus } from '@/lib/use-commute-status'
 import { Slider } from '@/components/ui/slider'
+import { OnboardBackBar } from '@/components/onboard-back-bar'
+import { cn } from '@/lib/utils'
 
 type Tier = 'must' | 'nice' | 'skip'
 const CODES = ['area_size', 'build_year', 'infra'] as const
@@ -54,6 +56,11 @@ function describePayload(payload: Record<string, string | number>) {
 
 function nextTier(t: Tier): Tier {
   return t === 'must' ? 'nice' : t === 'nice' ? 'skip' : 'must'
+}
+
+// A=핑크, B=청록 — 결과 화면(ResultAreaCard, Pin 등)과 동일한 역할 컬러 코드
+function tierPillClass(role: 'A' | 'B') {
+  return role === 'A' ? 'border-pink-500 text-pink-500' : 'border-accent-teal text-accent-teal'
 }
 
 export default function AdjustPage() {
@@ -365,137 +372,158 @@ export default function AdjustPage() {
   const proposerRole = pending ? (pending.proposer_id === data.a.id ? 'A' : 'B') : null
 
   return (
-    <main className="flex flex-1 justify-center p-6">
-      <div className="w-full max-w-sm">
-        <p className="mb-1 text-[13px] text-neutral-500">함께 조율하기</p>
-        <p className="mb-4 text-xl font-semibold text-neutral-900">
-          조건을 움직이면 구역이 바로 바뀌어요
-        </p>
+    <main className="flex flex-1 justify-center bg-neutral-50">
+      <div className="w-full max-w-sm pb-6">
+        <div className="rounded-b-[40px] bg-white px-4 pb-8">
+          <OnboardBackBar onBack={() => router.push(`/s/${sessionId}/result`)} />
 
-        {iAmDeciding && (
-          <div className="mb-4 rounded-xl border border-primary-200 bg-primary-50 px-4 py-3">
-            <p className="text-sm font-medium text-primary-700">
-              {proposerRole}의 제안이에요
-            </p>
-            <p className="text-[13px] text-neutral-600">{describePayload(pending!.payload)}</p>
+          <div className="mt-2 mb-8 flex flex-col items-center gap-2 px-2 text-center">
+            <p className="text-body-s font-medium text-neutral-400">함께 조율하기</p>
+            <h1 className="text-[24px] leading-[1.4] font-semibold tracking-[-0.03em] text-neutral-900">
+              조건을 움직이면 구역이 바로 바뀌어요
+            </h1>
           </div>
-        )}
 
-        <div className="mb-3 flex flex-col gap-3">
-          {CODES.map((code) => (
-            <div key={code} className="rounded-xl border border-neutral-200 px-4 py-3">
-              <p className="mb-2 text-sm font-medium text-neutral-800">
-                {CONDITION_LABEL[code]}
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="mb-1 text-[11px] text-primary-600">나 ({me.role})</p>
+          {iAmDeciding && (
+            <div className="mb-4 rounded-[28px] border border-neutral-100 bg-neutral-50 px-4 py-3">
+              <p className="text-body-sb font-bold text-neutral-900">{proposerRole}의 제안이에요</p>
+              <p className="text-caption-l text-neutral-500">{describePayload(pending!.payload)}</p>
+            </div>
+          )}
+
+          {/* A/B 컬러 범례 — 카드마다 반복하지 않고 여기서 한 번만 안내 */}
+          <div className="mb-4 flex items-center justify-between px-2">
+            <span className="flex size-8 items-center justify-center rounded-full bg-pink-500 text-body-sb font-bold text-white">
+              A
+            </span>
+            <span className="text-caption-l text-neutral-400">내 조건 · 상대 조건</span>
+            <span className="flex size-8 items-center justify-center rounded-full bg-accent-teal text-body-sb font-bold text-white">
+              B
+            </span>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            {CODES.map((code) => (
+              <div
+                key={code}
+                className="rounded-[40px] border border-neutral-100 bg-white px-5 py-5 shadow-[0_10px_20px_rgba(0,0,0,0.04)]"
+              >
+                <p className="mb-3 text-center text-title-sb font-bold text-neutral-900">
+                  {CONDITION_LABEL[code]}
+                </p>
+                <div className="grid grid-cols-2 gap-3">
                   <button
                     onClick={() => {
                       const setter = me.role === 'A' ? setATiers : setBTiers
                       setter((t) => ({ ...t, [code]: nextTier(t[code]) }))
                     }}
                     disabled={!!pending && proposerRole === me.role}
-                    className="w-full rounded-[8px] border border-primary-200 bg-primary-50 py-1.5 text-[13px] font-medium text-primary-700 disabled:opacity-50"
+                    className={cn(
+                      'w-full rounded-full border-2 bg-white px-7 py-5 text-body-m font-bold transition-opacity disabled:pointer-events-none disabled:opacity-30',
+                      tierPillClass(me.role)
+                    )}
                   >
                     {TIER_LABEL[me.role === 'A' ? aTiers[code] : bTiers[code]]}
                   </button>
-                </div>
-                <div>
-                  <p className="mb-1 text-[11px] text-blue-600">
-                    상대 ({me.role === 'A' ? 'B' : 'A'})
-                  </p>
                   <button
                     onClick={() => {
                       const setter = me.role === 'A' ? setBTiers : setATiers
                       setter((t) => ({ ...t, [code]: nextTier(t[code]) }))
                     }}
                     disabled={!pending || proposerRole === (me.role === 'A' ? 'B' : 'A')}
-                    className="w-full rounded-[8px] border border-blue-200 bg-blue-50 py-1.5 text-[13px] font-medium text-blue-700 disabled:opacity-50"
+                    className={cn(
+                      'w-full rounded-full border-2 bg-white px-7 py-5 text-body-m font-bold transition-opacity disabled:pointer-events-none disabled:opacity-30',
+                      tierPillClass(me.role === 'A' ? 'B' : 'A')
+                    )}
                   >
                     {TIER_LABEL[me.role === 'A' ? bTiers[code] : aTiers[code]]}
                   </button>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
 
-          <div className="rounded-xl border border-neutral-200 px-4 py-3">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-sm font-medium text-neutral-800">예산 상한</span>
-              <span className="text-lg font-semibold text-primary-600">
-                {formatEok(budgetValue)}
+            <div className="rounded-[40px] border border-neutral-100 bg-white px-5 py-5 shadow-[0_10px_20px_rgba(0,0,0,0.04)]">
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-title-sb font-bold text-neutral-900">예산 상한</span>
+                <span className="text-title-sb font-bold text-pink-500">
+                  {formatEok(budgetValue)}
+                </span>
+              </div>
+              <p className="mb-3 text-caption-l text-neutral-400">
+                {budgetHasConflict
+                  ? '예산 상한이 서로 달라요 · 낮은 쪽 기준으로 시작해요'
+                  : '두 분 예산이 같아요'}
+                {' · 상한을 더 올려서 후보를 넓혀볼 수도 있어요'}
+              </p>
+              <Slider
+                value={[budgetValue]}
+                onValueChange={([v]) => setBudgetValue(v)}
+                min={lowBudgetOriginal}
+                max={budgetSliderMax}
+                step={10_000_000}
+                disabled={!!pending && 'budget_max_krw' in pending.payload}
+              />
+              <div className="mt-2 flex justify-between text-body-sb font-semibold text-neutral-900">
+                <span>{formatEok(lowBudgetOriginal)}</span>
+                <span>{formatEok(budgetSliderMax)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 flex flex-col items-center gap-1.5">
+            <p className="text-body-m text-neutral-500">함께 살 수 있는 구역</p>
+            <p className="flex items-center gap-2 text-title-sb font-bold text-neutral-900">
+              <span className="rounded-full bg-neutral-900 px-4 py-2 font-montserrat text-mont-title-m text-white">
+                {passingSigunguCount}
               </span>
-            </div>
-            <p className="mb-2 text-[11px] text-neutral-400">
-              {budgetHasConflict
-                ? '예산 상한이 서로 달라요 · 낮은 쪽 기준으로 시작해요'
-                : '두 분 예산이 같아요'}
-              {' · 상한을 더 올려서 후보를 넓혀볼 수도 있어요'}
+              개 시군구에 걸쳐 있어요
             </p>
-            <Slider
-              value={[budgetValue]}
-              onValueChange={([v]) => setBudgetValue(v)}
-              min={lowBudgetOriginal}
-              max={budgetSliderMax}
-              step={10_000_000}
-              disabled={!!pending && 'budget_max_krw' in pending.payload}
-            />
-            <div className="mt-1 flex justify-between text-[11px] text-neutral-400">
-              <span>{formatEok(lowBudgetOriginal)}</span>
-              <span>{formatEok(budgetSliderMax)}</span>
-            </div>
           </div>
         </div>
 
-        <div className="mb-3 flex items-center justify-between">
-          <span className="text-sm font-medium text-neutral-900">
-            함께 살 수 있는 구역,{' '}
-            <span className="text-primary-600">{passingSigunguCount}</span>개 시군구에 걸쳐 있어요
-          </span>
-        </div>
-
-        <div className="mb-4">
+        <div className="px-4 pt-4">
           <GroupedAreaList areas={passing} />
         </div>
 
-        {iAmDeciding ? (
-          <div className="flex gap-2">
-            <Button onClick={saveMyChangesAndDecide} disabled={submitting} className="flex-1">
-              결정하기
-            </Button>
-            <Button
-              onClick={reject}
-              disabled={submitting}
-              variant="outline"
-              className="flex-1"
-            >
-              거절
-            </Button>
-          </div>
-        ) : (
-          <>
+        <div className="px-4 pt-4">
+          {iAmDeciding ? (
             <div className="flex gap-2">
-              <Button onClick={finalizeNow} disabled={submitting} className="flex-1">
-                이 조건으로 결정하기
+              <Button onClick={saveMyChangesAndDecide} disabled={submitting} className="flex-1">
+                결정하기
               </Button>
               <Button
-                onClick={propose}
+                onClick={reject}
                 disabled={submitting}
                 variant="outline"
                 className="flex-1"
               >
-                {me.role === 'A' ? 'B' : 'A'}에게 제안하기 →
+                거절
               </Button>
             </div>
-            <p className="mt-2 text-center text-[11px] text-neutral-400">
-              상대 항목은 참고용이에요 · 결정하기는 내 변경분을 바로 반영하고 확정해요,
-              제안하기는 상대 동의를 거쳐요
-            </p>
-          </>
-        )}
+          ) : (
+            <>
+              <div className="flex gap-2">
+                <Button onClick={finalizeNow} disabled={submitting} className="flex-1">
+                  이 조건으로 결정하기
+                </Button>
+                <Button
+                  onClick={propose}
+                  disabled={submitting}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  {me.role === 'A' ? 'B' : 'A'}에게 제안하기 →
+                </Button>
+              </div>
+              <p className="mt-2 text-center text-caption-l text-neutral-400">
+                상대 항목은 참고용이에요 · 결정하기는 내 변경분을 바로 반영하고 확정해요,
+                제안하기는 상대 동의를 거쳐요
+              </p>
+            </>
+          )}
 
-        {error && <p className="mt-3 text-center text-sm text-red-600">{error}</p>}
+          {error && <p className="mt-3 text-center text-sm text-red-600">{error}</p>}
+        </div>
       </div>
     </main>
   )
