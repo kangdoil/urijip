@@ -54,10 +54,10 @@ export default function HomePage() {
         </div>
 
         <div className="flex flex-col gap-2">
-          <Label htmlFor="display-name">내 이름</Label>
+          <Label htmlFor="display-nickname">닉네임</Label>
           <Input
-            id="display-name"
-            placeholder="예: 도일"
+            id="display-nickname"
+            placeholder="닉네임을 입력해주세요."
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
           />

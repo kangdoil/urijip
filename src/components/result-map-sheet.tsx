@@ -1,16 +1,21 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Drawer } from 'vaul'
 import { ChevronDown, ChevronRight, CirclePlus } from 'lucide-react'
 import { Map, CustomOverlayMap, useKakaoLoader } from 'react-kakao-maps-sdk'
 import { groupBySigungu } from '@/lib/group-by-sigungu'
 import { CONDITION_LABEL } from '@/lib/condition-labels'
-import { Chip } from '@/components/ui/chip'
+import { cn } from '@/lib/utils'
 import { ResultHeaderPill } from '@/components/result-header-pill'
 import { ResultAreaCard, type ResultAreaData } from '@/components/result-area-card'
 import { SigunguFilterSheet } from '@/components/sigungu-filter-sheet'
+import {
+  SelectedAreaFilterSheet,
+  type AreaVisibility,
+} from '@/components/selected-area-filter-sheet'
 import { MustConditionSheet, type ParticipantConditionSummary } from '@/components/must-condition-sheet'
+import { SaveOptionsSheet } from '@/components/save-options-sheet'
 
 export interface FallbackArea {
   code: string
@@ -29,23 +34,29 @@ interface ResultMapSheetProps {
   areas: ResultAreaData[]
   matchCount: number
   fallback: FallbackResult | null
-  resolved: boolean
   mustConditions: string[]
   budgetLabel: string
   conflict: boolean
   participants: ParticipantConditionSummary[] | null
-  // 리스트를 아무리 스크롤해도 화면(뷰포트) 하단에 항상 고정으로 보여줄 액션
-  // 영역 — 시트 안에 두지 않고 별도로 렌더링된다.
-  actions?: ReactNode
+  partnerConfirmed: boolean | null
+  retrying: boolean
+  onRetry: () => void
+  saving: boolean
+  onSave: (visibleAreaCodes: string[]) => void
+  onSaveImage: () => void
+  onSaveText: () => void
+  // 저장 시트 열림 상태는 부모가 들고 있다 — Save 확정 처리(handleSave)가
+  // 끝난 뒤에 열어야 순서가 맞기 때문.
+  saveSheetOpen: boolean
+  onSaveSheetOpenChange: (open: boolean) => void
+  exportRef?: React.RefObject<HTMLDivElement | null>
 }
 
 // 지원 지역(경기 동남부) 대략 중심 — 핀이 하나도 없을 때만 쓰는 기본 좌표.
 const DEFAULT_CENTER = { lat: 37.395, lng: 127.111 }
 
-// 시트를 끝까지 내리면 핸들+필터 칩 줄+액션 버튼만 보이고(요구사항 #3), 기본은
-// 카드가 보이는 높이로 편다. vaul snapPoints는 뷰포트 대비 비율이다. 액션
-// 버튼이 시트 레이아웃 안(항상 렌더)에 들어있으므로, 접힌 높이는 핸들+칩
-// 줄+액션 버튼이 다 들어갈 만큼은 돼야 한다.
+// 시트를 끝까지 내리면 핸들+필수조건 요약줄+액션 버튼만 보이고(요구사항),
+// 기본은 필터+카드가 보이는 높이로 편다.
 const SNAP_COLLAPSED = 0.3
 const SNAP_DEFAULT = 0.6
 const SNAP_POINTS = [SNAP_COLLAPSED, SNAP_DEFAULT]
@@ -104,19 +115,34 @@ function FallbackLists({ aOnly, bOnly }: { aOnly: FallbackArea[]; bOnly: Fallbac
   )
 }
 
-// 결과 화면 지도+바텀시트. 매칭 성공 시엔 시군구 칩 → 활성 칩의 상위 3곳만
-// 지도/시트에 같이 보여준다(핀 탭 → 리스트 스크롤 연동은 v1 범위 밖 — TODO).
+function sigunguTriggerLabel(selected: Set<string>) {
+  const list = Array.from(selected)
+  if (list.length === 0) return '시군구 선택'
+  if (list.length === 1) return list[0]
+  return `${list[0]} 외 ${list.length - 1}`
+}
+
+// 결과 화면 지도+바텀시트. 매칭 성공 시엔 시군구 다중 선택 + 선택/제외 필터로
+// 카드를 걸러 보여준다(핀 탭 → 리스트 스크롤 연동은 v1 범위 밖 — TODO).
 // 매칭 0건(폴백)일 땐 칩 없이 A/B 후보를 색으로 구분해 한 지도에 같이 보여준다.
 export function ResultMapSheet({
   areas,
   matchCount,
   fallback,
-  resolved,
   mustConditions,
   budgetLabel,
   conflict,
   participants,
-  actions,
+  partnerConfirmed,
+  retrying,
+  onRetry,
+  saving,
+  onSave,
+  onSaveImage,
+  onSaveText,
+  saveSheetOpen,
+  onSaveSheetOpenChange,
+  exportRef,
 }: ResultMapSheetProps) {
   // react-kakao-maps-sdk 기본값이 프로토콜 상대경로("//dapi.kakao.com/...")라
   // 로컬 개발 서버(http://localhost:3000)에서는 http로 풀려서 브라우저 ORB에
@@ -128,21 +154,67 @@ export function ResultMapSheet({
 
   const isFallback = matchCount === 0
   const groups = useMemo(() => groupBySigungu(areas), [areas])
-  // 칩을 직접 고르기 전까진 랭킹 1위 시군구를 활성으로 본다. groups가 바뀌어도
-  // (예: 조율 후 재조회) 렌더 중에 파생값으로만 계산 — effect로 동기화하지 않는다.
-  const [manualSigungu, setManualSigungu] = useState<string | null>(null)
-  const activeSigungu =
-    manualSigungu && groups.some((g) => g.sigungu === manualSigungu)
-      ? manualSigungu
-      : (groups[0]?.sigungu ?? null)
+
+  // 여러 시군구를 동시에 선택할 수 있다(요구사항: 중복 선택 가능). 아직 직접
+  // 고르기 전엔 전체 시군구가 기본으로 선택돼 있다 — groups가 바뀌어도(예:
+  // 조율 후 재조회) effect 없이 렌더 중 파생값으로만 계산한다.
+  const [manualSigungus, setManualSigungus] = useState<Set<string> | null>(null)
+  const selectedSigungus =
+    manualSigungus && Array.from(manualSigungus).some((s) => groups.some((g) => g.sigungu === s))
+      ? manualSigungus
+      : new Set(groups.map((g) => g.sigungu))
+
+  // 카드의 X 버튼으로 뺀 구역 — Save를 누르기 전까진 이 화면 안에서만 유지된다.
+  const [excludedCodes, setExcludedCodes] = useState<Set<string>>(new Set())
+  // 기본은 "전체"가 선택된 상태 — 트리거 칩은 필터 안 된 모양(뉴트럴50)을
+  // 유지하고, 실제로 "선택된/제외된 구역만"을 고를 때만 활성(뉴트럴900)으로 바뀐다.
+  const [areaVisibility, setAreaVisibility] = useState<Set<AreaVisibility>>(new Set(['all']))
+
   const [snap, setSnap] = useState<number | string | null>(SNAP_DEFAULT)
   const [sigunguSheetOpen, setSigunguSheetOpen] = useState(false)
+  const [areaFilterSheetOpen, setAreaFilterSheetOpen] = useState(false)
   const [conditionSheetOpen, setConditionSheetOpen] = useState(false)
   const mapRef = useRef<kakao.maps.Map | null>(null)
 
+  function toggleSigungu(sigungu: string) {
+    const next = new Set(selectedSigungus)
+    if (next.has(sigungu)) next.delete(sigungu)
+    else next.add(sigungu)
+    setManualSigungus(next)
+  }
+
+  function toggleAreaVisibility(value: AreaVisibility) {
+    setAreaVisibility((prev) => {
+      const next = new Set(prev)
+      if (next.has(value)) next.delete(value)
+      else next.add(value)
+      return next
+    })
+  }
+
+  function excludeArea(code: string) {
+    setExcludedCodes((prev) => new Set(prev).add(code))
+  }
+
+  // '전체'는 "아직 따로 거르지 않음"이라는 기본값 취급이다 — X로 뺀 구역은
+  // 이 상태에서도 바로 숨긴다. '선택된/제외된 구역만'을 명시적으로 골라야
+  // 그 기준대로 걸러 보여준다(둘 다 고르면 합집합 = 전부 보여준다).
+  function passesAreaVisibility(code: string) {
+    const excluded = excludedCodes.has(code)
+    const wantSelected = areaVisibility.has('selected')
+    const wantExcluded = areaVisibility.has('excluded')
+    if (wantSelected && wantExcluded) return true
+    if (wantExcluded) return excluded
+    if (wantSelected) return !excluded
+    return !excluded
+  }
+
   const activeAreas = isFallback
     ? []
-    : (groups.find((g) => g.sigungu === activeSigungu)?.list.slice(0, 3) ?? [])
+    : groups
+        .filter((g) => selectedSigungus.has(g.sigungu))
+        .flatMap((g) => g.list.slice(0, 3))
+        .filter((a) => passesAreaVisibility(a.code))
 
   const pins: PinData[] = isFallback
     ? [
@@ -164,18 +236,18 @@ export function ResultMapSheet({
     for (const p of pins) bounds.extend(new kakao.maps.LatLng(p.lat, p.lng))
     kakaoMap.setBounds(bounds)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSigungu, loading, error])
+  }, [selectedSigungus, loading, error])
 
-  const title = resolved
-    ? '결정 완료'
-    : isFallback
-      ? '필수 조건을 모두 만족하는 구역이 없어요'
-      : '우리가 함께 할 수 있는 동네'
+  const title = isFallback ? '필수 조건을 모두 만족하는 구역이 없어요' : '함께 할 수 있는 동네'
 
   const mustNames = mustConditions.map((c) => CONDITION_LABEL[c] ?? c)
   const mustSummary = mustNames.length > 0 ? mustNames.join(', ') : '없음'
 
   const isCollapsed = snap === SNAP_COLLAPSED
+
+  // 저장 리스트는 지금 보이는 필터와 무관하게, 전체 매칭 결과에서 제외하지
+  // 않은(X 안 누른) 구역 전부를 기준으로 한다.
+  const savedAreaCodes = areas.filter((a) => !excludedCodes.has(a.code)).map((a) => a.code)
 
   return (
     <div className="relative mx-auto h-dvh w-full max-w-md overflow-hidden">
@@ -203,7 +275,11 @@ export function ResultMapSheet({
       </div>
 
       <div className="absolute inset-x-4 top-14 z-10">
-        <ResultHeaderPill title={title} count={isFallback ? undefined : matchCount} />
+        <ResultHeaderPill
+          title={title}
+          count={isFallback ? undefined : matchCount}
+          partnerConfirmed={isFallback ? undefined : partnerConfirmed ?? undefined}
+        />
       </div>
 
       <Drawer.Root
@@ -215,94 +291,127 @@ export function ResultMapSheet({
         setActiveSnapPoint={setSnap}
       >
         <Drawer.Portal>
+          <Drawer.Overlay className="pointer-events-none fixed inset-0 bg-black/40" />
           <Drawer.Content className="fixed inset-x-0 bottom-0 z-10 mx-auto flex h-full max-h-[90vh] w-full max-w-md flex-col rounded-t-3xl border border-pink-100 bg-white shadow-[0_-8px_32px_rgba(0,0,0,0.1)] outline-none">
             <div className="mx-auto mt-3 h-1 w-10 shrink-0 rounded-full bg-neutral-300" />
-
-            {/* 요구사항 #3: 시트를 끝까지 내려도 이 칩 줄만은 항상 보인다.
-                트리거 칩은 고정, 개별 시군구 칩 영역만 가로 스크롤된다. */}
-            {!isFallback && groups.length > 0 && (
-              <div className="flex shrink-0 items-center gap-1.5 px-4 pt-2 pb-3">
-                <button
-                  onClick={() => setSigunguSheetOpen(true)}
-                  className="flex shrink-0 items-center gap-1 rounded-full border-[1.2px] border-neutral-900 px-4 py-2 text-sm font-medium text-neutral-900"
-                >
-                  {groups.length}개 시군구
-                  <ChevronDown className="size-4" />
-                </button>
-                <span className="h-7 w-0.5 shrink-0 bg-neutral-100" />
-                <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
-                  {groups.map(({ sigungu }) => (
-                    <Chip
-                      key={sigungu}
-                      selected={sigungu === activeSigungu}
-                      onClick={() => setManualSigungu(sigungu)}
-                      className="shrink-0"
-                    >
-                      {sigungu}
-                    </Chip>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {!isCollapsed && (
               <div
                 className="flex-1 overflow-y-auto"
-                style={{
-                  paddingBottom: actions ? 'calc(96px + env(safe-area-inset-bottom))' : '16px',
-                }}
+                style={{ paddingBottom: 'calc(164px + env(safe-area-inset-bottom))' }}
               >
                 {isFallback ? (
-                  <FallbackLists aOnly={fallback?.a_only ?? []} bOnly={fallback?.b_only ?? []} />
+                  <div className="pt-4">
+                    <FallbackLists aOnly={fallback?.a_only ?? []} bOnly={fallback?.b_only ?? []} />
+                  </div>
                 ) : (
                   <>
-                    {/* 요구사항 #5: 이 줄을 누르면 풀페이지 시트로 A/B 조건 + 추천 이유 */}
-                    <button
-                      onClick={() => setConditionSheetOpen(true)}
-                      className="flex w-full items-center justify-between gap-2 border-b border-neutral-100 px-4 py-3"
-                    >
-                      <span className="flex min-w-0 items-center gap-2">
-                        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-pink-50">
-                          <CirclePlus className="size-5 text-pink-500" />
-                        </span>
-                        <span className="truncate text-body-m font-semibold text-pink-500">
-                          필수 조건 : {mustSummary} / {budgetLabel}
-                        </span>
-                      </span>
-                      <ChevronRight className="size-6 shrink-0 text-neutral-400" />
-                    </button>
+                    {groups.length > 0 && (
+                      <div className="flex items-center gap-1.5 px-4 py-2">
+                        <button
+                          onClick={() => setSigunguSheetOpen(true)}
+                          className="flex shrink-0 items-center gap-1 rounded-full bg-neutral-900 px-4 py-2 text-body-sb font-medium text-white"
+                        >
+                          {sigunguTriggerLabel(selectedSigungus)}
+                          <ChevronDown className="size-4" />
+                        </button>
+                        <button
+                          onClick={() => setAreaFilterSheetOpen(true)}
+                          className={cn(
+                            'flex shrink-0 items-center gap-1 rounded-full px-4 py-2 text-body-sb font-medium',
+                            areaVisibility.has('selected') || areaVisibility.has('excluded')
+                              ? 'bg-neutral-900 text-white'
+                              : 'bg-neutral-50 text-neutral-500'
+                          )}
+                        >
+                          선택된 구역만
+                          <ChevronDown className="size-4" />
+                        </button>
+                      </div>
+                    )}
 
-                    <div className="flex snap-x gap-3 overflow-x-auto px-4 py-4">
+                    <div className="flex snap-x gap-3 overflow-x-auto px-4 py-3">
                       {activeAreas.map((area) => (
-                        <ResultAreaCard key={area.code} area={area} />
+                        <ResultAreaCard key={area.code} area={area} onExclude={excludeArea} />
                       ))}
+                      {activeAreas.length === 0 && (
+                        <p className="py-4 text-center text-body-s text-neutral-400">
+                          이 조건을 만족하는 구역이 없어요
+                        </p>
+                      )}
                     </div>
                   </>
                 )}
               </div>
             )}
-
           </Drawer.Content>
         </Drawer.Portal>
       </Drawer.Root>
 
-      {/* Drawer.Content는 snap과 무관하게 항상 h-full(90vh) 박스라 시트
-          레이아웃 안에 두면 접힌 상태에선 뷰포트 밖으로 밀려난다. 그래서
-          뷰포트 기준 fixed로 따로 띄우되, 접힌 스냅(SNAP_COLLAPSED)을 칩
-          줄+액션 바 높이보다 넉넉하게 잡아서 칩 줄이 액션 바에 가리지
-          않게 한다. */}
-      {actions && (
-        <div className="fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-md border-t border-neutral-100 bg-white px-4 pt-3 pb-[max(16px,env(safe-area-inset-bottom))]">
-          {actions}
+      {/* Drawer.Content는 snap과 무관하게 항상 h-full(90vh) 박스이고, vaul은
+          접힌 스냅에서 그걸 translateY로 아래로 밀 뿐이라 시트 레이아웃 안에
+          두면 접힌 상태에서 뷰포트 밖으로 밀려난다. 그래서 뷰포트 기준
+          fixed로 따로 띄워 항상 보이게 한다. */}
+      <div className="fixed inset-x-0 bottom-0 z-20 mx-auto flex w-full max-w-md flex-col items-center bg-white">
+        {/* 요구사항: 시트를 끝까지 내려도 이 줄만은 버튼 바로 위에 항상 보인다 —
+            그래서 시트 안이 아니라 이 고정 블록에 같이 둔다. */}
+        {!isFallback && (
+          <button
+            onClick={() => setConditionSheetOpen(true)}
+            className="flex w-full shrink-0 items-center justify-between gap-2 border-b border-neutral-100 px-4 py-3"
+          >
+            <span className="flex min-w-0 items-center gap-1.5">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-pink-50">
+                <CirclePlus className="size-4 text-pink-500" />
+              </span>
+              <span className="truncate text-body-sb font-semibold text-pink-500">
+                필수 조건 : {mustSummary} / {budgetLabel}
+              </span>
+            </span>
+            <ChevronRight className="size-5 shrink-0 text-neutral-400" />
+          </button>
+        )}
+
+        <div className="flex w-full flex-col items-center gap-4 px-4 py-5">
+          <div className="flex w-full items-center gap-3">
+            <button
+              onClick={onRetry}
+              disabled={retrying}
+              className="flex w-[105px] shrink-0 items-center justify-center rounded-full border-2 border-pink-500 px-10 py-5 font-montserrat text-mont-title-m font-bold text-pink-500 disabled:opacity-50"
+            >
+              Retry
+            </button>
+            {!isFallback && (
+              <button
+                onClick={() => onSave(savedAreaCodes)}
+                disabled={saving}
+                className="flex flex-1 items-center justify-center rounded-full bg-pink-500 px-10 py-5 font-montserrat text-mont-title-m font-bold text-white disabled:opacity-50"
+              >
+                Save
+              </button>
+            )}
+          </div>
+          {!isFallback && (
+            <p className="text-center text-caption-l font-medium text-neutral-500">
+              Save를 누르면 확정되고, 동네 리스트를 저장할 수 있어요
+            </p>
+          )}
         </div>
-      )}
+      </div>
 
       <SigunguFilterSheet
         open={sigunguSheetOpen}
         onOpenChange={setSigunguSheetOpen}
         sigungus={groups.map((g) => g.sigungu)}
-        active={activeSigungu}
-        onSelect={setManualSigungu}
+        selected={selectedSigungus}
+        onToggle={toggleSigungu}
+      />
+
+      <SelectedAreaFilterSheet
+        open={areaFilterSheetOpen}
+        onOpenChange={setAreaFilterSheetOpen}
+        selected={areaVisibility}
+        onToggle={toggleAreaVisibility}
       />
 
       <MustConditionSheet
@@ -314,6 +423,38 @@ export function ResultMapSheet({
         conflict={conflict}
         matchCount={matchCount}
       />
+
+      <SaveOptionsSheet
+        open={saveSheetOpen}
+        onOpenChange={onSaveSheetOpenChange}
+        matchCount={savedAreaCodes.length}
+        onSaveImage={onSaveImage}
+        onSaveText={onSaveText}
+      />
+
+      {/* html-to-image로 캡처할 내보내기용 카드 — 화면 밖에 렌더링해둔다. */}
+      {exportRef && (
+        <div className="pointer-events-none fixed top-0 left-[-9999px]">
+          <div ref={exportRef} className="flex w-[360px] flex-col gap-4 bg-white p-8">
+            <div className="flex flex-col items-center gap-1 text-center">
+              <p className="text-body-m text-neutral-500">우리가 함께 할 수 있는 동네</p>
+              <p className="text-title-l font-bold text-neutral-900">
+                총 <span className="font-montserrat text-mont-title-l text-pink-500">
+                  {savedAreaCodes.length}
+                </span>
+                곳
+              </p>
+            </div>
+            <div className="flex flex-col gap-3">
+              {areas
+                .filter((a) => savedAreaCodes.includes(a.code))
+                .map((area) => (
+                  <ResultAreaCard key={area.code} area={area} />
+                ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

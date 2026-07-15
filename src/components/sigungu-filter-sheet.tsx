@@ -7,18 +7,20 @@ interface SigunguFilterSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   sigungus: string[]
-  active: string | null
-  onSelect: (sigungu: string) => void
+  selected: Set<string>
+  onToggle: (sigungu: string) => void
 }
 
-// "N개 시군구" 칩을 누르면 뜨는 전체 목록 필터 시트. 시트 안 칩은 anchor
-// 페이지의 카테고리 칩과 같은 Chip 컴포넌트를 그대로 쓴다.
+// "경기도 광주 외 N" 트리거를 누르면 뜨는 시군구 다중 선택 시트. 시트 안 칩은
+// anchor 페이지의 카테고리 칩과 같은 Chip 컴포넌트를 그대로 쓴다. 중복 선택이
+// 가능해서(요청사항) 칩을 눌러도 시트를 닫지 않는다 — 핸들 드래그나 바깥
+// 탭으로 닫는다.
 export function SigunguFilterSheet({
   open,
   onOpenChange,
   sigungus,
-  active,
-  onSelect,
+  selected,
+  onToggle,
 }: SigunguFilterSheetProps) {
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -28,14 +30,7 @@ export function SigunguFilterSheet({
         </DrawerHeader>
         <div className="flex flex-wrap gap-2 px-4 pb-8">
           {sigungus.map((sigungu) => (
-            <Chip
-              key={sigungu}
-              selected={sigungu === active}
-              onClick={() => {
-                onSelect(sigungu)
-                onOpenChange(false)
-              }}
-            >
+            <Chip key={sigungu} selected={selected.has(sigungu)} onClick={() => onToggle(sigungu)}>
               {sigungu}
             </Chip>
           ))}

@@ -1,14 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import Link from 'next/link'
+import { useEffect, useRef, useState } from 'react'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { getMyParticipant } from '@/lib/get-my-participant'
-import { formatEok, type Tier } from '@/lib/condition-labels'
-import { Button } from '@/components/ui/button'
+import { CONDITION_LABEL, formatEok, type Tier } from '@/lib/condition-labels'
 import { ResultMapSheet } from '@/components/result-map-sheet'
 import { useCommuteStatus } from '@/lib/use-commute-status'
+import { groupBySigungu } from '@/lib/group-by-sigungu'
 
 interface ParticipantSummary {
   role: 'A' | 'B'
@@ -57,23 +56,64 @@ interface FallbackResult {
   b_only: FallbackArea[]
 }
 
+function buildExportText(matches: MatchArea[], codes: string[]) {
+  const selected = matches.filter((m) => codes.includes(m.code))
+  const groups = groupBySigungu(selected)
+  const lines = [`우리가 함께 할 수 있는 동네 (총 ${selected.length}곳)`, '']
+  for (const { sigungu, list } of groups) {
+    lines.push(`[${sigungu}]`)
+    for (const m of list) {
+      const satisfiedNames = Object.entries(m.satisfied)
+        .filter(([, ok]) => ok)
+        .map(([code]) => CONDITION_LABEL[code] ?? code)
+      const satisfiedPart = satisfiedNames.length > 0 ? ` · ${satisfiedNames.join(', ')} 충족` : ''
+      lines.push(`- ${m.name} (${formatEok(m.avg_price_krw)}) · A ${m.a_minutes}분 · B ${m.b_minutes}분${satisfiedPart}`)
+    }
+    lines.push('')
+  }
+  return lines.join('\n').trim()
+}
+
 export default function ResultPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const sessionId = params.id
 
   const [result, setResult] = useState<MatchResult | null>(null)
   const [fallback, setFallback] = useState<FallbackResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [shareUrl, setShareUrl] = useState<string | null>(null)
-  const [sharing, setSharing] = useState(false)
-  const [shareError, setShareError] = useState<string | null>(null)
   const [resolved, setResolved] = useState(false)
-  const [reopening, setReopening] = useState(false)
+  const [retrying, setRetrying] = useState(false)
   const [participants, setParticipants] = useState<ParticipantSummary[] | null>(null)
 
+  const [myRole, setMyRole] = useState<'A' | 'B' | null>(null)
+  const [partnerConfirmed, setPartnerConfirmed] = useState<boolean | null>(null)
+
+  const [saving, setSaving] = useState(false)
+  const [saveSheetOpen, setSaveSheetOpen] = useState(false)
+  const [savedCodes, setSavedCodes] = useState<string[]>([])
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [copiedText, setCopiedText] = useState(false)
+  // 조율 화면에서 제안이 수락/거절돼 결과 화면으로 넘어온 직후 — 이동됐다는
+  // 걸 토스트로 안내하고, 새로고침 시 다시 뜨지 않도록 쿼리를 정리한다.
+  const [noticeToast, setNoticeToast] = useState(() => searchParams.get('notice') === 'updated')
+  const noticeTimerStarted = useRef(false)
+
+  const exportRef = useRef<HTMLDivElement>(null)
+
   const { ready: commuteReady, status: commuteStatus } = useCommuteStatus(sessionId)
+
+  // 데이터 로딩이 끝나 실제 화면이 뜬 뒤에야 카운트다운을 시작한다 — 로딩이
+  // 2.5초보다 길면 토스트가 뜨기도 전에 사라지는 문제가 있었다.
+  useEffect(() => {
+    if (!noticeToast || loading || noticeTimerStarted.current) return
+    noticeTimerStarted.current = true
+    router.replace(`/s/${sessionId}/result`)
+    const timer = setTimeout(() => setNoticeToast(false), 2500)
+    return () => clearTimeout(timer)
+  }, [noticeToast, loading, sessionId, router])
 
   useEffect(() => {
     if (!commuteReady) return
@@ -86,6 +126,9 @@ export default function ResultPage() {
         .eq('id', sessionId)
         .single()
       setResolved(sessionRow?.status === 'resolved')
+
+      const me = await getMyParticipant(supabase, sessionId)
+      setMyRole(me?.role ?? null)
 
       const { data, error: rpcError } = await supabase.rpc('get_matches', {
         sid: sessionId,
@@ -107,7 +150,7 @@ export default function ResultPage() {
       // "자세히 보기" 펼침용 — 어차피 가벼운 조회라 펼치기 전에 미리 받아둔다.
       const { data: rows } = await supabase
         .from('participants')
-        .select('role, display_name, budget_max_krw, commute_max_min, id')
+        .select('role, display_name, budget_max_krw, commute_max_min, id, confirmed_at')
         .eq('session_id', sessionId)
         .order('role')
       if (rows) {
@@ -128,66 +171,97 @@ export default function ResultPage() {
           })
         }
         setParticipants(summaries)
+
+        const partner = rows.find((r) => r.role !== me?.role)
+        setPartnerConfirmed(partner ? partner.confirmed_at != null : null)
       }
 
       setLoading(false)
     })()
   }, [sessionId, router, commuteReady])
 
-  async function handleShare() {
-    if (!result || result.match_count === 0 || sharing) return
-    setSharing(true)
-    setShareError(null)
+  // 상대가 Save(확정)하면 새로고침 없이도 상단 배지가 바뀌도록 주기적으로
+  // 상대의 확정 여부만 가볍게 다시 조회한다.
+  useEffect(() => {
+    if (!commuteReady || !myRole) return
+    const supabase = createClient()
+    const interval = setInterval(async () => {
+      const { data: rows } = await supabase
+        .from('participants')
+        .select('role, confirmed_at')
+        .eq('session_id', sessionId)
+      const partner = rows?.find((r) => r.role !== myRole)
+      if (partner) setPartnerConfirmed(partner.confirmed_at != null)
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [commuteReady, myRole, sessionId])
+
+  async function handleRetry() {
+    if (retrying) return
+    setRetrying(true)
+    try {
+      if (resolved) {
+        const supabase = createClient()
+        const { error: reopenError } = await supabase.rpc('reopen_session', {
+          sid: sessionId,
+        })
+        if (reopenError) throw reopenError
+      }
+      router.push(`/s/${sessionId}/adjust`)
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : '다시 조율하기에 실패했어요')
+      setRetrying(false)
+    }
+  }
+
+  async function handleSave(visibleAreaCodes: string[]) {
+    if (saving) return
+    setSaving(true)
+    setActionError(null)
     try {
       const supabase = createClient()
       const me = await getMyParticipant(supabase, sessionId)
       if (!me) throw new Error('참여자 정보를 찾을 수 없어요')
 
-      const { data: existing } = await supabase
-        .from('result_shares')
-        .select('share_slug')
-        .eq('session_id', sessionId)
-        .eq('created_by', me.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
+      const { error: updateError } = await supabase
+        .from('participants')
+        .update({ confirmed_at: new Date().toISOString(), saved_area_codes: visibleAreaCodes })
+        .eq('id', me.id)
+      if (updateError) throw updateError
 
-      let slug = existing?.[0]?.share_slug
-      if (!slug) {
-        const { data: created, error: insertError } = await supabase
-          .from('result_shares')
-          .insert({
-            session_id: sessionId,
-            created_by: me.id,
-            area_codes: result.matches.slice(0, 5).map((m) => m.code),
-          })
-          .select('share_slug')
-          .single()
-        if (insertError) throw insertError
-        slug = created.share_slug
-      }
-
-      setShareUrl(`${window.location.origin}/share/${slug}`)
+      setSavedCodes(visibleAreaCodes)
+      setSaveSheetOpen(true)
     } catch (e) {
-      setShareError(e instanceof Error ? e.message : '공유 링크 생성에 실패했어요')
+      setActionError(e instanceof Error ? e.message : '저장에 실패했어요')
     } finally {
-      setSharing(false)
+      setSaving(false)
     }
   }
 
-  async function handleReopen() {
-    if (reopening) return
-    setReopening(true)
+  async function handleSaveImage() {
+    if (!exportRef.current) return
     try {
-      const supabase = createClient()
-      const { error: reopenError } = await supabase.rpc('reopen_session', {
-        sid: sessionId,
-      })
-      if (reopenError) throw reopenError
-      router.push(`/s/${sessionId}/adjust`)
-    } catch (e) {
-      setShareError(e instanceof Error ? e.message : '다시 조율하기에 실패했어요')
-      setReopening(false)
+      const { toPng } = await import('html-to-image')
+      const dataUrl = await toPng(exportRef.current, { pixelRatio: 2, backgroundColor: '#ffffff' })
+      const link = document.createElement('a')
+      link.download = '우리집-추천동네.png'
+      link.href = dataUrl
+      link.click()
+    } catch {
+      setActionError('이미지 저장에 실패했어요')
     }
+  }
+
+  function handleSaveText() {
+    if (!result) return
+    const text = buildExportText(result.matches, savedCodes)
+    try {
+      navigator.clipboard.writeText(text)?.catch(() => {})
+    } catch {
+      // ignore
+    }
+    setCopiedText(true)
+    setTimeout(() => setCopiedText(false), 1800)
   }
 
   if (!commuteReady) {
@@ -229,64 +303,51 @@ export default function ResultPage() {
 
   const budgetLabel = `예산 ${formatEok(result.budget.applied_krw)} 이하`
 
-  const actions = (
-    <div>
-      <div className="flex gap-3">
-        {resolved ? (
-          <Button
-            onClick={handleReopen}
-            disabled={reopening}
-            variant="outline"
-            className="w-auto font-montserrat text-mont-title-m"
-          >
-            Retry
-          </Button>
-        ) : (
-          <Button asChild variant="outline" className="w-auto font-montserrat text-mont-title-m">
-            <Link href={`/s/${sessionId}/adjust`}>Retry</Link>
-          </Button>
-        )}
-        {result.match_count > 0 && (
-          <Button
-            onClick={handleShare}
-            disabled={sharing}
-            className="flex-1 font-montserrat text-mont-title-m"
-          >
-            Share
-          </Button>
-        )}
-      </div>
-
-      {shareUrl && (
-        <div className="mt-3 flex gap-2">
-          <input
-            readOnly
-            value={shareUrl}
-            className="flex-1 rounded-full border border-neutral-200 bg-neutral-50 px-4 py-2 text-sm"
-          />
-          <Button variant="outline" onClick={() => navigator.clipboard.writeText(shareUrl)}>
-            복사
-          </Button>
-        </div>
-      )}
-
-      {shareError && <p className="mt-2 text-center text-sm text-red-600">{shareError}</p>}
-    </div>
-  )
-
   return (
     <main className="flex-1">
       <ResultMapSheet
         areas={result.matches}
         matchCount={result.match_count}
         fallback={fallback}
-        resolved={resolved}
         mustConditions={result.must_conditions}
         budgetLabel={budgetLabel}
         conflict={result.budget.conflict}
         participants={participants}
-        actions={actions}
+        partnerConfirmed={partnerConfirmed}
+        retrying={retrying}
+        onRetry={handleRetry}
+        saving={saving}
+        onSave={handleSave}
+        onSaveImage={handleSaveImage}
+        onSaveText={handleSaveText}
+        saveSheetOpen={saveSheetOpen}
+        onSaveSheetOpenChange={setSaveSheetOpen}
+        exportRef={exportRef}
       />
+
+      {actionError && (
+        <div className="fixed inset-x-0 bottom-24 z-30 flex justify-center px-4">
+          <span className="rounded-full bg-red-600 px-5 py-3 text-body-sb font-semibold text-white shadow-lg">
+            {actionError}
+          </span>
+        </div>
+      )}
+
+      {copiedText && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-24 z-30 flex justify-center px-4">
+          <span className="animate-in fade-in-0 slide-in-from-bottom-2 rounded-full bg-neutral-900 px-5 py-3 text-body-sb font-semibold text-neutral-0 shadow-lg">
+            클립보드에 복사되었어요
+          </span>
+        </div>
+      )}
+
+      {noticeToast && (
+        <div className="pointer-events-none fixed inset-x-0 top-[max(16px,env(safe-area-inset-top))] z-30 flex justify-center px-4">
+          <span className="animate-in fade-in-0 slide-in-from-top-2 rounded-full bg-neutral-900 px-5 py-3 text-body-sb font-semibold text-neutral-0 shadow-lg">
+            새로운 결과로 이동했어요
+          </span>
+        </div>
+      )}
     </main>
   )
 }

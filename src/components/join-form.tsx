@@ -53,8 +53,8 @@ export function JoinForm({ code }: { code: string }) {
         <Input
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
-          placeholder="예: 도일"
-          aria-label="내 이름"
+          placeholder="닉네임을 입력해주세요."
+          aria-label="닉네임"
         />
       </div>
 

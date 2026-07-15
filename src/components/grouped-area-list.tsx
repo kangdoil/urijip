@@ -103,11 +103,8 @@ export function GroupedAreaList({
 
         return (
           <div key={sigungu} className="rounded-[28px] border border-neutral-100 bg-neutral-50 p-4">
-            <div className="mb-2.5 flex items-center justify-between px-0.5">
+            <div className="mb-2.5 px-0.5">
               <span className="text-body-sb font-bold text-neutral-900">{sigungu}</span>
-              <span className="rounded-full bg-white px-2.5 py-1 text-caption-l font-medium text-neutral-500">
-                {list.length}곳
-              </span>
             </div>
 
             <div className="flex flex-col gap-2">

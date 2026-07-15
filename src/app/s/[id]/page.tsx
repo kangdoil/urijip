@@ -4,8 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Drawer } from 'vaul'
-import { Check, RefreshCw } from 'lucide-react'
+import { Check, Copy, RefreshCw } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 
@@ -31,11 +30,6 @@ interface Presence {
   roles: ('A' | 'B')[]
   participants: PresenceParticipant[]
 }
-
-// 시트를 드래그해서 접고 펼 수 있게 2단계 snap만 쓴다(콘텐츠 자체는 두
-// 단계에서 동일 — 결과 화면처럼 내용을 숨기는 용도가 아니라 드래그 여지를
-// 주기 위한 것).
-const SNAP_POINTS = [0.68, 0.92]
 
 function Avatar({
   src,
@@ -93,7 +87,6 @@ export default function SessionPage() {
   const [error, setError] = useState<string | null>(null)
   const [inviteUrl, setInviteUrl] = useState('')
   const [copied, setCopied] = useState(false)
-  const [snap, setSnap] = useState<number | string | null>(SNAP_POINTS[0])
 
   const refresh = useCallback(async () => {
     const supabase = createClient()
@@ -134,24 +127,39 @@ export default function SessionPage() {
 
   useEffect(() => {
     refresh()
+    // 상대방이 참여한 뒤에도 조건 입력을 마쳤는지(bothReady)는 계속 폴링해야
+    // "새로고침" 없이 자동으로 다음 화면(결과 보기)으로 넘어간다.
     const interval = setInterval(() => {
-      setPresence((prev) => {
-        if (prev && prev.participant_count >= 2) return prev
-        refresh()
-        return prev
+      setBothReady((ready) => {
+        if (!ready) refresh()
+        return ready
       })
     }, 3000)
     return () => clearInterval(interval)
   }, [refresh])
 
   function copyInviteUrl() {
+    // writeText는 동기적으로도, Promise reject로도 실패할 수 있다 — 클립보드
+    // 접근이 막힌 환경(권한 거부 등)이어도 UI 피드백(토스트)은 그대로 보여준다.
     try {
-      navigator.clipboard.writeText(inviteUrl)
+      navigator.clipboard.writeText(inviteUrl)?.catch(() => {})
     } catch {
-      // 클립보드 접근이 막힌 환경(권한 거부 등)이어도 UI 피드백은 그대로 보여준다.
+      // ignore
     }
     setCopied(true)
     setTimeout(() => setCopied(false), 1800)
+  }
+
+  async function shareInviteUrl() {
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: '우리집에 초대할게요', url: inviteUrl })
+        return
+      } catch {
+        // 사용자가 공유를 취소했거나 미지원 — 클립보드 복사로 대체한다.
+      }
+    }
+    copyInviteUrl()
   }
 
   if (error) {
@@ -169,32 +177,28 @@ export default function SessionPage() {
   const partnerJoined = presence.participant_count >= 2
 
   const title = bothReady
-    ? '모두 조건 입력을 완료했어요'
+    ? '상대방이 조건 입력을 완료했어요'
     : partnerJoined
       ? '상대방이 참여했어요'
       : '상대방에게 초대를 보냈어요'
 
-  const description = bothReady ? (
+  const description = bothReady
+    ? '아래 버튼을 눌러 동네를 확인해보세요'
+    : partnerJoined
+      ? '조건 입력을 완료하면 알려드릴게요'
+      : '상대방이 참여해야 결과를 볼 수 있어요'
+
+  const footerNote = bothReady ? (
     <>
       두 사람의 조건을 분석하여
       <br />
-      가장 완벽한 동네를 추천할게요
+      가장 완벽한 동네들을 선정했어요
     </>
   ) : partnerJoined ? (
     <>
       내 조건은 상대방이 입력을
       <br />
       마치지 전까지 공개되지 않아요
-    </>
-  ) : (
-    '상대방이 참여해야 결과를 볼 수 있어요'
-  )
-
-  const footerNote = partnerJoined ? (
-    <>
-      조건 입력이 끝나면 아래 새로고침을 통해
-      <br />
-      결과를 확인할 수 있어요
     </>
   ) : (
     <>
@@ -205,78 +209,68 @@ export default function SessionPage() {
   )
 
   return (
-    <main className="relative mx-auto h-dvh w-full max-w-md overflow-hidden bg-neutral-50">
-      <div className="absolute inset-x-0 top-[7%] px-6">
-        <div className="flex flex-col items-center gap-3 text-center">
-          <h1 className="text-2xl leading-8 font-semibold tracking-[-0.03em] text-neutral-900">
-            {title}
-          </h1>
-          <p className="text-base leading-[1.4] tracking-[-0.015em] text-neutral-500">
-            {description}
-          </p>
-        </div>
+    <main
+      className="mx-auto flex h-dvh w-full max-w-md flex-col overflow-y-auto bg-neutral-50 px-4 pt-16"
+      style={{ paddingBottom: 'calc(120px + env(safe-area-inset-bottom))' }}
+    >
+      <div className="flex flex-col items-center gap-3 text-center">
+        <h1 className="text-2xl leading-8 font-semibold tracking-[-0.03em] text-neutral-900">
+          {title}
+        </h1>
+        <p className="text-base leading-[1.4] tracking-[-0.015em] text-neutral-500">
+          {description}
+        </p>
       </div>
 
-      <Drawer.Root
-        open
-        dismissible={false}
-        snapPoints={SNAP_POINTS}
-        activeSnapPoint={snap}
-        setActiveSnapPoint={setSnap}
-      >
-        <Drawer.Portal>
-          <Drawer.Overlay className="fixed inset-0 bg-black/40" />
-          <Drawer.Content className="fixed inset-x-0 bottom-0 z-10 mx-auto flex h-full max-h-[90vh] w-full max-w-md flex-col rounded-t-3xl bg-white shadow-[0_-8px_32px_rgba(0,0,0,0.1)] outline-none">
-            <div className="mx-auto mt-3 h-1 w-10 shrink-0 rounded-full bg-neutral-300" />
+      {/* 드래그 가능한 바텀시트가 아니라, 일반 문서 흐름 안에 놓인 정적 카드 */}
+      <div className="mt-6 flex flex-col items-center gap-8 rounded-[40px] bg-white p-8 shadow-[0_10px_20px_rgba(0,0,0,0.04)]">
+        <div className="flex items-center gap-4">
+          <div className="flex flex-col items-center gap-5">
+            <Avatar
+              src="/asset/urijip_A.png"
+              alt="A"
+              bg="bg-pink-100"
+              border="border-pink-500"
+              checked={Boolean(aInfo?.completed_at)}
+              checkBg="bg-pink-500"
+            />
+            <NamePill label={aInfo?.display_name ?? 'A'} bg="bg-pink-500" />
+          </div>
 
-            <div
-              className="flex-1 overflow-y-auto px-4 pt-6"
-              style={{ paddingBottom: 'calc(120px + env(safe-area-inset-bottom))' }}
-            >
-              <div className="flex flex-col items-center gap-8 rounded-[40px] bg-white p-8 shadow-[0_10px_20px_rgba(0,0,0,0.04)]">
-                <div className="flex items-center gap-4">
-                  <div className="flex flex-col items-center gap-5">
-                    <Avatar
-                      src="/asset/urijip_A.png"
-                      alt="A"
-                      bg="bg-pink-100"
-                      border="border-pink-500"
-                      checked={Boolean(aInfo?.completed_at)}
-                      checkBg="bg-pink-500"
-                    />
-                    <NamePill label={aInfo?.display_name ?? 'A'} bg="bg-pink-500" />
-                  </div>
+          <div className="h-1 w-[92px] shrink-0 overflow-hidden rounded-full bg-neutral-100">
+            <div className="h-full w-[58%] rounded-full bg-pink-500" />
+          </div>
 
-                  <div className="h-1 w-[92px] shrink-0 overflow-hidden rounded-full bg-neutral-100">
-                    <div className="h-full w-[58%] rounded-full bg-pink-500" />
-                  </div>
+          <div className="flex flex-col items-center gap-5">
+            <Avatar
+              src="/asset/urijip_B.png"
+              alt="B"
+              bg="bg-accent-teal/10"
+              border="border-accent-teal"
+              faded={!partnerJoined}
+              checked={Boolean(bInfo?.completed_at)}
+              checkBg="bg-accent-teal"
+            />
+            <NamePill
+              label={bInfo?.display_name ?? '?'}
+              bg="bg-accent-teal"
+              faded={!partnerJoined}
+            />
+          </div>
+        </div>
 
-                  <div className="flex flex-col items-center gap-5">
-                    <Avatar
-                      src="/asset/urijip_B.png"
-                      alt="B"
-                      bg="bg-accent-teal/10"
-                      border="border-accent-teal"
-                      faded={!partnerJoined}
-                      checked={Boolean(bInfo?.completed_at)}
-                      checkBg="bg-accent-teal"
-                    />
-                    <NamePill
-                      label={bInfo?.display_name ?? '?'}
-                      bg="bg-accent-teal"
-                      faded={!partnerJoined}
-                    />
-                  </div>
-                </div>
+        <div className="h-px w-full bg-neutral-100" />
 
-                <div className="h-px w-full bg-neutral-100" />
+        <p className="text-center text-body-s text-neutral-500">{footerNote}</p>
+      </div>
 
-                <p className="text-center text-body-s text-neutral-500">{footerNote}</p>
-              </div>
-            </div>
-          </Drawer.Content>
-        </Drawer.Portal>
-      </Drawer.Root>
+      {copied && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-[108px] z-30 flex justify-center px-4">
+          <span className="animate-in fade-in-0 slide-in-from-bottom-2 rounded-full bg-neutral-900 px-5 py-3 text-body-sb font-semibold text-neutral-0 shadow-lg">
+            클립보드에 복사되었어요
+          </span>
+        </div>
+      )}
 
       <div className="fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-md px-4 pb-[max(24px,env(safe-area-inset-bottom))]">
         {bothReady ? (
@@ -292,13 +286,21 @@ export default function SessionPage() {
             <RefreshCw className="size-5" />
           </button>
         ) : (
-          <Button
-            variant="outline"
-            onClick={copyInviteUrl}
-            className="w-full border-2 border-pink-500 text-pink-500 hover:bg-pink-50"
-          >
-            {copied ? '링크를 복사했어요' : '초대 링크 복사'}
-          </Button>
+          <div className="flex gap-2">
+            <div className="flex min-w-0 flex-[2] items-center justify-between gap-2 rounded-full border border-neutral-200 bg-white px-4 py-3">
+              <span className="truncate text-body-s text-neutral-500">{inviteUrl}</span>
+              <button
+                onClick={copyInviteUrl}
+                aria-label="초대 링크 복사"
+                className="shrink-0 text-neutral-400 transition-colors hover:text-neutral-600"
+              >
+                <Copy className="size-4" />
+              </button>
+            </div>
+            <Button onClick={shareInviteUrl} className="flex-1 font-montserrat text-mont-title-m">
+              Share
+            </Button>
+          </div>
         )}
       </div>
     </main>

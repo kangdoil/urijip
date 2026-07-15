@@ -1,15 +1,17 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { ArrowRight } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { getMyParticipant, type MyParticipant } from '@/lib/get-my-participant'
 import { CONDITION_LABEL, formatEok } from '@/lib/condition-labels'
-import { Button } from '@/components/ui/button'
 import { GroupedAreaList } from '@/components/grouped-area-list'
 import { useCommuteStatus } from '@/lib/use-commute-status'
 import { Slider } from '@/components/ui/slider'
 import { OnboardBackBar } from '@/components/onboard-back-bar'
+import { DecisionResultSheet } from '@/components/decision-result-sheet'
+import { ensureRealtimeAuth } from '@/lib/supabase/realtime-auth'
 import { cn } from '@/lib/utils'
 
 type Tier = 'must' | 'nice' | 'skip'
@@ -45,15 +47,6 @@ interface Proposal {
   status: string
 }
 
-function describePayload(payload: Record<string, string | number>) {
-  return Object.entries(payload)
-    .map(([key, value]) => {
-      if (key === 'budget_max_krw') return `예산 상한 ${formatEok(Number(value))}로 조정`
-      return `${CONDITION_LABEL[key] ?? key} → ${TIER_LABEL[value as Tier] ?? value}`
-    })
-    .join(', ')
-}
-
 function nextTier(t: Tier): Tier {
   return t === 'must' ? 'nice' : t === 'nice' ? 'skip' : 'must'
 }
@@ -61,6 +54,57 @@ function nextTier(t: Tier): Tier {
 // A=핑크, B=청록 — 결과 화면(ResultAreaCard, Pin 등)과 동일한 역할 컬러 코드
 function tierPillClass(role: 'A' | 'B') {
   return role === 'A' ? 'border-pink-500 text-pink-500' : 'border-accent-teal text-accent-teal'
+}
+
+// role 고유 색 토큰 — "변경 사항" 배지는 제안자 본인(role) 색을, "상대 확인
+// 중" 배지는 결정할 상대(반대 role) 색을 쓴다. 즉 같은 화면 안에서 두 배지가
+// 서로 다른 role의 색을 참조한다 (Figma: 제안 시 화면_A/_B).
+function roleTokens(role: 'A' | 'B') {
+  return role === 'A'
+    ? { statusBg: 'bg-pink-100', statusDot: 'bg-pink-500', statusText: 'text-pink-500', badgeBg: 'bg-pink-50', badgeText: 'text-pink-500' }
+    : { statusBg: 'bg-accent-teal/20', statusDot: 'bg-accent-teal', statusText: 'text-accent-teal', badgeBg: 'bg-accent-teal/20', badgeText: 'text-accent-teal' }
+}
+
+// 매칭 개수만 필요한 가벼운 버전 — "총 8곳 → 총 10곳" 비교용 (passing과 달리
+// niceCount/정렬은 카드 렌더링에만 필요해서 뺐다).
+function countMatches(
+  candidates: Candidate[],
+  aTiers: Record<string, Tier>,
+  bTiers: Record<string, Tier>,
+  budget: number
+) {
+  const musts = CODES.filter((c) => aTiers[c] === 'must' || bTiers[c] === 'must')
+  return candidates.filter(
+    (c) =>
+      c.avg_price_krw != null &&
+      c.avg_price_krw <= budget &&
+      musts.every((code) => c.satisfied[code])
+  ).length
+}
+
+function buildChanges(
+  payload: Record<string, string | number>,
+  original: ParticipantAdjust
+) {
+  return Object.entries(payload).map(([key, value]) => {
+    if (key === 'budget_max_krw') {
+      return {
+        key,
+        label: '예산 상한',
+        oldValue: formatEok(original.budget_max_krw),
+        newValue: formatEok(Number(value)),
+        isSkip: false,
+      }
+    }
+    const newTier = value as Tier
+    return {
+      key,
+      label: CONDITION_LABEL[key] ?? key,
+      oldValue: TIER_LABEL[original.conditions[key] as Tier],
+      newValue: TIER_LABEL[newTier],
+      isSkip: newTier === 'skip',
+    }
+  })
 }
 
 export default function AdjustPage() {
@@ -74,6 +118,7 @@ export default function AdjustPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [decisionSheet, setDecisionSheet] = useState<'accepted' | 'rejected' | null>(null)
 
   const [aTiers, setATiers] = useState<Record<string, Tier>>({})
   const [bTiers, setBTiers] = useState<Record<string, Tier>>({})
@@ -149,11 +194,51 @@ export default function AdjustPage() {
     refresh()
   }, [refresh, commuteReady])
 
+  const isProposer = pending?.proposer_id === me?.id
+
+  // 실시간 구독으로 상대가 이 제안을 수락/거절하는 순간을 감지한다. 수락 시
+  // decide_proposal이 세션을 resolved로 바꾸므로 바로 결과로 보내고, 거절
+  // 시에도 "A,B 모두 결과 화면으로 이동" 요구사항에 맞춰 결과로 보낸다.
+  useEffect(() => {
+    if (!pending || !isProposer) return
+    const supabase = createClient()
+    let cancelled = false
+    let channel: ReturnType<typeof supabase.channel> | null = null
+
+    ;(async () => {
+      await ensureRealtimeAuth(supabase)
+      if (cancelled) return
+      channel = supabase
+        .channel(`proposal-decision:${pending.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'proposals',
+            filter: `id=eq.${pending.id}`,
+          },
+          (payload) => {
+            const status = (payload.new as { status: string }).status
+            if (status === 'accepted' || status === 'rejected') {
+              router.push(`/s/${sessionId}/result?notice=updated`)
+            }
+          }
+        )
+        .subscribe()
+    })()
+
+    return () => {
+      cancelled = true
+      if (channel) supabase.removeChannel(channel)
+    }
+  }, [pending, isProposer, sessionId, router])
+
   const lowBudgetOriginal = data ? Math.min(data.a.budget_max_krw, data.b.budget_max_krw) : 0
   const highBudgetOriginal = data ? Math.max(data.a.budget_max_krw, data.b.budget_max_krw) : 0
   const budgetHasConflict = data ? data.a.budget_max_krw !== data.b.budget_max_krw : false
   // 두 사람 예산 중 더 높은 쪽보다도 3억 더 위까지 탐색해볼 수 있게 여유를 둔다
-  // (예산이 같을 때도 슬라이더로 상한을 올려서 후보를 더 넓혀볼 수 있어야 함).
+  // (예산이 같을 때도 슬라이더로 상한을 올려서 후보를 넓혀볼 수 있어야 함).
   const budgetSliderMax = highBudgetOriginal + 300_000_000
 
   const passing = useMemo(() => {
@@ -176,12 +261,6 @@ export default function AdjustPage() {
       )
   }, [data, aTiers, bTiers, budgetValue])
 
-  const passingSigunguCount = useMemo(
-    () => new Set(passing.map((p) => p.sigungu)).size,
-    [passing]
-  )
-
-  const isProposer = pending?.proposer_id === me?.id
   const iAmDeciding = pending && !isProposer
 
   function myDiff() {
@@ -200,15 +279,8 @@ export default function AdjustPage() {
     return payload
   }
 
-  async function propose() {
+  async function suggest() {
     if (!me || !data || submitting) return
-    const payload = myDiff()
-    if (Object.keys(payload).length === 0) {
-      setError('바꾼 내용이 없어요')
-      setTimeout(() => setError(null), 1500)
-      return
-    }
-
     setSubmitting(true)
     setError(null)
     try {
@@ -216,7 +288,7 @@ export default function AdjustPage() {
       const { error: insertError } = await supabase.from('proposals').insert({
         session_id: sessionId,
         proposer_id: me.id,
-        payload,
+        payload: myDiff(),
       })
       if (insertError) throw insertError
       await refresh()
@@ -255,57 +327,21 @@ export default function AdjustPage() {
     }
   }
 
-  async function finalizeNow() {
-    if (!me || !data || submitting) return
-    setSubmitting(true)
-    setError(null)
-    try {
-      const supabase = createClient()
-      await saveMyChanges(supabase)
-      const { error: finalizeError } = await supabase.rpc('finalize_session', {
-        sid: sessionId,
-      })
-      if (finalizeError) throw finalizeError
-      router.push(`/s/${sessionId}/result`)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '확정에 실패했어요')
-      setSubmitting(false)
-    }
-  }
-
-  async function saveMyChangesAndDecide() {
+  async function decide(accept: boolean) {
     if (!me || !data || !pending || submitting) return
     setSubmitting(true)
     setError(null)
     try {
       const supabase = createClient()
-      await saveMyChanges(supabase)
+      if (accept) await saveMyChanges(supabase)
 
       const { error: decideError } = await supabase.rpc('decide_proposal', {
         pid: pending.id,
-        accept: true,
+        accept,
       })
       if (decideError) throw decideError
 
-      router.push(`/s/${sessionId}/result`)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '처리에 실패했어요')
-      setSubmitting(false)
-    }
-  }
-
-  async function reject() {
-    if (!pending || submitting) return
-    setSubmitting(true)
-    setError(null)
-    try {
-      const supabase = createClient()
-      const { error: decideError } = await supabase.rpc('decide_proposal', {
-        pid: pending.id,
-        accept: false,
-      })
-      if (decideError) throw decideError
-      await refresh()
+      setDecisionSheet(accept ? 'accepted' : 'rejected')
     } catch (e) {
       setError(e instanceof Error ? e.message : '처리에 실패했어요')
     } finally {
@@ -351,30 +387,206 @@ export default function AdjustPage() {
   if (!me || !data) return null
 
   if (pending && isProposer) {
+    const proposerOriginal = me.role === 'A' ? data.a : data.b
+    const badgeColors = roleTokens(me.role)
+    const statusColors = roleTokens(me.role === 'A' ? 'B' : 'A')
+    const changes = buildChanges(pending.payload, proposerOriginal)
+
     return (
       <main className="flex flex-1 items-center justify-center p-6">
-        <div className="w-full max-w-sm">
-          <p className="mb-1 text-[13px] text-neutral-500">함께 조율하기</p>
-          <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-4 text-center">
-            <p className="mb-1 text-sm font-medium text-neutral-700">
-              제안 완료 · 상대 확인 대기 중
-            </p>
-            <p className="text-[13px] text-neutral-500">{describePayload(pending.payload)}</p>
+        <div className="flex w-full max-w-sm flex-col items-center gap-12">
+          <div className="flex flex-col items-center gap-6 text-center">
+            <h1 className="text-[24px] leading-8 font-semibold tracking-[-0.03em] text-neutral-900">
+              제안이 완료되었어요
+            </h1>
+            <span className={cn('flex items-center gap-2 rounded-full px-4 py-2', statusColors.statusBg)}>
+              <span className={cn('size-1.5 rounded-full', statusColors.statusDot)} />
+              <span className={cn('text-body-m font-bold', statusColors.statusText)}>상대 확인 중</span>
+            </span>
           </div>
-          <Button variant="ghost" onClick={refresh} className="mt-3 w-full">
-            새로고침
-          </Button>
+
+          <div className="flex w-full flex-col gap-4">
+            <p className="pl-2 text-body-m font-bold text-neutral-900">변경 사항</p>
+            <div className="flex w-full flex-col gap-5 rounded-xl border border-neutral-100 bg-white p-6 shadow-[0_10px_20px_rgba(0,0,0,0.04)]">
+              {changes.length === 0 && (
+                <p className="text-center text-body-s text-neutral-400">
+                  변경 없이 지금 조건 그대로 제안했어요
+                </p>
+              )}
+              {changes.map((change, i) => (
+                <div key={change.key} className="contents">
+                  {i > 0 && <div className="h-px w-full bg-neutral-100" />}
+                  <div className="flex items-center justify-between">
+                    <span className="text-body-m font-semibold text-neutral-900">
+                      {change.label}
+                    </span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[15px] font-medium tracking-[-0.03em] text-neutral-500">
+                        {change.oldValue}
+                      </span>
+                      <ArrowRight className="size-4 text-neutral-400" />
+                      <span
+                        className={cn(
+                          'rounded-full px-3 py-1.5 text-[15px] font-bold tracking-[-0.03em]',
+                          change.isSkip
+                            ? 'bg-neutral-100 text-neutral-500'
+                            : `${badgeColors.badgeBg} ${badgeColors.badgeText}`
+                        )}
+                      >
+                        {change.newValue}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </main>
     )
   }
 
-  const proposerRole = pending ? (pending.proposer_id === data.a.id ? 'A' : 'B') : null
+  if (pending && iAmDeciding) {
+    const proposerRole = pending.proposer_id === data.a.id ? 'A' : 'B'
+    const proposerOriginal = proposerRole === 'A' ? data.a : data.b
+    const badgeColors = roleTokens(proposerRole)
+    const changes = buildChanges(pending.payload, proposerOriginal)
+
+    const beforeBudget = Math.min(data.a.budget_max_krw, data.b.budget_max_krw)
+    const matchCountBefore = countMatches(data.candidates, data.a.conditions, data.b.conditions, beforeBudget)
+    const matchCountAfter = countMatches(data.candidates, aTiers, bTiers, budgetValue)
+
+    return (
+      <main className="flex flex-1 justify-center bg-neutral-50">
+        <div className="w-full max-w-sm pb-40">
+          <OnboardBackBar onBack={() => router.push(`/s/${sessionId}/result`)} />
+
+          <div className="flex flex-col gap-10 px-4 pt-2">
+            <h1 className="text-center text-[24px] leading-8 font-semibold tracking-[-0.03em] text-neutral-900">
+              상대방이 제안했어요
+            </h1>
+
+            <div className="flex flex-col gap-3 rounded-2xl border border-neutral-900 bg-neutral-900/80 p-6 shadow-[0_0_16px_rgba(15,23,42,0.12),0_8px_24px_rgba(15,23,42,0.03)] backdrop-blur-md">
+              {changes.map((change) => (
+                <div key={change.key} className="flex items-center justify-between">
+                  <span className="w-16 text-body-sb font-semibold text-white">{change.label}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-body-sb font-medium text-white">{change.oldValue}</span>
+                    <ArrowRight className="size-4 text-neutral-400" />
+                    <span
+                      className={cn(
+                        'rounded-full px-3 py-1.5 text-body-sb font-bold',
+                        change.isSkip ? 'bg-white/10 text-white' : `${badgeColors.badgeBg} ${badgeColors.badgeText}`
+                      )}
+                    >
+                      {change.newValue}
+                    </span>
+                  </div>
+                </div>
+              ))}
+              <div className="h-px w-full bg-white/10" />
+              <div className={cn('flex items-center justify-center gap-3 text-[15px] font-medium', badgeColors.badgeText)}>
+                <span>총 {matchCountBefore}곳</span>
+                <ArrowRight className="size-4" />
+                <span>총 {matchCountAfter}곳</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              {CODES.map((code) => (
+                <div
+                  key={code}
+                  className="rounded-[40px] border border-neutral-100 bg-white px-5 py-5 shadow-[0_10px_20px_rgba(0,0,0,0.04)]"
+                >
+                  <p className="mb-3 text-center text-title-sb font-bold text-neutral-900">
+                    {CONDITION_LABEL[code]}
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div
+                      className={cn(
+                        'w-full rounded-full border-2 bg-white px-7 py-5 text-center text-body-m font-bold',
+                        tierPillClass('A'),
+                        proposerRole === 'A' && 'opacity-30'
+                      )}
+                    >
+                      {TIER_LABEL[aTiers[code]]}
+                    </div>
+                    <div
+                      className={cn(
+                        'w-full rounded-full border-2 bg-white px-7 py-5 text-center text-body-m font-bold',
+                        tierPillClass('B'),
+                        proposerRole === 'B' && 'opacity-30'
+                      )}
+                    >
+                      {TIER_LABEL[bTiers[code]]}
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              <div className="rounded-[40px] border border-neutral-100 bg-white px-5 py-5 shadow-[0_10px_20px_rgba(0,0,0,0.04)]">
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="text-title-sb font-bold text-neutral-900">예산 상한</span>
+                  <span className="text-title-sb font-bold text-pink-500">{formatEok(budgetValue)}</span>
+                </div>
+                <Slider value={[budgetValue]} min={lowBudgetOriginal} max={budgetSliderMax} step={10_000_000} disabled />
+                <div className="mt-2 flex justify-between text-body-sb font-semibold text-neutral-900">
+                  <span>{formatEok(lowBudgetOriginal)}</span>
+                  <span>{formatEok(budgetSliderMax)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-t-[60px] bg-neutral-100 px-4 pt-8 pb-2 -mx-4">
+              <div className="mb-6 flex flex-col items-center gap-1.5">
+                <p className="text-body-m text-neutral-500">우리가 함께 할 수 있는 동네</p>
+                <p className="flex items-center gap-2 text-title-sb font-bold text-neutral-900">
+                  <span className="rounded-full bg-neutral-900 px-4 py-2 font-montserrat text-mont-title-m text-white">
+                    {matchCountAfter}
+                  </span>
+                  개 시군구에 걸쳐 있어요
+                </p>
+              </div>
+              <GroupedAreaList areas={passing} />
+            </div>
+          </div>
+
+          {error && <p className="mt-3 text-center text-sm text-red-600">{error}</p>}
+        </div>
+
+        <div className="fixed inset-x-0 bottom-0 z-20 mx-auto flex w-full max-w-md gap-3 bg-white px-4 py-5">
+          <button
+            onClick={() => decide(false)}
+            disabled={submitting}
+            className="flex flex-1 items-center justify-center rounded-full border-2 border-pink-500 px-10 py-5 font-montserrat text-mont-title-m font-bold text-pink-500 disabled:opacity-50"
+          >
+            No
+          </button>
+          <button
+            onClick={() => decide(true)}
+            disabled={submitting}
+            className="flex flex-1 items-center justify-center rounded-full bg-pink-500 px-10 py-5 font-montserrat text-mont-title-m font-bold text-white disabled:opacity-50"
+          >
+            Yesss!
+          </button>
+        </div>
+
+        {decisionSheet && (
+          <DecisionResultSheet
+            open
+            onOpenChange={() => {}}
+            sessionId={sessionId}
+            kind={decisionSheet}
+          />
+        )}
+      </main>
+    )
+  }
 
   return (
     <main className="flex flex-1 justify-center bg-neutral-50">
-      <div className="w-full max-w-sm pb-6">
-        <div className="rounded-b-[40px] bg-white px-4 pb-8">
+      <div className="w-full max-w-sm pb-32">
+        <div className="rounded-b-[60px] bg-neutral-100 px-4 pb-8">
           <OnboardBackBar onBack={() => router.push(`/s/${sessionId}/result`)} />
 
           <div className="mt-2 mb-8 flex flex-col items-center gap-2 px-2 text-center">
@@ -383,13 +595,6 @@ export default function AdjustPage() {
               조건을 움직이면 구역이 바로 바뀌어요
             </h1>
           </div>
-
-          {iAmDeciding && (
-            <div className="mb-4 rounded-[28px] border border-neutral-100 bg-neutral-50 px-4 py-3">
-              <p className="text-body-sb font-bold text-neutral-900">{proposerRole}의 제안이에요</p>
-              <p className="text-caption-l text-neutral-500">{describePayload(pending!.payload)}</p>
-            </div>
-          )}
 
           {/* A/B 컬러 범례 — 카드마다 반복하지 않고 여기서 한 번만 안내 */}
           <div className="mb-4 flex items-center justify-between px-2">
@@ -417,22 +622,17 @@ export default function AdjustPage() {
                       const setter = me.role === 'A' ? setATiers : setBTiers
                       setter((t) => ({ ...t, [code]: nextTier(t[code]) }))
                     }}
-                    disabled={!!pending && proposerRole === me.role}
                     className={cn(
-                      'w-full rounded-full border-2 bg-white px-7 py-5 text-body-m font-bold transition-opacity disabled:pointer-events-none disabled:opacity-30',
+                      'w-full rounded-full border-2 bg-white px-7 py-5 text-body-m font-bold',
                       tierPillClass(me.role)
                     )}
                   >
                     {TIER_LABEL[me.role === 'A' ? aTiers[code] : bTiers[code]]}
                   </button>
                   <button
-                    onClick={() => {
-                      const setter = me.role === 'A' ? setBTiers : setATiers
-                      setter((t) => ({ ...t, [code]: nextTier(t[code]) }))
-                    }}
-                    disabled={!pending || proposerRole === (me.role === 'A' ? 'B' : 'A')}
+                    disabled
                     className={cn(
-                      'w-full rounded-full border-2 bg-white px-7 py-5 text-body-m font-bold transition-opacity disabled:pointer-events-none disabled:opacity-30',
+                      'w-full rounded-full border-2 bg-white px-7 py-5 text-body-m font-bold opacity-30',
                       tierPillClass(me.role === 'A' ? 'B' : 'A')
                     )}
                   >
@@ -461,7 +661,6 @@ export default function AdjustPage() {
                 min={lowBudgetOriginal}
                 max={budgetSliderMax}
                 step={10_000_000}
-                disabled={!!pending && 'budget_max_krw' in pending.payload}
               />
               <div className="mt-2 flex justify-between text-body-sb font-semibold text-neutral-900">
                 <span>{formatEok(lowBudgetOriginal)}</span>
@@ -469,61 +668,33 @@ export default function AdjustPage() {
               </div>
             </div>
           </div>
-
-          <div className="mt-8 flex flex-col items-center gap-1.5">
-            <p className="text-body-m text-neutral-500">함께 살 수 있는 구역</p>
-            <p className="flex items-center gap-2 text-title-sb font-bold text-neutral-900">
-              <span className="rounded-full bg-neutral-900 px-4 py-2 font-montserrat text-mont-title-m text-white">
-                {passingSigunguCount}
-              </span>
-              개 시군구에 걸쳐 있어요
-            </p>
-          </div>
         </div>
 
-        <div className="px-4 pt-4">
+        <div className="flex flex-col items-center gap-1.5 py-8">
+          <p className="text-body-m text-neutral-500">함께 살 수 있는 구역</p>
+          <p className="flex items-center gap-2 text-title-sb font-bold text-neutral-900">
+            <span className="rounded-full bg-neutral-900 px-4 py-2 font-montserrat text-mont-title-m text-white">
+              {new Set(passing.map((p) => p.sigungu)).size}
+            </span>
+            개 시군구에 걸쳐 있어요
+          </p>
+        </div>
+
+        <div className="rounded-t-[60px] bg-neutral-100 px-4 pt-8 pb-6">
           <GroupedAreaList areas={passing} />
         </div>
 
-        <div className="px-4 pt-4">
-          {iAmDeciding ? (
-            <div className="flex gap-2">
-              <Button onClick={saveMyChangesAndDecide} disabled={submitting} className="flex-1">
-                결정하기
-              </Button>
-              <Button
-                onClick={reject}
-                disabled={submitting}
-                variant="outline"
-                className="flex-1"
-              >
-                거절
-              </Button>
-            </div>
-          ) : (
-            <>
-              <div className="flex gap-2">
-                <Button onClick={finalizeNow} disabled={submitting} className="flex-1">
-                  이 조건으로 결정하기
-                </Button>
-                <Button
-                  onClick={propose}
-                  disabled={submitting}
-                  variant="outline"
-                  className="flex-1"
-                >
-                  {me.role === 'A' ? 'B' : 'A'}에게 제안하기 →
-                </Button>
-              </div>
-              <p className="mt-2 text-center text-caption-l text-neutral-400">
-                상대 항목은 참고용이에요 · 결정하기는 내 변경분을 바로 반영하고 확정해요,
-                제안하기는 상대 동의를 거쳐요
-              </p>
-            </>
-          )}
+        {error && <p className="mt-3 px-4 text-center text-sm text-red-600">{error}</p>}
+      </div>
 
-          {error && <p className="mt-3 text-center text-sm text-red-600">{error}</p>}
-        </div>
+      <div className="fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-md bg-white px-4 py-5">
+        <button
+          onClick={suggest}
+          disabled={submitting}
+          className="w-full rounded-full bg-pink-500 py-5 font-montserrat text-mont-title-m font-bold text-white disabled:opacity-50"
+        >
+          Suggest
+        </button>
       </div>
     </main>
   )
