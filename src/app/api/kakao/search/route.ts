@@ -17,9 +17,12 @@ export async function GET(request: NextRequest) {
   }
 
   const apiKey = process.env.KAKAO_REST_API_KEY
+  console.log("apiKey",apiKey)
   if (!apiKey) {
+    
     return NextResponse.json({ error: '카카오 API 키가 설정되지 않았어요' }, { status: 500 })
   }
+
 
   const kakaoUrl = new URL('https://dapi.kakao.com/v2/local/search/keyword.json')
   kakaoUrl.searchParams.set('query', query)
@@ -28,8 +31,8 @@ export async function GET(request: NextRequest) {
   const res = await fetch(kakaoUrl, {
     headers: { Authorization: `KakaoAK ${apiKey}` },
   })
-
   if (!res.ok) {
+
     return NextResponse.json({ error: '검색에 실패했어요' }, { status: 502 })
   }
 
