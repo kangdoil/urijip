@@ -175,6 +175,25 @@ export function ResultMapSheet({
   const [areaFilterSheetOpen, setAreaFilterSheetOpen] = useState(false)
   const [conditionSheetOpen, setConditionSheetOpen] = useState(false)
   const mapRef = useRef<kakao.maps.Map | null>(null)
+  // 접힌 상태의 핸들은 vaul Drawer.Content 밖(fixed 블록)에 있어 vaul의
+  // 드래그가 인식하지 못한다 — 위로 스와이프하면 직접 스냅을 올려준다.
+  const collapsedDragStartY = useRef<number | null>(null)
+
+  function handleCollapsedHandlePointerDown(e: React.PointerEvent<HTMLButtonElement>) {
+    collapsedDragStartY.current = e.clientY
+  }
+
+  function handleCollapsedHandlePointerMove(e: React.PointerEvent<HTMLButtonElement>) {
+    if (collapsedDragStartY.current === null) return
+    if (collapsedDragStartY.current - e.clientY > 24) {
+      setSnap(SNAP_DEFAULT)
+      collapsedDragStartY.current = null
+    }
+  }
+
+  function handleCollapsedHandlePointerUp() {
+    collapsedDragStartY.current = null
+  }
 
   function toggleSigungu(sigungu: string) {
     const next = new Set(selectedSigungus)
@@ -306,6 +325,23 @@ export function ResultMapSheet({
                   </div>
                 ) : (
                   <>
+                    {/* 시트가 펼쳐진 동안은 이전 디자인(큰 사이즈)으로 시트 맨 위에 보여주고,
+                        시트를 끝까지 내리면 아래 고정 블록의 축약 버전으로 바뀐다. */}
+                    <button
+                      onClick={() => setConditionSheetOpen(true)}
+                      className="flex w-full items-center justify-between gap-2 border-b border-neutral-100 px-4 py-3"
+                    >
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-pink-50">
+                          <CirclePlus className="size-5 text-pink-500" />
+                        </span>
+                        <span className="truncate text-body-m font-semibold text-pink-500">
+                          필수 조건 : {mustSummary} / {budgetLabel}
+                        </span>
+                      </span>
+                      <ChevronRight className="size-6 shrink-0 text-neutral-400" />
+                    </button>
+
                     {groups.length > 0 && (
                       <div className="flex items-center gap-1.5 px-4 py-2">
                         <button
@@ -324,7 +360,7 @@ export function ResultMapSheet({
                               : 'bg-neutral-50 text-neutral-500'
                           )}
                         >
-                          선택된 구역만
+                          전체
                           <ChevronDown className="size-4" />
                         </button>
                       </div>
@@ -353,9 +389,25 @@ export function ResultMapSheet({
           두면 접힌 상태에서 뷰포트 밖으로 밀려난다. 그래서 뷰포트 기준
           fixed로 따로 띄워 항상 보이게 한다. */}
       <div className="fixed inset-x-0 bottom-0 z-20 mx-auto flex w-full max-w-md flex-col items-center bg-white">
-        {/* 요구사항: 시트를 끝까지 내려도 이 줄만은 버튼 바로 위에 항상 보인다 —
-            그래서 시트 안이 아니라 이 고정 블록에 같이 둔다. */}
-        {!isFallback && (
+        {/* Drawer.Content의 핸들은 접힌 스냅에서 이 fixed 블록에 가려 안 보이므로,
+            접혔을 때 다시 펼 수 있도록 여기에도 탭 가능한 핸들을 따로 둔다. */}
+        {!isFallback && isCollapsed && (
+          <button
+            type="button"
+            onClick={() => setSnap(SNAP_DEFAULT)}
+            onPointerDown={handleCollapsedHandlePointerDown}
+            onPointerMove={handleCollapsedHandlePointerMove}
+            onPointerUp={handleCollapsedHandlePointerUp}
+            onPointerCancel={handleCollapsedHandlePointerUp}
+            aria-label="바텀시트 펼치기"
+            className="flex h-7 w-full shrink-0 items-center justify-center touch-none"
+          >
+            <span className="h-1 w-10 rounded-full bg-neutral-300" />
+          </button>
+        )}
+        {/* 시트를 끝까지 내렸을 때만 이 축약 버전이 버튼 바로 위에 보인다.
+            펼쳐져 있을 땐 시트 안(이전 디자인)에서 대신 보여준다. */}
+        {!isFallback && isCollapsed && (
           <button
             onClick={() => setConditionSheetOpen(true)}
             className="flex w-full shrink-0 items-center justify-between gap-2 border-b border-neutral-100 px-4 py-3"

@@ -29,7 +29,7 @@ export function ResultAreaCard({
     .map(([code]) => code)
 
   return (
-    <div className="relative flex h-auto w-[304px] shrink-0 snap-start flex-col gap-3 rounded-xl bg-neutral-50 p-5">
+    <div className="relative flex h-auto w-[304px] shrink-0 snap-start flex-col rounded-xl bg-neutral-50 px-5 py-4">
       {onExclude && (
         <button
           onClick={() => onExclude(area.code)}
@@ -47,21 +47,25 @@ export function ResultAreaCard({
         </span>
       </div>
 
-      <div className="flex items-center gap-3 text-xs font-medium">
-        <span className="flex items-center gap-1 text-pink-500">
+      <div className="mt-3 flex items-center gap-2 text-xs font-medium">
+        {/* 카드 높이는 그대로 유지해야 해서 새 줄을 추가하지 않고, 텍스트 크기가
+            같은 이 통근시간 줄 맨 앞에 시군구 + 구분선을 끼워 넣는다. */}
+        <span className="min-w-0 shrink truncate text-neutral-500">{area.sigungu}</span>
+        <span className="h-3 w-px shrink-0 bg-neutral-300" />
+        <span className="flex shrink-0 items-center gap-1 text-pink-500">
           <Car className="size-3.5" />A {area.a_minutes}분
         </span>
-        <span className="flex items-center gap-1 text-accent-teal">
+        <span className="flex shrink-0 items-center gap-1 text-accent-teal">
           <Car className="size-3.5" />B {area.b_minutes}분
         </span>
       </div>
 
       {satisfiedCodes.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
           {satisfiedCodes.map((code) => (
             <span
               key={code}
-              className="rounded-full bg-neutral-500 px-3 py-2 text-caption-l font-medium text-neutral-0"
+              className="rounded-full bg-neutral-500 px-3 py-1.5 text-caption-l font-medium text-neutral-0"
             >
               {CONDITION_LABEL[code] ?? code} 충족
             </span>
