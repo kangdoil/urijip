@@ -55,8 +55,15 @@ interface ResultMapSheetProps {
 // 지원 지역(경기 동남부) 대략 중심 — 핀이 하나도 없을 때만 쓰는 기본 좌표.
 const DEFAULT_CENTER = { lat: 37.395, lng: 127.111 }
 
+// 핀이나 카드를 선택했을 때 확대할 레벨 — 호갱노노처럼 클릭 시 바로 줌인.
+const PIN_FOCUS_LEVEL = 3
+
 // 시트를 끝까지 내리면 핸들+필수조건 요약줄+액션 버튼만 보이고(요구사항),
-// 기본은 필터+카드가 보이는 높이로 편다.
+// 기본은 필터+카드 한 줄이 보이는 높이로 편다.
+// (픽셀 정밀 계산/ResizeObserver로 스냅 높이를 맞추려던 시도는 지도를 거의
+// 다 가려버리는 버그로 되돌렸다 — 대신 액션바를 Drawer.Content 안 일반
+// 흐름의 마지막 자식으로 둬서 카드-버튼 간격은 레이아웃상 항상 0이 되도록
+// 구조 자체를 바꿨다. 스냅 높이는 다시 단순 비율로 관리한다.)
 const SNAP_COLLAPSED = 0.3
 const SNAP_DEFAULT = 0.6
 const SNAP_POINTS = [SNAP_COLLAPSED, SNAP_DEFAULT]
@@ -78,9 +85,31 @@ function toPin(
   return { code: area.code, name: area.name, sigungu: area.sigungu, lat: area.lat, lng: area.lng, color }
 }
 
-function Pin({ color }: { color: 'neutral' | 'a' | 'b' }) {
+// 호갱노노 스타일 말풍선 핀 — 이름표 아래 작은 꼬리(포인터)가 좌표를 정확히
+// 가리킨다. CustomOverlayMap의 yAnchor=1과 짝을 이뤄 꼬리 끝이 좌표에 온다.
+function Pin({
+  name,
+  color,
+  onClick,
+}: {
+  name: string
+  color: 'neutral' | 'a' | 'b'
+  onClick?: () => void
+}) {
   const bg = color === 'a' ? 'bg-pink-500' : color === 'b' ? 'bg-accent-teal' : 'bg-pink-500'
-  return <div className={`h-4 w-4 rounded-full border-2 border-white shadow-md ${bg}`} />
+  return (
+    <button type="button" onClick={onClick} className="flex flex-col items-center">
+      <span
+        className={cn(
+          'whitespace-nowrap rounded-full border-2 border-white px-3 py-1.5 text-xs font-bold text-white shadow-[0_4px_10px_rgba(0,0,0,0.25)]',
+          bg
+        )}
+      >
+        {name}
+      </span>
+      <span className={cn('-mt-1.5 size-2.5 rotate-45 border-r-2 border-b-2 border-white', bg)} />
+    </button>
+  )
 }
 
 function FallbackLists({ aOnly, bOnly }: { aOnly: FallbackArea[]; bOnly: FallbackArea[] }) {
@@ -159,6 +188,8 @@ export function ResultMapSheet({
     appkey: process.env.NEXT_PUBLIC_KAKAO_JS_KEY ?? '',
     url: 'https://dapi.kakao.com/v2/maps/sdk.js',
   })
+  console.log('loading', loading)
+  console.log('error', error)
 
   const isFallback = matchCount === 0
   const groups = useMemo(() => groupBySigungu(areas), [areas])
@@ -193,6 +224,10 @@ export function ResultMapSheet({
   const [sigunguSheetOpen, setSigunguSheetOpen] = useState(false)
   const [conditionSheetOpen, setConditionSheetOpen] = useState(false)
   const mapRef = useRef<kakao.maps.Map | null>(null)
+  // 핀 클릭 시 바텀시트 안 해당 카드로 스크롤하기 위한 DOM 참조.
+  // (이 파일은 react-kakao-maps-sdk의 `Map` 컴포넌트를 이미 import해서 전역
+  // Map 클래스 이름이 가려지므로 Record로 대체한다.)
+  const cardRefs = useRef<Record<string, HTMLDivElement | null>>({})
   // 접힌 상태의 핸들은 vaul Drawer.Content 밖(fixed 블록)에 있어 vaul의
   // 드래그가 인식하지 못한다 — 위로 스와이프하면 직접 스냅을 올려준다.
   const collapsedDragStartY = useRef<number | null>(null)
@@ -341,6 +376,29 @@ export function ResultMapSheet({
       ].filter((p): p is PinData => p != null)
     : activeAreas.map((a) => toPin(a, 'neutral')).filter((p): p is PinData => p != null)
 
+  // 핀을 클릭하거나(호갱노노처럼) 바텀시트에서 카드를 선택했을 때 지도를
+  // 그 좌표로 확대·이동한다.
+  function focusPin(lat: number, lng: number) {
+    const kakaoMap = mapRef.current
+    if (!kakaoMap) return
+    kakaoMap.setLevel(PIN_FOCUS_LEVEL)
+    kakaoMap.setCenter(new kakao.maps.LatLng(lat, lng))
+  }
+
+  // 지도 핀을 클릭하면 그 좌표로 확대하는 것과 동시에, 시트가 접혀있으면
+  // 펼치고 바텀시트 안 해당 카드로 스크롤해 정보를 보여준다.
+  function focusArea(code: string, lat: number, lng: number) {
+    focusPin(lat, lng)
+    setSnap((prev) => (prev === SNAP_COLLAPSED ? SNAP_DEFAULT : prev))
+    requestAnimationFrame(() => {
+      cardRefs.current[code]?.scrollIntoView({
+        behavior: 'smooth',
+        inline: 'center',
+        block: 'nearest',
+      })
+    })
+  }
+
   useEffect(() => {
     if (loading || error || !mapRef.current) return
     const kakaoMap = mapRef.current
@@ -356,7 +414,7 @@ export function ResultMapSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSigungus, loading, error])
 
-  const title = isFallback ? '필수 조건을 모두 만족하는 구역이 없어요' : '함께 할 수 있는 동네'
+  const title = isFallback ? '필수 조건을 모두 만족하는 구역이 없어요' : '추천 동네'
 
   const mustNames = mustConditions.map((c) => CONDITION_LABEL[c] ?? c)
   const mustSummary = mustNames.length > 0 ? mustNames.join(', ') : '없음'
@@ -384,8 +442,8 @@ export function ResultMapSheet({
             }}
           >
             {pins.map((p) => (
-              <CustomOverlayMap key={p.code} position={{ lat: p.lat, lng: p.lng }} yAnchor={0.5}>
-                <Pin color={p.color} />
+              <CustomOverlayMap key={p.code} position={{ lat: p.lat, lng: p.lng }} yAnchor={1}>
+                <Pin name={p.name} color={p.color} onClick={() => focusArea(p.code, p.lat, p.lng)} />
               </CustomOverlayMap>
             ))}
           </Map>
@@ -414,6 +472,13 @@ export function ResultMapSheet({
       >
         <Drawer.Portal>
           <Drawer.Overlay className="pointer-events-none fixed inset-0 bg-black/40" />
+          {/* 액션바(조율하기/저장하기)는 Drawer.Content 밖 별도 fixed 블록에 둔다.
+              Drawer.Content는 스냅 상태와 무관하게 항상 h-full(~90vh) 박스이고
+              vaul은 translateY로 얼마나 가릴지만 조절한다 — 그 안에 두면(flex-1
+              콘텐츠가 90vh를 다 채우려고 늘어나면서) 접혔을 때는 물론 스냅이
+              뷰포트보다 작을 때도 버튼이 화면 밖으로 밀려나 안 보이는 문제가
+              있었다(실측 확인). 카드-버튼 간격은 아래 paddingBottom 예약으로
+              맞춘다. */}
           <Drawer.Content className="fixed inset-x-0 bottom-0 z-10 mx-auto flex h-full max-h-[90vh] w-full max-w-md flex-col rounded-t-3xl border border-pink-100 bg-white shadow-[0_-8px_32px_rgba(0,0,0,0.1)] outline-none">
             <div className="mx-auto mt-3 h-1 w-10 shrink-0 rounded-full bg-neutral-300" />
 
@@ -429,16 +494,16 @@ export function ResultMapSheet({
                 ) : (
                   <>
                     {/* 시트가 펼쳐진 동안은 이전 디자인(큰 사이즈)으로 시트 맨 위에 보여주고,
-                        시트를 끝까지 내리면 아래 고정 블록의 축약 버전으로 바뀐다. */}
+                        시트를 끝까지 내리면 위 축약 버전으로 바뀐다. */}
                     <button
                       onClick={() => setConditionSheetOpen(true)}
                       className="flex w-full items-center justify-between gap-2 border-b border-neutral-100 px-4 py-3"
                     >
                       <span className="flex min-w-0 items-center gap-2">
-                        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-pink-50">
-                          <CirclePlus className="size-5 text-pink-500" />
+                        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-pink-50">
+                          <CirclePlus className="size-4 text-pink-500" />
                         </span>
-                        <span className="truncate text-body-m font-semibold text-pink-500">
+                        <span className="truncate text-body-sb font-semibold text-pink-500">
                           필수 조건 : {mustSummary} / {budgetLabel}
                         </span>
                       </span>
@@ -477,13 +542,25 @@ export function ResultMapSheet({
 
                     <div className="flex snap-x gap-3 overflow-x-auto px-4 pt-1.5 pb-3 scroll-pl-4">
                       {activeAreas.map((area) => (
-                        <ResultAreaCard
+                        <div
                           key={area.code}
-                          area={area}
-                          excluded={excludedCodes.has(area.code)}
-                          onExclude={excludeArea}
-                          onRestore={restoreArea}
-                        />
+                          ref={(el) => {
+                            cardRefs.current[area.code] = el
+                          }}
+                          className="shrink-0"
+                        >
+                          <ResultAreaCard
+                            area={area}
+                            excluded={excludedCodes.has(area.code)}
+                            onExclude={excludeArea}
+                            onRestore={restoreArea}
+                            onSelect={
+                              area.lat != null && area.lng != null
+                                ? () => focusPin(area.lat!, area.lng!)
+                                : undefined
+                            }
+                          />
+                        </div>
                       ))}
                       {activeAreas.length === 0 && (
                         <p className="py-4 text-center text-body-s text-neutral-400">
@@ -499,13 +576,13 @@ export function ResultMapSheet({
         </Drawer.Portal>
       </Drawer.Root>
 
-      {/* Drawer.Content는 snap과 무관하게 항상 h-full(90vh) 박스이고, vaul은
-          접힌 스냅에서 그걸 translateY로 아래로 밀 뿐이라 시트 레이아웃 안에
-          두면 접힌 상태에서 뷰포트 밖으로 밀려난다. 그래서 뷰포트 기준
-          fixed로 따로 띄워 항상 보이게 한다. */}
+      {/* Drawer.Content는 스냅과 무관하게 항상 h-full(90vh) 박스이고, vaul은
+          접힌(또는 좁은) 스냅에서 그걸 translateY로 아래로 밀 뿐이라 시트
+          레이아웃 안에 두면 화면 밖으로 밀려난다. 그래서 뷰포트 기준 fixed로
+          따로 띄워 항상 보이게 한다. */}
       <div className="fixed inset-x-0 bottom-0 z-20 mx-auto flex w-full max-w-md flex-col items-center bg-white">
         {/* Drawer.Content의 핸들은 접힌 스냅에서 이 fixed 블록에 가려 안 보이므로,
-            접혔을 때 다시 펼 수 있도록 여기에도 탭 가능한 핸들을 따로 둔다. */}
+            접혔을 때 다시 펼 수 있도록 여기에도 탭/드래그 가능한 핸들을 따로 둔다. */}
         {!isFallback && isCollapsed && (
           <button
             type="button"
@@ -544,7 +621,7 @@ export function ResultMapSheet({
             <button
               onClick={onRetry}
               disabled={retrying}
-              className="flex flex-1 items-center justify-center rounded-full border-2 border-pink-500 px-10 py-4 text-title-sb font-bold text-pink-500 disabled:opacity-50"
+              className="flex flex-1 items-center justify-center rounded-full border-2 border-pink-500 px-10 py-4 text-body-m font-bold text-pink-500 disabled:opacity-50"
             >
               조율하기
             </button>
@@ -552,7 +629,7 @@ export function ResultMapSheet({
               <button
                 onClick={() => onSave(savedAreaCodes)}
                 disabled={saving}
-                className="flex flex-1 items-center justify-center rounded-full bg-pink-500 px-10 py-4 text-title-sb font-bold text-white disabled:opacity-50"
+                className="flex flex-1 items-center justify-center rounded-full bg-pink-500 px-10 py-4 text-body-m font-bold text-white disabled:opacity-50"
               >
                 저장하기
               </button>

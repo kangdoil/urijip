@@ -1,3 +1,4 @@
+import { Home } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export function ResultHeaderPill({
@@ -15,17 +16,20 @@ export function ResultHeaderPill({
 }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-xl border border-white bg-neutral-50/50 px-5 py-3 shadow-[0_10px_40px_rgba(0,0,0,0.04)] backdrop-blur-[10px]">
-      <p className="text-lg font-semibold tracking-[-0.03em] text-neutral-900">{title}</p>
+      <p className="flex min-w-0 items-center gap-1.5 text-lg font-semibold tracking-[-0.03em] text-neutral-900">
+        <Home className="size-5 shrink-0 text-pink-500" fill="currentColor" />
+        <span className="truncate">{title}</span>
+      </p>
       <div className="flex shrink-0 items-center gap-1">
         {count != null && (
-          <span className="whitespace-nowrap rounded-full bg-neutral-900 px-4 py-2 text-body-sb font-semibold text-pink-500">
+          <span className="whitespace-nowrap rounded-full bg-neutral-900 px-2 py-1.5 text-body-sb font-semibold text-pink-500">
             {excludedCount > 0 ? `총 ${count} -> ${count - excludedCount}곳` : `총 ${count}곳`}
           </span>
         )}
         {partnerConfirmed != null && (
           <span
             className={cn(
-              'flex items-center gap-1 whitespace-nowrap rounded-full px-3 py-2 text-body-sb font-bold text-pink-500 shadow-[0_10px_20px_rgba(0,0,0,0.04)]',
+              'flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-1.5 text-body-sb font-bold text-pink-500 shadow-[0_10px_20px_rgba(0,0,0,0.04)]',
               partnerConfirmed ? 'bg-neutral-900' : 'bg-pink-200'
             )}
           >

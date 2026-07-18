@@ -203,6 +203,15 @@ export default function AdjustPage() {
   const lowBudgetOriginal = data ? Math.min(data.a.budget_max_krw, data.b.budget_max_krw) : 0
   const highBudgetOriginal = data ? Math.max(data.a.budget_max_krw, data.b.budget_max_krw) : 0
   const budgetHasConflict = data ? data.a.budget_max_krw !== data.b.budget_max_krw : false
+  // 예산 슬라이더는 min이 항상 lowBudgetOriginal이라 "올리는" 것만 가능하다.
+  // 내가 이미 더 높은 예산 쪽이면 내 슬라이더를 올려도 적용 예산(최소값)엔
+  // 아무 영향이 없는데, 예전엔 슬라이더는 누구나 움직일 수 있고 미리보기
+  // 구역 수(passing)도 그 값을 그대로 반영해서 — 실제로는 반영되지 않는
+  // 변경인데 마치 반영되는 것처럼 보였다(제안 시 myDiff가 iAmLowerBudget일
+  // 때만 payload에 담아서, 조율 화면 미리보기 개수와 승인 후 결과 화면 개수가
+  // 달라지는 버그의 원인). 낮은 예산 쪽만 슬라이더를 움직일 수 있게 막는다.
+  const iAmLowerBudget =
+    data && me ? (me.role === 'A' ? data.a.budget_max_krw : data.b.budget_max_krw) === lowBudgetOriginal : false
   // 두 사람 예산 중 더 높은 쪽보다도 3억 더 위까지 탐색해볼 수 있게 여유를 둔다
   // (예산이 같을 때도 슬라이더로 상한을 올려서 후보를 넓혀볼 수 있어야 함).
   const budgetSliderMax = highBudgetOriginal + 300_000_000
@@ -581,16 +590,22 @@ export default function AdjustPage() {
           <div className="mt-2 mb-8 flex flex-col items-center gap-2 px-2 text-center">
             <p className="text-body-s font-medium text-neutral-400">함께 조율하기</p>
             <h1 className="text-[24px] leading-[1.4] font-semibold tracking-[-0.03em] text-neutral-900">
-              조건을 움직이면 구역이 바로 바뀌어요
+              조건을 움직이면
+              <br />
+              구역이 바로 바뀌어요
             </h1>
           </div>
 
-          {/* A/B 컬러 범례 — 카드마다 반복하지 않고 여기서 한 번만 안내 */}
+          {/* A/B 컬러 범례 — 카드마다 반복하지 않고 여기서 한 번만 안내.
+              칩 순서는 항상 A=왼쪽/B=오른쪽 고정이라, B가 볼 땐 범례 문구도
+              "상대·내"로 뒤집어야 순서와 말이 맞는다. */}
           <div className="mb-4 flex items-center justify-between px-2">
             <span className="flex size-8 items-center justify-center rounded-full bg-pink-500 text-body-sb font-bold text-white">
               A
             </span>
-            <span className="text-caption-l text-neutral-400">내 조건 · 상대 조건</span>
+            <span className="text-caption-l text-neutral-400">
+              {me.role === 'B' ? '상대 조건 · 내 조건' : '내 조건 · 상대 조건'}
+            </span>
             <span className="flex size-8 items-center justify-center rounded-full bg-accent-teal text-body-sb font-bold text-white">
               B
             </span>
@@ -621,7 +636,12 @@ export default function AdjustPage() {
                       me.role !== 'A' && 'opacity-30'
                     )}
                   >
-                    {TIER_LABEL[aTiers[code]]}
+                    <span className="inline-flex items-center justify-center gap-1.5">
+                      {TIER_LABEL[aTiers[code]]}
+                      {me.role === 'A' && (
+                        <span className="inline-block size-0 border-x-[4px] border-t-[5px] border-x-transparent border-t-current" />
+                      )}
+                    </span>
                   </button>
                   <button
                     onClick={
@@ -636,7 +656,12 @@ export default function AdjustPage() {
                       me.role !== 'B' && 'opacity-30'
                     )}
                   >
-                    {TIER_LABEL[bTiers[code]]}
+                    <span className="inline-flex items-center justify-center gap-1.5">
+                      {TIER_LABEL[bTiers[code]]}
+                      {me.role === 'B' && (
+                        <span className="inline-block size-0 border-x-[4px] border-t-[5px] border-x-transparent border-t-current" />
+                      )}
+                    </span>
                   </button>
                 </div>
               </div>
@@ -653,11 +678,14 @@ export default function AdjustPage() {
                 {budgetHasConflict
                   ? '예산 상한이 서로 달라요 · 낮은 쪽 기준으로 시작해요'
                   : '두 분 예산이 같아요'}
-                {' · 상한을 더 올려서 후보를 넓혀볼 수도 있어요'}
+                {iAmLowerBudget
+                  ? ' · 상한을 더 올려서 후보를 넓혀볼 수도 있어요'
+                  : ' · 더 낮은 예산 쪽만 상한을 조정할 수 있어요'}
               </p>
               <Slider
                 value={[budgetValue]}
-                onValueChange={([v]) => setBudgetValue(v)}
+                onValueChange={iAmLowerBudget ? ([v]) => setBudgetValue(v) : undefined}
+                disabled={!iAmLowerBudget}
                 min={lowBudgetOriginal}
                 max={budgetSliderMax}
                 step={10_000_000}
@@ -691,7 +719,7 @@ export default function AdjustPage() {
         <button
           onClick={suggest}
           disabled={submitting}
-          className="w-full rounded-full bg-pink-500 py-5 text-title-sb font-bold text-white disabled:opacity-50"
+          className="w-full rounded-full bg-pink-500 py-4 text-body-m font-bold text-white disabled:opacity-50"
         >
           제안하기
         </button>

@@ -1,0 +1,6 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - paragraph [ref=e4]: 통근시간을 계산하고 있어요
+      - paragraph [ref=e5]: 상대방 거점 기준 계산이 아직 끝나지 않았어요 · 보통 몇 분 안에 끝나요, 잠시만 기다려주세요
+  - button "Open Next.js Dev Tools" [ref=e11] [cursor=pointer]

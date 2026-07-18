@@ -23,11 +23,14 @@ export function ResultAreaCard({
   excluded = false,
   onExclude,
   onRestore,
+  onSelect,
 }: {
   area: ResultAreaData
   excluded?: boolean
   onExclude?: (code: string) => void
   onRestore?: (code: string) => void
+  // 카드를 탭하면(제외/복구 버튼 제외) 지도 핀으로 줌인 — 좌표가 없으면 안 넘어온다.
+  onSelect?: () => void
 }) {
   const satisfiedCodes = Object.entries(area.satisfied ?? {})
     .filter(([, ok]) => ok)
@@ -35,22 +38,27 @@ export function ResultAreaCard({
 
   return (
     <div
+      onClick={onSelect}
       className={cn(
         'flex h-auto w-[304px] shrink-0 snap-start flex-col rounded-xl px-5 py-4',
-        excluded ? 'bg-pink-50' : 'bg-neutral-50'
+        excluded ? 'bg-pink-50' : 'bg-neutral-50',
+        onSelect && 'cursor-pointer'
       )}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-baseline gap-2">
           <span className="text-title-sb font-semibold text-neutral-900">{area.name}</span>
-          <span className="whitespace-nowrap text-body-m font-semibold text-neutral-500">
+          <span className="whitespace-nowrap text-body-m font-semibold text-neutral-900">
             {formatEok(area.avg_price_krw)}
           </span>
         </div>
         {excluded
           ? onRestore && (
               <button
-                onClick={() => onRestore(area.code)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onRestore(area.code)
+                }}
                 className="shrink-0 text-body-sb font-medium text-neutral-500 underline decoration-1 underline-offset-4"
               >
                 복구하기
@@ -58,7 +66,10 @@ export function ResultAreaCard({
             )
           : onExclude && (
               <button
-                onClick={() => onExclude(area.code)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onExclude(area.code)
+                }}
                 className="shrink-0 text-body-sb font-medium text-neutral-500 underline decoration-1 underline-offset-4"
               >
                 제외하기
@@ -72,10 +83,10 @@ export function ResultAreaCard({
         <span className="min-w-0 shrink truncate text-neutral-500">{area.sigungu}</span>
         <span className="h-3 w-px shrink-0 bg-neutral-300" />
         <span className="flex shrink-0 items-center gap-1 text-pink-500">
-          <Car className="size-3.5" />A {area.a_minutes}분
+          <Car className="size-3.5" fill="currentColor" />A {area.a_minutes}분
         </span>
         <span className="flex shrink-0 items-center gap-1 text-accent-teal">
-          <Car className="size-3.5" />B {area.b_minutes}분
+          <Car className="size-3.5" fill="currentColor" />B {area.b_minutes}분
         </span>
       </div>
 
@@ -84,7 +95,7 @@ export function ResultAreaCard({
           {satisfiedCodes.map((code) => (
             <span
               key={code}
-              className="rounded-full bg-neutral-500 px-3 py-1.5 text-caption-l font-medium text-neutral-0"
+              className="rounded-full bg-neutral-100 px-2 py-1.5 text-caption-l font-medium text-neutral-500"
             >
               {CONDITION_LABEL[code] ?? code} 충족
             </span>

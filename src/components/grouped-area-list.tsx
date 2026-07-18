@@ -43,10 +43,10 @@ export function AreaCard({
       </div>
       <div className="flex items-center gap-3 text-caption-l font-medium">
         <span className="flex items-center gap-1 text-pink-500">
-          <Car className="size-3.5" />A {area.a_minutes}분
+          <Car className="size-3.5" fill="currentColor" />A {area.a_minutes}분
         </span>
         <span className="flex items-center gap-1 text-accent-teal">
-          <Car className="size-3.5" />B {area.b_minutes}분
+          <Car className="size-3.5" fill="currentColor" />B {area.b_minutes}분
         </span>
         {showConditionBadges && area.satisfied && (
           <span className="ml-auto flex gap-1">
