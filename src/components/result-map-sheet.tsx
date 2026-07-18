@@ -494,13 +494,13 @@ export function ResultMapSheet({
               뷰포트보다 작을 때도 버튼이 화면 밖으로 밀려나 안 보이는 문제가
               있었다(실측 확인). 카드-버튼 간격은 아래 paddingBottom 예약으로
               맞춘다. */}
-          <Drawer.Content className="fixed inset-x-0 bottom-0 z-10 mx-auto flex h-full max-h-[90vh] w-full max-w-md flex-col rounded-t-3xl border border-pink-100 bg-white shadow-[0_-8px_32px_rgba(0,0,0,0.1)] outline-none">
+          <Drawer.Content className="fixed inset-x-0 bottom-0 z-10 mx-auto flex min-h-[700px] max-h-[90dvh] w-full max-w-md flex-col rounded-t-3xl border border-pink-100 bg-white shadow-[0_-8px_32px_rgba(0,0,0,0.1)] outline-none">
             <div className="mx-auto mt-3 h-1 w-10 shrink-0 rounded-full bg-neutral-300" />
 
             {!isCollapsed && (
               <div
-                className="flex-1 overflow-y-auto"
-                style={{ paddingBottom: 'calc(128px + env(safe-area-inset-bottom))' }}
+                // className="flex-1 overflow-y-auto"
+                style={{ paddingBottom: 'env(safe-area-inset-bottom))' }}
               >
                 {isFallback ? (
                   <div className="pt-4">
@@ -538,7 +538,7 @@ export function ResultMapSheet({
                           type="button"
                           onClick={() => setIncludeExcluded((v) => !v)}
                           aria-pressed={includeExcluded}
-                          className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-body-sb font-medium text-neutral-500"
+                          className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full pl-4 py-2 text-body-sb font-medium text-neutral-500"
                         >
                           <span
                             className={cn(
@@ -583,6 +583,32 @@ export function ResultMapSheet({
                         </p>
                       )}
                     </div>
+
+                    <div className="flex w-full flex-col items-center gap-3 px-4 pt-2.5 pb-2.5">
+          <div className="flex w-full items-center gap-3">
+            <button
+              onClick={onRetry}
+              disabled={retrying}
+              className="flex flex-1 items-center justify-center rounded-full border-2 border-pink-500 px-10 py-4 text-body-m font-bold text-pink-500 disabled:opacity-50"
+            >
+              조율하기
+            </button>
+            {!isFallback && (
+              <button
+                onClick={() => onSave(savedAreaCodes)}
+                disabled={saving}
+                className="flex flex-1 items-center justify-center rounded-full bg-pink-500 px-10 py-4 text-body-m font-bold text-white disabled:opacity-50"
+              >
+                저장하기
+              </button>
+            )}
+          </div>
+          {!isFallback && (
+            <p className="text-center text-caption-l font-medium text-neutral-500">
+              저장하기를 누르면 상대방에게 확정되었다고 뜨고, 동네 리스트도 저장할 수 있어요
+            </p>
+          )}
+        </div>
                   </>
                 )}
               </div>
@@ -631,31 +657,7 @@ export function ResultMapSheet({
           </button>
         )}
 
-        <div className="flex w-full flex-col items-center gap-3 px-4 pt-2.5 pb-2.5">
-          <div className="flex w-full items-center gap-3">
-            <button
-              onClick={onRetry}
-              disabled={retrying}
-              className="flex flex-1 items-center justify-center rounded-full border-2 border-pink-500 px-10 py-4 text-body-m font-bold text-pink-500 disabled:opacity-50"
-            >
-              조율하기
-            </button>
-            {!isFallback && (
-              <button
-                onClick={() => onSave(savedAreaCodes)}
-                disabled={saving}
-                className="flex flex-1 items-center justify-center rounded-full bg-pink-500 px-10 py-4 text-body-m font-bold text-white disabled:opacity-50"
-              >
-                저장하기
-              </button>
-            )}
-          </div>
-          {!isFallback && (
-            <p className="text-center text-caption-l font-medium text-neutral-500">
-              저장하기를 누르면 상대방에게 확정되었다고 뜨고, 동네 리스트도 저장할 수 있어요
-            </p>
-          )}
-        </div>
+      
       </div>
 
       <SigunguFilterSheet
