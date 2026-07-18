@@ -495,6 +495,7 @@ export function ResultMapSheet({
         />
       </div>
 
+     {!isCollapsed && (
       <Drawer.Root
         open
         modal={false}
@@ -634,6 +635,7 @@ export function ResultMapSheet({
           </Drawer.Content>
         </Drawer.Portal>
       </Drawer.Root>
+     )}
 
       {/* Drawer.Content는 스냅과 무관하게 항상 h-full(90vh) 박스이고, vaul은
           접힌(또는 좁은) 스냅에서 그걸 translateY로 아래로 밀 뿐이라 시트

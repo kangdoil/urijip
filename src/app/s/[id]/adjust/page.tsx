@@ -546,7 +546,7 @@ export default function AdjustPage() {
                   min={lowBudgetOriginal}
                   max={budgetSliderMax}
                   step={10_000_000}
-                  disabled
+                  // disabled
                   className="data-disabled:opacity-100"
                 />
                 <div className="mt-2 flex justify-between text-body-sb font-semibold text-neutral-900">
@@ -703,7 +703,7 @@ export default function AdjustPage() {
               <Slider
                 value={[budgetValue]}
                 onValueChange={iAmLowerBudget ? ([v]) => setBudgetValue(v) : undefined}
-                disabled={!iAmLowerBudget}
+                // disabled={!iAmLowerBudget}
                 min={lowBudgetOriginal}
                 max={budgetSliderMax}
                 step={10_000_000}
