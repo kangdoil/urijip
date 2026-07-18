@@ -494,8 +494,11 @@ export function ResultMapSheet({
           {/* 액션바(조율하기/저장하기)는 Drawer.Content 안 일반 흐름의 마지막
               자식으로 둬서 카드-버튼 간격이 항상 0이 되도록 한다. Content는
               max-h만 안전장치로 두고 나머지는 컨텐츠 자연 높이를 그대로
-              따른다(SNAP_DEFAULT=1이라 vaul 오프셋이 항상 0 — 위 주석 참고). */}
-          <Drawer.Content className="fixed inset-x-0 bottom-0 z-10 mx-auto flex max-h-[92dvh] w-full max-w-md flex-col overflow-y-auto rounded-t-3xl border border-pink-100 bg-white shadow-[0_-8px_32px_rgba(0,0,0,0.1)] outline-none">
+              따른다(SNAP_DEFAULT=1이라 vaul 오프셋이 항상 0 — 위 주석 참고).
+              내부 스크롤은 원치 않아 overflow-hidden으로 넘치는 부분은
+              스크롤 대신 그냥 잘리게 둔다(카드 줄 자체의 가로 스크롤은
+              별도 요소에 있어 영향 없음). */}
+          <Drawer.Content className="fixed inset-x-0 bottom-0 z-10 mx-auto flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl border border-pink-100 bg-white shadow-[0_-8px_32px_rgba(0,0,0,0.1)] outline-none">
             <button className="h-7">
               <div className="mx-auto mt-3 h-1 w-10 shrink-0 rounded-full bg-neutral-300" />
             </button>
