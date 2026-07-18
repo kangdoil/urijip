@@ -499,8 +499,6 @@ export function ResultMapSheet({
 
             {!isCollapsed && (
               <div
-                // className="flex-1 overflow-y-auto"
-                style={{ paddingBottom: 'env(safe-area-inset-bottom))' }}
               >
                 {isFallback ? (
                   <div className="pt-4">
@@ -512,7 +510,7 @@ export function ResultMapSheet({
                         시트를 끝까지 내리면 위 축약 버전으로 바뀐다. */}
                     <button
                       onClick={() => setConditionSheetOpen(true)}
-                      className="flex w-full items-center justify-between gap-2 border-b border-neutral-100 px-4 py-3"
+                      className="flex w-full items-center justify-between gap-2 border-b border-neutral-100 px-4 mt-3 pb-3" 
                     >
                       <span className="flex min-w-0 items-center gap-2">
                         <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-pink-50">
@@ -621,10 +619,11 @@ export function ResultMapSheet({
           접힌(또는 좁은) 스냅에서 그걸 translateY로 아래로 밀 뿐이라 시트
           레이아웃 안에 두면 화면 밖으로 밀려난다. 그래서 뷰포트 기준 fixed로
           따로 띄워 항상 보이게 한다. */}
-      <div className="fixed inset-x-0 bottom-0 z-20 mx-auto flex w-full max-w-md flex-col items-center bg-white">
+            {!isFallback && isCollapsed && (
+      <div className="fixed inset-x-0 bottom-0 z-20 mx-auto flex w-full max-w-md flex-col items-center bg-white rounded-t-3xl border-2 border-pink-100">
         {/* Drawer.Content의 핸들은 접힌 스냅에서 이 fixed 블록에 가려 안 보이므로,
             접혔을 때 다시 펼 수 있도록 여기에도 탭/드래그 가능한 핸들을 따로 둔다. */}
-        {!isFallback && isCollapsed && (
+      
           <button
             type="button"
             onClick={() => setSnap(SNAP_DEFAULT)}
@@ -633,14 +632,15 @@ export function ResultMapSheet({
             onPointerUp={handleCollapsedHandlePointerUp}
             onPointerCancel={handleCollapsedHandlePointerUp}
             aria-label="바텀시트 펼치기"
-            className="flex h-7 w-full shrink-0 items-center justify-center touch-none"
+            className="flex h-7 w-full shrink-0 items-center justify-center touch-none "
           >
             <span className="h-1 w-10 rounded-full bg-neutral-300" />
           </button>
-        )}
+      
         {/* 시트를 끝까지 내렸을 때만 이 축약 버전이 버튼 바로 위에 보인다.
             펼쳐져 있을 땐 시트 안(이전 디자인)에서 대신 보여준다. */}
         {!isFallback && isCollapsed && (
+          <>
           <button
             onClick={() => setConditionSheetOpen(true)}
             className="flex w-full shrink-0 items-center justify-between gap-2 border-b border-neutral-100 px-4 py-3"
@@ -655,10 +655,28 @@ export function ResultMapSheet({
             </span>
             <ChevronRight className="size-5 shrink-0 text-neutral-400" />
           </button>
+          <div className="flex w-full items-center gap-3 px-4 pt-2.5 pb-2.5">
+            <button
+              onClick={onRetry}
+              disabled={retrying}
+              className="flex flex-1 items-center justify-center rounded-full border-2 border-pink-500 px-10 py-4 text-body-m font-bold text-pink-500 disabled:opacity-50"
+            >
+              조율하기
+            </button>
+            {!isFallback && (
+              <button
+                onClick={() => onSave(savedAreaCodes)}
+                disabled={saving}
+                className="flex flex-1 items-center justify-center rounded-full bg-pink-500 px-10 py-4 text-body-m font-bold text-white disabled:opacity-50"
+              >
+                저장하기
+              </button>
+            )}
+          </div>
+          </>
         )}
-
-      
       </div>
+        )}
 
       <SigunguFilterSheet
         open={sigunguSheetOpen}
