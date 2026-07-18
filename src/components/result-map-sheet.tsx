@@ -495,7 +495,9 @@ export function ResultMapSheet({
               있었다(실측 확인). 카드-버튼 간격은 아래 paddingBottom 예약으로
               맞춘다. */}
           <Drawer.Content className="fixed inset-x-0 bottom-0 z-10 mx-auto flex min-h-[700px] max-h-[90dvh] w-full max-w-md flex-col rounded-t-3xl border border-pink-100 bg-white shadow-[0_-8px_32px_rgba(0,0,0,0.1)] outline-none">
+            <button className='h-7'>
             <div className="mx-auto mt-3 h-1 w-10 shrink-0 rounded-full bg-neutral-300" />
+            </button>
 
             {!isCollapsed && (
               <div
