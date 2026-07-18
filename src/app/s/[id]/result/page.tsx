@@ -299,6 +299,7 @@ export default function ResultPage() {
       link.download = '우리집-추천동네.png'
       link.href = dataUrl
       link.click()
+      if (myRole) track('result_exported', { session_id: sessionId, role: myRole }, { format: 'image' })
     } catch {
       setActionError('이미지 저장에 실패했어요')
     }
@@ -312,6 +313,7 @@ export default function ResultPage() {
     } catch {
       // ignore
     }
+    if (myRole) track('result_exported', { session_id: sessionId, role: myRole }, { format: 'text' })
     setCopiedText(true)
     setTimeout(() => setCopiedText(false), 1800)
   }
