@@ -58,9 +58,9 @@ const DEFAULT_CENTER = { lat: 37.395, lng: 127.111 }
 // 핀이나 카드를 선택했을 때 확대할 레벨 — 호갱노노처럼 클릭 시 바로 줌인.
 const PIN_FOCUS_LEVEL = 3
 
-// 시군구별 추천 동네 상한(grouped-area-list.tsx의 "상위 최대 3곳" 규칙과 동일) —
-// 결과 요약 배지의 "총 N곳" 숫자를 시군구 수 × 3으로 계산하는 기준값이다.
-// const RECOMMENDED_PER_SIGUNGU = 3
+// 시군구별로 보여줄 상위 동네 상한 — grouped-area-list.tsx의 MAX_PER_GROUP과
+// 동일한 기준(5)을 결과 화면 카드 리스트에도 그대로 적용한다.
+const MAX_PER_GROUP = 5
 
 // 시트를 끝까지 내리면 핸들+필수조건 요약줄+액션 버튼만 보이고(요구사항),
 // 기본은 컨텐츠 자연 높이만큼만 펼쳐진다.
@@ -196,7 +196,13 @@ export function ResultMapSheet({
   })
 
   const isFallback = matchCount === 0
-  const groups = useMemo(() => groupBySigungu(areas), [areas])
+  // areas는 이미 랭킹순으로 정렬돼 들어오므로, 그룹별 상위 MAX_PER_GROUP개만
+  // 남기면 곧 랭킹 상위 동네만 남는다(grouped-area-list.tsx와 동일한 방식).
+  const groups = useMemo(
+    () =>
+      groupBySigungu(areas).map((g) => ({ ...g, list: g.list.slice(0, MAX_PER_GROUP) })),
+    [areas]
+  )
 
   // 여러 시군구를 동시에 선택할 수 있다(요구사항: 중복 선택 가능). 아직 직접
   // 고르기 전엔 전체 시군구가 기본으로 선택돼 있다 — groups가 바뀌어도(예:
@@ -425,20 +431,20 @@ export function ResultMapSheet({
 
   const isCollapsed = snap === SNAP_COLLAPSED
 
-  // 저장 리스트는 지금 보이는 필터와 무관하게, 전체 매칭 결과에서 제외하지
-  // 않은(X 안 누른) 구역 전부를 기준으로 한다.
-  const savedAreaCodes = areas.filter((a) => !excludedCodes.has(a.code)).map((a) => a.code)
+  // 시군구별 상위 MAX_PER_GROUP개로 캡한 전체 목록 — 저장·안내 문구 모두 이
+  // 캡이 반영된 수를 기준으로 한다("총 N곳"이 실제 보여주는/저장되는 개수와
+  // 어긋나지 않도록).
+  const cappedAreas = groups.flatMap((g) => g.list)
 
-  // 실제 구역 개수(최대 89개까지 나와 압도적)를 그대로 보여주는 대신, "시군구별
-  // 추천 동네 3곳"이라는 기준값으로 상단 배지 숫자를 만든다 — 시군구 하나를
-  // 온전히 잃지 않는 한(그 시군구 구역이 전부 제외되지 않는 한) 숫자는
-  // 유지된다.
-  const sigunguCount = groups.length
-  const remainingSigunguCount = new Set(
-    areas.filter((a) => !excludedCodes.has(a.code)).map((a) => a.sigungu)
-  ).size
-  const displayCount = sigunguCount
-  const remainingDisplayCount = remainingSigunguCount
+  // 저장 리스트는 지금 보이는 시군구 필터와 무관하게, 캡 반영 후 제외하지
+  // 않은(X 안 누른) 구역 전부를 기준으로 한다.
+  const savedAreaCodes = cappedAreas.filter((a) => !excludedCodes.has(a.code)).map((a) => a.code)
+
+  // 캡 반영 후 전체 후보 수 — 시군구 뷰 필터·제외와 무관하게 "조건에 맞는
+  // 구역이 몇 곳인지"를 그대로 설명할 때 쓴다(필수조건 시트 문구).
+  const totalMatchCount = cappedAreas.length
+  // 실제로 저장될 개수 — 제외 반영, 시군구 뷰 필터와는 무관하다.
+  const remainingMatchCount = savedAreaCodes.length
 
   return (
     <div className="relative mx-auto h-dvh w-full max-w-md overflow-hidden">
@@ -471,12 +477,8 @@ export function ResultMapSheet({
       >
         <ResultHeaderPill
           title={title}
-          count={isFallback ? undefined : displayCount}
-          excludedCount={isFallback ? 0 : displayCount - remainingDisplayCount}
+          count={isFallback ? undefined : activeAreas.length}
           partnerConfirmed={isFallback ? undefined : partnerConfirmed ?? undefined}
-          includeExcluded={includeExcluded}
-          groups={groups}
-
         />
       </div>
 
@@ -701,13 +703,13 @@ export function ResultMapSheet({
         mustConditions={mustConditions}
         budgetLabel={budgetLabel}
         conflict={conflict}
-        count={displayCount}
+        count={totalMatchCount}
       />
 
       <SaveOptionsSheet
         open={saveSheetOpen}
         onOpenChange={onSaveSheetOpenChange}
-        count={remainingDisplayCount}
+        count={remainingMatchCount}
         onSaveImage={onSaveImage}
         onSaveText={onSaveText}
       />

@@ -1,0 +1,22 @@
+- generic [ref=f1e1]:
+  - button "Open Next.js Dev Tools" [ref=f1e7] [cursor=pointer]
+  - alert [ref=f1e11]
+  - main [ref=f1e12]:
+    - generic [ref=f1e13]:
+      - heading "상대방에게 초대를 보냈어요" [level=1] [ref=f1e14]
+      - paragraph [ref=f1e15]: 상대방이 참여해야 결과를 볼 수 있어요
+    - generic [ref=f1e16]:
+      - generic [ref=f1e17]:
+        - generic [ref=f1e18]:
+          - img "A" [ref=f1e21]
+          - generic [ref=f1e22]: 도일
+        - generic [ref=f1e25]:
+          - img "B" [ref=f1e28]
+          - generic [ref=f1e29]: "?"
+      - paragraph [ref=f1e31]: 상대방이 접속하고 이름을 입력하면상대방 쪽에도 불이 들어와요
+    - generic: 클립보드에 복사되었어요
+    - generic [ref=f1e33]:
+      - generic [ref=f1e34]:
+        - generic [ref=f1e35]: http://localhost:3000/j/682cb8
+        - button "초대 링크 복사" [active] [ref=f1e36]
+      - button "Share" [ref=f1e40]

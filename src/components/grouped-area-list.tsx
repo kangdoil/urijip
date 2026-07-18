@@ -23,7 +23,7 @@ interface Props {
   emptyMessage?: string
 }
 
-const MAX_PER_GROUP = 3
+const MAX_PER_GROUP = 5
 
 // 동 카드 한 장. GroupedAreaList와 ResultMapSheet(지도+바텀시트)가 같이 쓴다.
 export function AreaCard({
@@ -68,7 +68,7 @@ export function AreaCard({
 }
 
 // 시군구별로 묶어서 랭킹 1위 동만 기본 노출하고, "더보기"로 그 시군구 안
-// 상위 최대 3곳까지 펼친다. areas는 이미 랭킹순(선호 충족 수 desc, 통근시간
+// 상위 최대 5곳까지 펼친다. areas는 이미 랭킹순(선호 충족 수 desc, 통근시간
 // 합 asc)으로 정렬돼 들어오므로, Map 삽입 순서를 그대로 쓰면 그룹 자체도
 // 1위 동이 속한 그룹부터, 그룹 내부도 랭킹순으로 자연히 정렬된다.
 export function GroupedAreaList({

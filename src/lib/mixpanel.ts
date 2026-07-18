@@ -11,6 +11,13 @@ function ensureInit() {
     // 분석 단위는 세션(session_id)이지 유저가 아니라서 people/identify는 쓰지 않고
     // 이벤트 프로퍼티로만 session_id·role을 부착한다 (docs/metrics-events.md 기준).
     autocapture: false,
+    // mixpanel-browser 기본값(batch_requests: true)은 이벤트를 최대 5초까지
+    // 모았다가 한 번에 보낸다 — 실측 확인: 초대 링크 열람(invite_opened) 같은
+    // 이벤트가 발화는 되지만 네트워크 전송은 5~10초 뒤에야 일어났다. 이 앱은
+    // 카카오톡 인앱 브라우저로 초대 링크를 열고 곧바로 다음 화면으로 넘어가는
+    // 흐름이 많아, 그 사이 탭/인앱 브라우저가 닫히면 배치가 아직 안 나간 이벤트가
+    // 유실된다. 배치를 끄고 이벤트마다 즉시 전송한다.
+    batch_requests: false,
   })
   initialized = true
 }
