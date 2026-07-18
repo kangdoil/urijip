@@ -6,6 +6,8 @@ export function ResultHeaderPill({
   count,
   excludedCount = 0,
   partnerConfirmed,
+  includeExcluded,
+  groups
 }: {
   title: string
   // 실제 구역 개수(89개까지 나와 압도적)가 아니라 "추천 시군구 수 × 3"을
@@ -15,7 +17,12 @@ export function ResultHeaderPill({
   excludedCount?: number
   // undefined면 배지를 아예 숨긴다 (예: 매칭 0건 폴백 상태)
   partnerConfirmed?: boolean
+  includeExcluded:boolean
+  groups:any;
 }) {
+
+  const totalList = groups.flatMap((g:any) => g.list)
+
   return (
     <div className="flex items-center justify-between gap-3 rounded-xl border border-white bg-neutral-50/50 px-5 py-3 shadow-[0_10px_40px_rgba(0,0,0,0.04)] backdrop-blur-[10px]">
       <p className="flex min-w-0 items-center gap-1.5 text-lg font-semibold tracking-[-0.03em] text-neutral-900">
@@ -25,8 +32,8 @@ export function ResultHeaderPill({
       <div className="flex shrink-0 items-center gap-1">
         {count != null && (
           <span className="whitespace-nowrap rounded-full bg-neutral-900 px-2 py-1.5 text-body-sb font-semibold text-pink-500">
-            {excludedCount > 0
-              ? `총 ${count} -> ${count - excludedCount}곳`
+            {includeExcluded ? `총 ${totalList.length}곳` : excludedCount > 0
+              ? `총 ${count - excludedCount}곳`
               : `총 ${count}곳`}
           </span>
         )}

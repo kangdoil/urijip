@@ -14,6 +14,7 @@ import { ResultAreaCard, type ResultAreaData } from '@/components/result-area-ca
 import { SigunguFilterSheet } from '@/components/sigungu-filter-sheet'
 import { MustConditionSheet, type ParticipantConditionSummary } from '@/components/must-condition-sheet'
 import { SaveOptionsSheet } from '@/components/save-options-sheet'
+import { group } from 'console'
 
 export interface FallbackArea {
   code: string
@@ -60,7 +61,7 @@ const PIN_FOCUS_LEVEL = 3
 
 // 시군구별 추천 동네 상한(grouped-area-list.tsx의 "상위 최대 3곳" 규칙과 동일) —
 // 결과 요약 배지의 "총 N곳" 숫자를 시군구 수 × 3으로 계산하는 기준값이다.
-const RECOMMENDED_PER_SIGUNGU = 3
+// const RECOMMENDED_PER_SIGUNGU = 3
 
 // 시트를 끝까지 내리면 핸들+필수조건 요약줄+액션 버튼만 보이고(요구사항),
 // 기본은 필터+카드 한 줄이 보이는 높이로 편다.
@@ -370,8 +371,15 @@ export function ResultMapSheet({
     ? []
     : groups
         .filter((g) => selectedSigungus.has(g.sigungu))
-        .flatMap((g) => g.list.slice(0, 3))
+        .flatMap((g) => g.list)
         .filter((a) => includeExcluded || !excludedCodes.has(a.code))
+        
+
+        console.log("groups", groups)
+        console.log("selectedSigungus", )
+        console.log("includeExcluded", includeExcluded)
+        console.log("excludedCodes", excludedCodes)
+        console.log("activeAreas", activeAreas)
 
   const pins: PinData[] = isFallback
     ? [
@@ -437,8 +445,15 @@ export function ResultMapSheet({
   const remainingSigunguCount = new Set(
     areas.filter((a) => !excludedCodes.has(a.code)).map((a) => a.sigungu)
   ).size
-  const displayCount = sigunguCount * RECOMMENDED_PER_SIGUNGU
-  const remainingDisplayCount = remainingSigunguCount * RECOMMENDED_PER_SIGUNGU
+  const displayCount = sigunguCount 
+
+  
+  const remainingDisplayCount = useMemo(()=>{
+    console.log("area", areas)
+    console.log("e", excludedCodes)
+    console.log("remainingSigunguCount", remainingSigunguCount)
+    return remainingSigunguCount 
+  }, [remainingSigunguCount]) 
 
   return (
     <div className="relative mx-auto h-dvh w-full max-w-md overflow-hidden">
@@ -474,6 +489,9 @@ export function ResultMapSheet({
           count={isFallback ? undefined : displayCount}
           excludedCount={isFallback ? 0 : displayCount - remainingDisplayCount}
           partnerConfirmed={isFallback ? undefined : partnerConfirmed ?? undefined}
+          includeExcluded={includeExcluded}
+          groups={groups}
+
         />
       </div>
 
@@ -723,7 +741,7 @@ export function ResultMapSheet({
               <p className="text-body-m text-neutral-500">우리가 함께 할 수 있는 동네</p>
               <p className="text-title-l font-bold text-neutral-900">
                 총 <span className="font-montserrat text-mont-title-l text-pink-500">
-                  {remainingDisplayCount}
+                  {activeAreas.length}
                 </span>
                 곳
               </p>
