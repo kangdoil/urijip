@@ -14,7 +14,6 @@ import { ResultAreaCard, type ResultAreaData } from '@/components/result-area-ca
 import { SigunguFilterSheet } from '@/components/sigungu-filter-sheet'
 import { MustConditionSheet, type ParticipantConditionSummary } from '@/components/must-condition-sheet'
 import { SaveOptionsSheet } from '@/components/save-options-sheet'
-import { group } from 'console'
 
 export interface FallbackArea {
   code: string
@@ -64,13 +63,15 @@ const PIN_FOCUS_LEVEL = 3
 // const RECOMMENDED_PER_SIGUNGU = 3
 
 // 시트를 끝까지 내리면 핸들+필수조건 요약줄+액션 버튼만 보이고(요구사항),
-// 기본은 필터+카드 한 줄이 보이는 높이로 편다.
-// (픽셀 정밀 계산/ResizeObserver로 스냅 높이를 맞추려던 시도는 지도를 거의
-// 다 가려버리는 버그로 되돌렸다 — 대신 액션바를 Drawer.Content 안 일반
-// 흐름의 마지막 자식으로 둬서 카드-버튼 간격은 레이아웃상 항상 0이 되도록
-// 구조 자체를 바꿨다. 스냅 높이는 다시 단순 비율로 관리한다.)
+// 기본은 컨텐츠 자연 높이만큼만 펼쳐진다.
+// vaul의 snapPoint 오프셋은 `containerHeight - snapPoint * containerHeight`로
+// 계산된다 — snapPoint가 1이면 오프셋이 항상 0이라 화면 크기와 무관하게
+// Drawer.Content의 실제(자연) 높이가 그대로 펼쳐진 높이가 된다. 예전에
+// ResizeObserver로 픽셀 단위 스냅 높이를 직접 계산하려던 시도는 지도를 거의
+// 가려버리는 버그로 이어졌는데, snapPoint=1은 그 계산을 vaul에 맡기면서도
+// 같은 효과(컨텐츠만큼만 높이)를 얻는 방법이다.
 const SNAP_COLLAPSED = 0.3
-const SNAP_DEFAULT = 0.62
+const SNAP_DEFAULT = 1
 const SNAP_POINTS = [SNAP_COLLAPSED, SNAP_DEFAULT]
 
 interface PinData {
@@ -193,8 +194,6 @@ export function ResultMapSheet({
     appkey: process.env.NEXT_PUBLIC_KAKAO_JS_KEY ?? '',
     url: 'https://dapi.kakao.com/v2/maps/sdk.js',
   })
-  console.log('loading', loading)
-  console.log('error', error)
 
   const isFallback = matchCount === 0
   const groups = useMemo(() => groupBySigungu(areas), [areas])
@@ -373,13 +372,6 @@ export function ResultMapSheet({
         .filter((g) => selectedSigungus.has(g.sigungu))
         .flatMap((g) => g.list)
         .filter((a) => includeExcluded || !excludedCodes.has(a.code))
-        
-
-        console.log("groups", groups)
-        console.log("selectedSigungus", )
-        console.log("includeExcluded", includeExcluded)
-        console.log("excludedCodes", excludedCodes)
-        console.log("activeAreas", activeAreas)
 
   const pins: PinData[] = isFallback
     ? [
@@ -445,15 +437,8 @@ export function ResultMapSheet({
   const remainingSigunguCount = new Set(
     areas.filter((a) => !excludedCodes.has(a.code)).map((a) => a.sigungu)
   ).size
-  const displayCount = sigunguCount 
-
-  
-  const remainingDisplayCount = useMemo(()=>{
-    console.log("area", areas)
-    console.log("e", excludedCodes)
-    console.log("remainingSigunguCount", remainingSigunguCount)
-    return remainingSigunguCount 
-  }, [remainingSigunguCount]) 
+  const displayCount = sigunguCount
+  const remainingDisplayCount = remainingSigunguCount
 
   return (
     <div className="relative mx-auto h-dvh w-full max-w-md overflow-hidden">
@@ -506,16 +491,13 @@ export function ResultMapSheet({
       >
         <Drawer.Portal>
           <Drawer.Overlay className="pointer-events-none fixed inset-0 bg-black/40" />
-          {/* 액션바(조율하기/저장하기)는 Drawer.Content 밖 별도 fixed 블록에 둔다.
-              Drawer.Content는 스냅 상태와 무관하게 항상 h-full(~90vh) 박스이고
-              vaul은 translateY로 얼마나 가릴지만 조절한다 — 그 안에 두면(flex-1
-              콘텐츠가 90vh를 다 채우려고 늘어나면서) 접혔을 때는 물론 스냅이
-              뷰포트보다 작을 때도 버튼이 화면 밖으로 밀려나 안 보이는 문제가
-              있었다(실측 확인). 카드-버튼 간격은 아래 paddingBottom 예약으로
-              맞춘다. */}
-          <Drawer.Content className="fixed inset-x-0 bottom-0 z-10 mx-auto flex min-h-[700px] max-h-[90dvh] w-full max-w-md flex-col rounded-t-3xl border border-pink-100 bg-white shadow-[0_-8px_32px_rgba(0,0,0,0.1)] outline-none">
-            <button className='h-7'>
-            <div className="mx-auto mt-3 h-1 w-10 shrink-0 rounded-full bg-neutral-300" />
+          {/* 액션바(조율하기/저장하기)는 Drawer.Content 안 일반 흐름의 마지막
+              자식으로 둬서 카드-버튼 간격이 항상 0이 되도록 한다. Content는
+              max-h만 안전장치로 두고 나머지는 컨텐츠 자연 높이를 그대로
+              따른다(SNAP_DEFAULT=1이라 vaul 오프셋이 항상 0 — 위 주석 참고). */}
+          <Drawer.Content className="fixed inset-x-0 bottom-0 z-10 mx-auto flex max-h-[92dvh] w-full max-w-md flex-col overflow-y-auto rounded-t-3xl border border-pink-100 bg-white shadow-[0_-8px_32px_rgba(0,0,0,0.1)] outline-none">
+            <button className="h-7">
+              <div className="mx-auto mt-3 h-1 w-10 shrink-0 rounded-full bg-neutral-300" />
             </button>
 
             {!isCollapsed && (

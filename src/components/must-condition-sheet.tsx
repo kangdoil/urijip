@@ -47,7 +47,7 @@ export function MustConditionSheet({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="data-[vaul-drawer-direction=bottom]:h-[92vh] data-[vaul-drawer-direction=bottom]:max-h-[92vh]">
+      <DrawerContent className=" data-[vaul-drawer-direction=bottom]:max-h-[92vh]">
         <DrawerHeader>
           <DrawerTitle>두 분의 조건</DrawerTitle>
           <DrawerDescription>
