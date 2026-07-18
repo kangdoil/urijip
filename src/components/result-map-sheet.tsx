@@ -2,18 +2,16 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Drawer } from 'vaul'
-import { ChevronDown, ChevronRight, CirclePlus } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, CirclePlus } from 'lucide-react'
 import { Map, CustomOverlayMap, useKakaoLoader } from 'react-kakao-maps-sdk'
+import { createClient } from '@/lib/supabase/client'
+import { ensureRealtimeAuth } from '@/lib/supabase/realtime-auth'
 import { groupBySigungu } from '@/lib/group-by-sigungu'
 import { CONDITION_LABEL } from '@/lib/condition-labels'
 import { cn } from '@/lib/utils'
 import { ResultHeaderPill } from '@/components/result-header-pill'
 import { ResultAreaCard, type ResultAreaData } from '@/components/result-area-card'
 import { SigunguFilterSheet } from '@/components/sigungu-filter-sheet'
-import {
-  SelectedAreaFilterSheet,
-  type AreaVisibility,
-} from '@/components/selected-area-filter-sheet'
 import { MustConditionSheet, type ParticipantConditionSummary } from '@/components/must-condition-sheet'
 import { SaveOptionsSheet } from '@/components/save-options-sheet'
 
@@ -31,6 +29,8 @@ interface FallbackResult {
 }
 
 interface ResultMapSheetProps {
+  sessionId: string
+  myParticipantId: string | null
   areas: ResultAreaData[]
   matchCount: number
   fallback: FallbackResult | null
@@ -90,22 +90,28 @@ function FallbackLists({ aOnly, bOnly }: { aOnly: FallbackArea[]; bOnly: Fallbac
         대신, 한쪽 필수 조건만 반영했을 때의 후보를 보여드릴게요
       </p>
       <div>
-        <p className="mb-2 text-sm font-medium text-pink-500">A의 필수만 반영 ({aOnly.length}곳)</p>
+        <p className="mb-2 text-body-sb font-bold text-pink-500">A의 필수만 반영 ({aOnly.length}곳)</p>
         <div className="flex flex-col gap-1.5">
           {aOnly.map((a) => (
-            <div key={a.code} className="rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-700">
-              {a.sigungu} {a.name}
+            <div key={a.code} className="flex items-center gap-2 rounded-lg bg-neutral-50 px-3 py-2.5">
+              <span className="size-1.5 shrink-0 rounded-full bg-pink-500" />
+              <span className="min-w-0 truncate text-body-sb font-medium text-neutral-900">
+                <span className="text-neutral-500">{a.sigungu}</span> {a.name}
+              </span>
             </div>
           ))}
           {aOnly.length === 0 && <p className="text-xs text-neutral-400">후보가 없어요</p>}
         </div>
       </div>
       <div>
-        <p className="mb-2 text-sm font-medium text-accent-teal">B의 필수만 반영 ({bOnly.length}곳)</p>
+        <p className="mb-2 text-body-sb font-bold text-accent-teal">B의 필수만 반영 ({bOnly.length}곳)</p>
         <div className="flex flex-col gap-1.5">
           {bOnly.map((b) => (
-            <div key={b.code} className="rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-700">
-              {b.sigungu} {b.name}
+            <div key={b.code} className="flex items-center gap-2 rounded-lg bg-neutral-50 px-3 py-2.5">
+              <span className="size-1.5 shrink-0 rounded-full bg-accent-teal" />
+              <span className="min-w-0 truncate text-body-sb font-medium text-neutral-900">
+                <span className="text-neutral-500">{b.sigungu}</span> {b.name}
+              </span>
             </div>
           ))}
           {bOnly.length === 0 && <p className="text-xs text-neutral-400">후보가 없어요</p>}
@@ -126,6 +132,8 @@ function sigunguTriggerLabel(selected: Set<string>) {
 // 카드를 걸러 보여준다(핀 탭 → 리스트 스크롤 연동은 v1 범위 밖 — TODO).
 // 매칭 0건(폴백)일 땐 칩 없이 A/B 후보를 색으로 구분해 한 지도에 같이 보여준다.
 export function ResultMapSheet({
+  sessionId,
+  myParticipantId,
   areas,
   matchCount,
   fallback,
@@ -157,22 +165,32 @@ export function ResultMapSheet({
 
   // 여러 시군구를 동시에 선택할 수 있다(요구사항: 중복 선택 가능). 아직 직접
   // 고르기 전엔 전체 시군구가 기본으로 선택돼 있다 — groups가 바뀌어도(예:
-  // 조율 후 재조회) effect 없이 렌더 중 파생값으로만 계산한다.
+  // 조율 후 재조회) effect 없이 렌더 중 파생값으로만 계산한다. manualSigungus를
+  // 건드린 뒤엔(빈 Set 포함) 현재 groups에 남아있는 것만 걸러서 쓴다 — "모두
+  // 선택 취소"로 0개를 명시적으로 고른 상태도 유효해야 하기 때문.
   const [manualSigungus, setManualSigungus] = useState<Set<string> | null>(null)
-  const selectedSigungus =
-    manualSigungus && Array.from(manualSigungus).some((s) => groups.some((g) => g.sigungu === s))
-      ? manualSigungus
-      : new Set(groups.map((g) => g.sigungu))
+  const selectedSigungus = manualSigungus
+    ? new Set(Array.from(manualSigungus).filter((s) => groups.some((g) => g.sigungu === s)))
+    : new Set(groups.map((g) => g.sigungu))
 
-  // 카드의 X 버튼으로 뺀 구역 — Save를 누르기 전까진 이 화면 안에서만 유지된다.
+  // 카드의 X 버튼으로 뺀 구역 — area_exclusions 테이블에 저장되는 세션 공유
+  // 상태다. 한쪽이 제외/복구하면 Realtime으로 상대방 화면에도 반영되고,
+  // 새로고침해도 유지된다. 낙관적 업데이트로 먼저 반영하고 실패하면 되돌린다.
   const [excludedCodes, setExcludedCodes] = useState<Set<string>>(new Set())
-  // 기본은 "전체"가 선택된 상태 — 트리거 칩은 필터 안 된 모양(뉴트럴50)을
-  // 유지하고, 실제로 "선택된/제외된 구역만"을 고를 때만 활성(뉴트럴900)으로 바뀐다.
-  const [areaVisibility, setAreaVisibility] = useState<Set<AreaVisibility>>(new Set(['all']))
+  const [exclusionError, setExclusionError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!exclusionError) return
+    const timer = setTimeout(() => setExclusionError(null), 2500)
+    return () => clearTimeout(timer)
+  }, [exclusionError])
+  // 필터 칩이 3개(시군구/구역필터/체크박스)로 늘어나면서 한 줄에 안 들어가
+  // 잘리는 문제가 있어 "구역 필터" 시트는 제거하고 체크박스 하나로 정리했다.
+  // 디폴트는 꺼짐(선택된 동네만 노출) — 체크하면 제외된 동네도 같이 보여준다.
+  const [includeExcluded, setIncludeExcluded] = useState(false)
 
   const [snap, setSnap] = useState<number | string | null>(SNAP_DEFAULT)
   const [sigunguSheetOpen, setSigunguSheetOpen] = useState(false)
-  const [areaFilterSheetOpen, setAreaFilterSheetOpen] = useState(false)
   const [conditionSheetOpen, setConditionSheetOpen] = useState(false)
   const mapRef = useRef<kakao.maps.Map | null>(null)
   // 접힌 상태의 핸들은 vaul Drawer.Content 밖(fixed 블록)에 있어 vaul의
@@ -202,38 +220,119 @@ export function ResultMapSheet({
     setManualSigungus(next)
   }
 
-  function toggleAreaVisibility(value: AreaVisibility) {
-    setAreaVisibility((prev) => {
+  function toggleAllSigungus() {
+    const allSigungus = groups.map((g) => g.sigungu)
+    const allSelected = allSigungus.length > 0 && allSigungus.every((s) => selectedSigungus.has(s))
+    setManualSigungus(allSelected ? new Set() : new Set(allSigungus))
+  }
+
+  async function excludeArea(code: string) {
+    if (!myParticipantId) return
+    setExcludedCodes((prev) => new Set(prev).add(code))
+    const supabase = createClient()
+    const { error } = await supabase.from('area_exclusions').insert({
+      session_id: sessionId,
+      area_code: code,
+      excluded_by: myParticipantId,
+    })
+    if (error) {
+      setExcludedCodes((prev) => {
+        const next = new Set(prev)
+        next.delete(code)
+        return next
+      })
+      setExclusionError('제외에 실패했어요')
+    }
+  }
+
+  async function restoreArea(code: string) {
+    if (!myParticipantId) return
+    setExcludedCodes((prev) => {
       const next = new Set(prev)
-      if (next.has(value)) next.delete(value)
-      else next.add(value)
+      next.delete(code)
       return next
     })
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('area_exclusions')
+      .update({ restored_by: myParticipantId, restored_at: new Date().toISOString() })
+      .eq('session_id', sessionId)
+      .eq('area_code', code)
+      .is('restored_at', null)
+    if (error) {
+      setExcludedCodes((prev) => new Set(prev).add(code))
+      setExclusionError('복구에 실패했어요')
+    }
   }
 
-  function excludeArea(code: string) {
-    setExcludedCodes((prev) => new Set(prev).add(code))
-  }
+  // 세션의 현재 제외 목록을 불러온 뒤, Realtime으로 상대방의 제외/복구를
+  // 조용히(토스트 없이) 반영한다 — 제외는 자주 일어나는 행동이라 매번
+  // 알림을 띄우면 소음이 커진다는 판단.
+  useEffect(() => {
+    const supabase = createClient()
+    let cancelled = false
+    let channel: ReturnType<typeof supabase.channel> | null = null
 
-  // '전체'는 "아직 따로 거르지 않음"이라는 기본값 취급이다 — X로 뺀 구역은
-  // 이 상태에서도 바로 숨긴다. '선택된/제외된 구역만'을 명시적으로 골라야
-  // 그 기준대로 걸러 보여준다(둘 다 고르면 합집합 = 전부 보여준다).
-  function passesAreaVisibility(code: string) {
-    const excluded = excludedCodes.has(code)
-    const wantSelected = areaVisibility.has('selected')
-    const wantExcluded = areaVisibility.has('excluded')
-    if (wantSelected && wantExcluded) return true
-    if (wantExcluded) return excluded
-    if (wantSelected) return !excluded
-    return !excluded
-  }
+    ;(async () => {
+      const { data } = await supabase
+        .from('area_exclusions')
+        .select('area_code')
+        .eq('session_id', sessionId)
+        .is('restored_at', null)
+      if (!cancelled && data) {
+        setExcludedCodes(new Set(data.map((row) => row.area_code as string)))
+      }
+
+      await ensureRealtimeAuth(supabase)
+      if (cancelled) return
+
+      // 개발 모드 StrictMode/HMR로 effect가 겹쳐 실행되면 같은 이름의 채널이
+      // 이미 subscribe된 채로 남아있을 수 있다 — 그 상태에서 .on()을 다시
+      // 호출하면 "cannot add callbacks after subscribe()" 에러가 난다
+      // (실측 확인). 새로 만들기 전에 동일 토픽의 기존 채널을 정리한다.
+      const channelName = `area-exclusions:${sessionId}`
+      const stale = supabase.getChannels().find((c) => c.topic === `realtime:${channelName}`)
+      if (stale) await supabase.removeChannel(stale)
+      if (cancelled) return
+
+      channel = supabase
+        .channel(channelName)
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'area_exclusions', filter: `session_id=eq.${sessionId}` },
+          (payload) => {
+            const areaCode = payload.new.area_code as string
+            setExcludedCodes((prev) => new Set(prev).add(areaCode))
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'area_exclusions', filter: `session_id=eq.${sessionId}` },
+          (payload) => {
+            const row = payload.new as { area_code: string; restored_at: string | null }
+            if (row.restored_at == null) return
+            setExcludedCodes((prev) => {
+              const next = new Set(prev)
+              next.delete(row.area_code)
+              return next
+            })
+          }
+        )
+        .subscribe()
+    })()
+
+    return () => {
+      cancelled = true
+      if (channel) supabase.removeChannel(channel)
+    }
+  }, [sessionId])
 
   const activeAreas = isFallback
     ? []
     : groups
         .filter((g) => selectedSigungus.has(g.sigungu))
         .flatMap((g) => g.list.slice(0, 3))
-        .filter((a) => passesAreaVisibility(a.code))
+        .filter((a) => includeExcluded || !excludedCodes.has(a.code))
 
   const pins: PinData[] = isFallback
     ? [
@@ -293,10 +392,14 @@ export function ResultMapSheet({
         )}
       </div>
 
-      <div className="absolute inset-x-4 top-14 z-10">
+      <div
+        className="absolute inset-x-4 z-10"
+        style={{ top: 'calc(env(safe-area-inset-top) + 16px)' }}
+      >
         <ResultHeaderPill
           title={title}
           count={isFallback ? undefined : matchCount}
+          excludedCount={isFallback ? 0 : excludedCodes.size}
           partnerConfirmed={isFallback ? undefined : partnerConfirmed ?? undefined}
         />
       </div>
@@ -317,7 +420,7 @@ export function ResultMapSheet({
             {!isCollapsed && (
               <div
                 className="flex-1 overflow-y-auto"
-                style={{ paddingBottom: 'calc(164px + env(safe-area-inset-bottom))' }}
+                style={{ paddingBottom: 'calc(128px + env(safe-area-inset-bottom))' }}
               >
                 {isFallback ? (
                   <div className="pt-4">
@@ -343,7 +446,7 @@ export function ResultMapSheet({
                     </button>
 
                     {groups.length > 0 && (
-                      <div className="flex items-center gap-1.5 px-4 py-2">
+                      <div className="flex items-center gap-1.5 px-4 pt-2 pb-1">
                         <button
                           onClick={() => setSigunguSheetOpen(true)}
                           className="flex shrink-0 items-center gap-1 rounded-full bg-neutral-900 px-4 py-2 text-body-sb font-medium text-white"
@@ -352,23 +455,35 @@ export function ResultMapSheet({
                           <ChevronDown className="size-4" />
                         </button>
                         <button
-                          onClick={() => setAreaFilterSheetOpen(true)}
-                          className={cn(
-                            'flex shrink-0 items-center gap-1 rounded-full px-4 py-2 text-body-sb font-medium',
-                            areaVisibility.has('selected') || areaVisibility.has('excluded')
-                              ? 'bg-neutral-900 text-white'
-                              : 'bg-neutral-50 text-neutral-500'
-                          )}
+                          type="button"
+                          onClick={() => setIncludeExcluded((v) => !v)}
+                          aria-pressed={includeExcluded}
+                          className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full px-4 py-2 text-body-sb font-medium text-neutral-500"
                         >
-                          전체
-                          <ChevronDown className="size-4" />
+                          <span
+                            className={cn(
+                              'flex size-4 shrink-0 items-center justify-center rounded border',
+                              includeExcluded
+                                ? 'border-neutral-900 bg-neutral-900'
+                                : 'border-neutral-300 bg-white'
+                            )}
+                          >
+                            {includeExcluded && <Check className="size-3 text-white" strokeWidth={3} />}
+                          </span>
+                          제외된 동네 포함
                         </button>
                       </div>
                     )}
 
-                    <div className="flex snap-x gap-3 overflow-x-auto px-4 py-3">
+                    <div className="flex snap-x gap-3 overflow-x-auto px-4 pt-1.5 pb-3 scroll-pl-4">
                       {activeAreas.map((area) => (
-                        <ResultAreaCard key={area.code} area={area} onExclude={excludeArea} />
+                        <ResultAreaCard
+                          key={area.code}
+                          area={area}
+                          excluded={excludedCodes.has(area.code)}
+                          onExclude={excludeArea}
+                          onRestore={restoreArea}
+                        />
                       ))}
                       {activeAreas.length === 0 && (
                         <p className="py-4 text-center text-body-s text-neutral-400">
@@ -424,28 +539,28 @@ export function ResultMapSheet({
           </button>
         )}
 
-        <div className="flex w-full flex-col items-center gap-4 px-4 py-5">
+        <div className="flex w-full flex-col items-center gap-3 px-4 pt-2.5 pb-5">
           <div className="flex w-full items-center gap-3">
             <button
               onClick={onRetry}
               disabled={retrying}
-              className="flex w-[105px] shrink-0 items-center justify-center rounded-full border-2 border-pink-500 px-10 py-5 font-montserrat text-mont-title-m font-bold text-pink-500 disabled:opacity-50"
+              className="flex flex-1 items-center justify-center rounded-full border-2 border-pink-500 px-10 py-4 text-title-sb font-bold text-pink-500 disabled:opacity-50"
             >
-              Retry
+              조율하기
             </button>
             {!isFallback && (
               <button
                 onClick={() => onSave(savedAreaCodes)}
                 disabled={saving}
-                className="flex flex-1 items-center justify-center rounded-full bg-pink-500 px-10 py-5 font-montserrat text-mont-title-m font-bold text-white disabled:opacity-50"
+                className="flex flex-1 items-center justify-center rounded-full bg-pink-500 px-10 py-4 text-title-sb font-bold text-white disabled:opacity-50"
               >
-                Save
+                저장하기
               </button>
             )}
           </div>
           {!isFallback && (
             <p className="text-center text-caption-l font-medium text-neutral-500">
-              Save를 누르면 확정되고, 동네 리스트를 저장할 수 있어요
+              저장하기를 누르면 상대방에게 확정되었다고 뜨고, 동네 리스트도 저장할 수 있어요
             </p>
           )}
         </div>
@@ -457,13 +572,7 @@ export function ResultMapSheet({
         sigungus={groups.map((g) => g.sigungu)}
         selected={selectedSigungus}
         onToggle={toggleSigungu}
-      />
-
-      <SelectedAreaFilterSheet
-        open={areaFilterSheetOpen}
-        onOpenChange={setAreaFilterSheetOpen}
-        selected={areaVisibility}
-        onToggle={toggleAreaVisibility}
+        onToggleAll={toggleAllSigungus}
       />
 
       <MustConditionSheet
@@ -483,6 +592,14 @@ export function ResultMapSheet({
         onSaveImage={onSaveImage}
         onSaveText={onSaveText}
       />
+
+      {exclusionError && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-24 z-30 flex justify-center px-4">
+          <span className="rounded-full bg-red-600 px-5 py-3 text-body-sb font-semibold text-white shadow-lg">
+            {exclusionError}
+          </span>
+        </div>
+      )}
 
       {/* html-to-image로 캡처할 내보내기용 카드 — 화면 밖에 렌더링해둔다. */}
       {exportRef && (

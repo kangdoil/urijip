@@ -1,5 +1,5 @@
 -- =============================================================
--- 우리집 · 신혼부부 주거 조건 조율 서비스 · Supabase 스키마 (v0.2)
+-- 우리집 · 신혼부부 주거 조건 조율 서비스 · Supabase 스키마 (v0.3)
 -- 실행: Supabase SQL Editor 또는 supabase db push
 -- 전제: Anonymous Auth 활성화 (B는 가입 없이 참여)
 -- 대응 문서: PRD-우리집.md v0.4
@@ -155,6 +155,27 @@ create table public.result_shares (
   created_at     timestamptz not null default now()
 );
 
+-- -------------------------------------------------------------
+-- 9. 구역 제외/복구 (v0.3 신설)
+--    결과 화면에서 뺀 구역을 세션 공유 상태로 둔다 — 한쪽이 제외하면
+--    즉시 상대방 화면에도 반영, 두 사람 모두 언제든 복구 가능.
+--    이력 보존을 위해 소프트 삭제(restored_at) 방식.
+-- -------------------------------------------------------------
+create table public.area_exclusions (
+  id          uuid primary key default gen_random_uuid(),
+  session_id  uuid not null references public.sessions(id) on delete cascade,
+  area_code   text not null references public.areas(code),
+  excluded_by uuid not null references public.participants(id),
+  excluded_at timestamptz not null default now(),
+  restored_by uuid references public.participants(id),
+  restored_at timestamptz
+);
+
+-- "현재 제외 중" 상태는 (session_id, area_code)당 최대 1행만 허용한다.
+create unique index area_exclusions_active_idx
+  on public.area_exclusions (session_id, area_code)
+  where restored_at is null;
+
 -- =============================================================
 -- RLS 정책
 -- 핵심 규칙: 상대방 데이터는 "둘 다 입력 완료" 후에만 보인다
@@ -168,6 +189,7 @@ alter table public.area_stats             enable row level security;
 alter table public.commute_cache          enable row level security;
 alter table public.proposals              enable row level security;
 alter table public.result_shares          enable row level security;
+alter table public.area_exclusions        enable row level security;
 
 -- 헬퍼: 내가 이 세션의 참여자인가
 create or replace function public.is_session_member(sid uuid)
@@ -256,6 +278,18 @@ create policy shares_insert on public.result_shares
             where p.id = created_by and p.user_id = auth.uid())
   );
 
+-- area_exclusions: 세션 참여자 조회, 본인 이름으로만 제외 생성,
+-- 복구는 제외한 사람이 아니어도 세션 참여자 누구나 가능.
+create policy area_exclusions_select on public.area_exclusions
+  for select using (public.is_session_member(session_id));
+create policy area_exclusions_insert on public.area_exclusions
+  for insert with check (
+    exists (select 1 from public.participants p
+            where p.id = excluded_by and p.user_id = auth.uid())
+  );
+create policy area_exclusions_restore on public.area_exclusions
+  for update using (public.is_session_member(session_id));
+
 -- =============================================================
 -- 공유 카드 공개 열람 (v0.2 신설)
 -- 로그인/세션 참여 여부와 무관하게 slug만으로 조회 가능.
@@ -325,3 +359,4 @@ end $$;
 -- =============================================================
 alter publication supabase_realtime add table public.participants;
 alter publication supabase_realtime add table public.proposals;
+alter publication supabase_realtime add table public.area_exclusions;

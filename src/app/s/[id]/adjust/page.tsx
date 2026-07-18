@@ -11,7 +11,6 @@ import { useCommuteStatus } from '@/lib/use-commute-status'
 import { Slider } from '@/components/ui/slider'
 import { OnboardBackBar } from '@/components/onboard-back-bar'
 import { DecisionResultSheet } from '@/components/decision-result-sheet'
-import { ensureRealtimeAuth } from '@/lib/supabase/realtime-auth'
 import { cn } from '@/lib/utils'
 
 type Tier = 'must' | 'nice' | 'skip'
@@ -119,6 +118,7 @@ export default function AdjustPage() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [decisionSheet, setDecisionSheet] = useState<'accepted' | 'rejected' | null>(null)
+  const [resent, setResent] = useState(false)
 
   const [aTiers, setATiers] = useState<Record<string, Tier>>({})
   const [bTiers, setBTiers] = useState<Record<string, Tier>>({})
@@ -196,43 +196,9 @@ export default function AdjustPage() {
 
   const isProposer = pending?.proposer_id === me?.id
 
-  // 실시간 구독으로 상대가 이 제안을 수락/거절하는 순간을 감지한다. 수락 시
-  // decide_proposal이 세션을 resolved로 바꾸므로 바로 결과로 보내고, 거절
-  // 시에도 "A,B 모두 결과 화면으로 이동" 요구사항에 맞춰 결과로 보낸다.
-  useEffect(() => {
-    if (!pending || !isProposer) return
-    const supabase = createClient()
-    let cancelled = false
-    let channel: ReturnType<typeof supabase.channel> | null = null
-
-    ;(async () => {
-      await ensureRealtimeAuth(supabase)
-      if (cancelled) return
-      channel = supabase
-        .channel(`proposal-decision:${pending.id}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'proposals',
-            filter: `id=eq.${pending.id}`,
-          },
-          (payload) => {
-            const status = (payload.new as { status: string }).status
-            if (status === 'accepted' || status === 'rejected') {
-              router.push(`/s/${sessionId}/result?notice=updated`)
-            }
-          }
-        )
-        .subscribe()
-    })()
-
-    return () => {
-      cancelled = true
-      if (channel) supabase.removeChannel(channel)
-    }
-  }, [pending, isProposer, sessionId, router])
+  // 상대가 이 제안을 수락/거절하는 순간의 감지는 세션 레이아웃에 공통으로 걸린
+  // ProposalSnackbar(전역 realtime 구독)가 담당한다 — 이 페이지에 있을 때도,
+  // 다른 페이지에 있을 때도 동일하게 동작하도록 한 곳으로 모았다.
 
   const lowBudgetOriginal = data ? Math.min(data.a.budget_max_krw, data.b.budget_max_krw) : 0
   const highBudgetOriginal = data ? Math.max(data.a.budget_max_krw, data.b.budget_max_krw) : 0
@@ -297,6 +263,14 @@ export default function AdjustPage() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  // "다시 보내기" — 같은 제안을 새 row로 재제출한다(요청사항). 상대에게 새
+  // pending 알림이 다시 뜨도록 동일 payload로 suggest()를 한 번 더 호출한다.
+  async function resend() {
+    await suggest()
+    setResent(true)
+    setTimeout(() => setResent(false), 1800)
   }
 
   async function saveMyChanges(supabase: ReturnType<typeof createClient>) {
@@ -428,9 +402,8 @@ export default function AdjustPage() {
                       <span
                         className={cn(
                           'rounded-full px-3 py-1.5 text-[15px] font-bold tracking-[-0.03em]',
-                          change.isSkip
-                            ? 'bg-neutral-100 text-neutral-500'
-                            : `${badgeColors.badgeBg} ${badgeColors.badgeText}`
+                          badgeColors.badgeBg,
+                          badgeColors.badgeText
                         )}
                       >
                         {change.newValue}
@@ -440,8 +413,24 @@ export default function AdjustPage() {
                 </div>
               ))}
             </div>
+            <button
+              type="button"
+              onClick={resend}
+              disabled={submitting}
+              className="text-center text-body-sb font-medium text-neutral-500 underline decoration-1 underline-offset-4 disabled:opacity-50"
+            >
+              다시 보내기
+            </button>
           </div>
         </div>
+
+        {resent && (
+          <div className="pointer-events-none fixed inset-x-0 bottom-8 z-30 flex justify-center px-4">
+            <span className="animate-in fade-in-0 slide-in-from-bottom-2 rounded-full bg-neutral-900 px-5 py-3 text-body-sb font-semibold text-neutral-0 shadow-lg">
+              다시 보냈어요
+            </span>
+          </div>
+        )}
       </main>
     )
   }
@@ -616,27 +605,38 @@ export default function AdjustPage() {
                 <p className="mb-3 text-center text-title-sb font-bold text-neutral-900">
                   {CONDITION_LABEL[code]}
                 </p>
+                {/* 상단 A/B 범례(A=왼쪽 고정, B=오른쪽 고정)와 순서를 맞춘다 — "내
+                    조건"이 항상 왼쪽에 오면 B가 볼 때 범례와 어긋나 보인다. */}
                 <div className="grid grid-cols-2 gap-3">
                   <button
-                    onClick={() => {
-                      const setter = me.role === 'A' ? setATiers : setBTiers
-                      setter((t) => ({ ...t, [code]: nextTier(t[code]) }))
-                    }}
+                    onClick={
+                      me.role === 'A'
+                        ? () => setATiers((t) => ({ ...t, [code]: nextTier(t[code]) }))
+                        : undefined
+                    }
+                    disabled={me.role !== 'A'}
                     className={cn(
                       'w-full rounded-full border-2 bg-white px-7 py-5 text-body-m font-bold',
-                      tierPillClass(me.role)
+                      tierPillClass('A'),
+                      me.role !== 'A' && 'opacity-30'
                     )}
                   >
-                    {TIER_LABEL[me.role === 'A' ? aTiers[code] : bTiers[code]]}
+                    {TIER_LABEL[aTiers[code]]}
                   </button>
                   <button
-                    disabled
+                    onClick={
+                      me.role === 'B'
+                        ? () => setBTiers((t) => ({ ...t, [code]: nextTier(t[code]) }))
+                        : undefined
+                    }
+                    disabled={me.role !== 'B'}
                     className={cn(
-                      'w-full rounded-full border-2 bg-white px-7 py-5 text-body-m font-bold opacity-30',
-                      tierPillClass(me.role === 'A' ? 'B' : 'A')
+                      'w-full rounded-full border-2 bg-white px-7 py-5 text-body-m font-bold',
+                      tierPillClass('B'),
+                      me.role !== 'B' && 'opacity-30'
                     )}
                   >
-                    {TIER_LABEL[me.role === 'A' ? bTiers[code] : aTiers[code]]}
+                    {TIER_LABEL[bTiers[code]]}
                   </button>
                 </div>
               </div>
@@ -691,9 +691,9 @@ export default function AdjustPage() {
         <button
           onClick={suggest}
           disabled={submitting}
-          className="w-full rounded-full bg-pink-500 py-5 font-montserrat text-mont-title-m font-bold text-white disabled:opacity-50"
+          className="w-full rounded-full bg-pink-500 py-5 text-title-sb font-bold text-white disabled:opacity-50"
         >
-          Suggest
+          제안하기
         </button>
       </div>
     </main>

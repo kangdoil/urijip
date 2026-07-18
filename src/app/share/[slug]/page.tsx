@@ -18,15 +18,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
   const shared = await getSharedResult(slug)
   const title = shared
-    ? `함께 살 수 있는 구역 ${shared.areas.length}곳`
+    ? `함께 살 수 있는 동네 ${shared.areas.length}곳`
     : '우리집 — 결과 공유'
 
   return {
     title,
-    description: '신혼부부 2인이 함께 조율한 주거 구역 결과예요',
+    description: '두 사람이 함께 조율한 주거 동네 결과예요',
     openGraph: {
       title,
-      description: '우리집에서 조건을 맞춰보고 함께 살 구역을 찾아보세요',
+      description: '우리집에서 조건을 맞춰보고 함께 살 동네를 찾아보세요',
     },
   }
 }
@@ -49,8 +49,8 @@ export default async function SharePage({ params }: Props) {
         <p className="mb-1 text-[13px] text-neutral-500">우리집 · 결과 공유</p>
         <p className="mb-4 text-xl font-semibold text-neutral-900">
           {shared.areas.length > 0
-            ? `함께 살 수 있는 구역 ${shared.areas.length}곳`
-            : '아직 함께 갈 구역을 찾는 중이에요'}
+            ? `함께 살 수 있는 동네 ${shared.areas.length}곳`
+            : '아직 함께 갈 동네를 찾는 중이에요'}
         </p>
 
         <div className="mb-5 flex flex-col gap-2">
@@ -87,7 +87,7 @@ export default async function SharePage({ params }: Props) {
           <CardHeader>
             <CardTitle className="text-primary-700">우리집</CardTitle>
             <CardDescription>
-              신혼부부 2인이 주거 조건을 조율해 함께 살 구역을 찾아요
+              두 사람이 주거 조건을 조율해 함께 살 동네를 찾아요
             </CardDescription>
           </CardHeader>
           <CardContent>

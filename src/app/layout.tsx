@@ -26,8 +26,8 @@ const montserrat = Montserrat({
 });
 
 export const metadata: Metadata = {
-  title: "우리집 — 신혼집 찾기",
-  description: "신혼부부 2인이 주거 조건을 조율해 함께 살 구역을 찾는 서비스",
+  title: "우리집 동네 찾기",
+  description: "두 사람이 주거 조건을 조율해 함께 살 동네를 찾는 서비스",
 };
 
 export default function RootLayout({

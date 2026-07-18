@@ -3,10 +3,13 @@ import { cn } from '@/lib/utils'
 export function ResultHeaderPill({
   title,
   count,
+  excludedCount = 0,
   partnerConfirmed,
 }: {
   title: string
   count?: number
+  // 0보다 크면 "총 N -> M곳"으로 제외 반영 전/후를 함께 보여준다.
+  excludedCount?: number
   // undefined면 배지를 아예 숨긴다 (예: 매칭 0건 폴백 상태)
   partnerConfirmed?: boolean
 }) {
@@ -16,7 +19,7 @@ export function ResultHeaderPill({
       <div className="flex shrink-0 items-center gap-1">
         {count != null && (
           <span className="whitespace-nowrap rounded-full bg-neutral-900 px-4 py-2 text-body-sb font-semibold text-pink-500">
-            총 {count}곳
+            {excludedCount > 0 ? `총 ${count} -> ${count - excludedCount}곳` : `총 ${count}곳`}
           </span>
         )}
         {partnerConfirmed != null && (

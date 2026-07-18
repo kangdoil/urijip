@@ -89,6 +89,7 @@ export default function ResultPage() {
   const [participants, setParticipants] = useState<ParticipantSummary[] | null>(null)
 
   const [myRole, setMyRole] = useState<'A' | 'B' | null>(null)
+  const [myParticipantId, setMyParticipantId] = useState<string | null>(null)
   const [partnerConfirmed, setPartnerConfirmed] = useState<boolean | null>(null)
 
   const [saving, setSaving] = useState(false)
@@ -96,9 +97,13 @@ export default function ResultPage() {
   const [savedCodes, setSavedCodes] = useState<string[]>([])
   const [actionError, setActionError] = useState<string | null>(null)
   const [copiedText, setCopiedText] = useState(false)
-  // 조율 화면에서 제안이 수락/거절돼 결과 화면으로 넘어온 직후 — 이동됐다는
-  // 걸 토스트로 안내하고, 새로고침 시 다시 뜨지 않도록 쿼리를 정리한다.
-  const [noticeToast, setNoticeToast] = useState(() => searchParams.get('notice') === 'updated')
+  // 조율 화면에서 제안이 수락/거절돼 결과 화면으로 넘어온 직후 — 무슨 일이
+  // 있었는지 토스트로 안내하고, 새로고침 시 다시 뜨지 않도록 쿼리를 정리한다.
+  // accepted/rejected는 A·B 모두에게 동일하게 뜬다(제안자든 결정자든).
+  const [notice, setNotice] = useState<'accepted' | 'rejected' | 'updated' | null>(() => {
+    const value = searchParams.get('notice')
+    return value === 'accepted' || value === 'rejected' || value === 'updated' ? value : null
+  })
   const noticeTimerStarted = useRef(false)
 
   const exportRef = useRef<HTMLDivElement>(null)
@@ -108,12 +113,12 @@ export default function ResultPage() {
   // 데이터 로딩이 끝나 실제 화면이 뜬 뒤에야 카운트다운을 시작한다 — 로딩이
   // 2.5초보다 길면 토스트가 뜨기도 전에 사라지는 문제가 있었다.
   useEffect(() => {
-    if (!noticeToast || loading || noticeTimerStarted.current) return
+    if (!notice || loading || noticeTimerStarted.current) return
     noticeTimerStarted.current = true
     router.replace(`/s/${sessionId}/result`)
-    const timer = setTimeout(() => setNoticeToast(false), 2500)
+    const timer = setTimeout(() => setNotice(null), 2500)
     return () => clearTimeout(timer)
-  }, [noticeToast, loading, sessionId, router])
+  }, [notice, loading, sessionId, router])
 
   useEffect(() => {
     if (!commuteReady) return
@@ -129,6 +134,7 @@ export default function ResultPage() {
 
       const me = await getMyParticipant(supabase, sessionId)
       setMyRole(me?.role ?? null)
+      setMyParticipantId(me?.id ?? null)
 
       const { data, error: rpcError } = await supabase.rpc('get_matches', {
         sid: sessionId,
@@ -306,6 +312,8 @@ export default function ResultPage() {
   return (
     <main className="flex-1">
       <ResultMapSheet
+        sessionId={sessionId}
+        myParticipantId={myParticipantId}
         areas={result.matches}
         matchCount={result.match_count}
         fallback={fallback}
@@ -341,10 +349,14 @@ export default function ResultPage() {
         </div>
       )}
 
-      {noticeToast && (
+      {notice && (
         <div className="pointer-events-none fixed inset-x-0 top-[max(16px,env(safe-area-inset-top))] z-30 flex justify-center px-4">
           <span className="animate-in fade-in-0 slide-in-from-top-2 rounded-full bg-neutral-900 px-5 py-3 text-body-sb font-semibold text-neutral-0 shadow-lg">
-            새로운 결과로 이동했어요
+            {notice === 'accepted'
+              ? '조율된 동네 리스트를 확인해보세요'
+              : notice === 'rejected'
+                ? '상대방이 조율을 거절했어요'
+                : '새로운 결과로 이동했어요'}
           </span>
         </div>
       )}

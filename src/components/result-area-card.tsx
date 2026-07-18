@@ -1,5 +1,6 @@
-import { Car, CircleX } from 'lucide-react'
+import { Car } from 'lucide-react'
 import { CONDITION_LABEL, formatEok } from '@/lib/condition-labels'
+import { cn } from '@/lib/utils'
 
 export interface ResultAreaData {
   code: string
@@ -19,32 +20,50 @@ export interface ResultAreaData {
 // 그대로 유지, 피그마는 그냥 목업").
 export function ResultAreaCard({
   area,
+  excluded = false,
   onExclude,
+  onRestore,
 }: {
   area: ResultAreaData
+  excluded?: boolean
   onExclude?: (code: string) => void
+  onRestore?: (code: string) => void
 }) {
   const satisfiedCodes = Object.entries(area.satisfied ?? {})
     .filter(([, ok]) => ok)
     .map(([code]) => code)
 
   return (
-    <div className="relative flex h-auto w-[304px] shrink-0 snap-start flex-col rounded-xl bg-neutral-50 px-5 py-4">
-      {onExclude && (
-        <button
-          onClick={() => onExclude(area.code)}
-          aria-label={`${area.name} 제외하기`}
-          className="absolute top-3 right-3 text-neutral-400 transition-colors hover:text-neutral-600"
-        >
-          <CircleX className="size-6" />
-        </button>
+    <div
+      className={cn(
+        'flex h-auto w-[304px] shrink-0 snap-start flex-col rounded-xl px-5 py-4',
+        excluded ? 'bg-pink-50' : 'bg-neutral-50'
       )}
-
-      <div className="flex items-baseline gap-2 pr-8">
-        <span className="text-title-sb font-semibold text-neutral-900">{area.name}</span>
-        <span className="whitespace-nowrap text-body-m font-semibold text-neutral-500">
-          {formatEok(area.avg_price_krw)}
-        </span>
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 items-baseline gap-2">
+          <span className="text-title-sb font-semibold text-neutral-900">{area.name}</span>
+          <span className="whitespace-nowrap text-body-m font-semibold text-neutral-500">
+            {formatEok(area.avg_price_krw)}
+          </span>
+        </div>
+        {excluded
+          ? onRestore && (
+              <button
+                onClick={() => onRestore(area.code)}
+                className="shrink-0 text-body-sb font-medium text-neutral-500 underline decoration-1 underline-offset-4"
+              >
+                복구하기
+              </button>
+            )
+          : onExclude && (
+              <button
+                onClick={() => onExclude(area.code)}
+                className="shrink-0 text-body-sb font-medium text-neutral-500 underline decoration-1 underline-offset-4"
+              >
+                제외하기
+              </button>
+            )}
       </div>
 
       <div className="mt-3 flex items-center gap-2 text-xs font-medium">

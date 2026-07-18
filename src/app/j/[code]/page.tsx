@@ -10,14 +10,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { code } = await params
   const preview = await getInvitePreview(code)
   const inviterName = preview?.inviter_name ?? '배우자'
-  const title = `${inviterName}님이 신혼집 찾기에 초대했어요`
+  const title = `${inviterName}님이 우리집 찾기에 초대했어요`
 
   return {
     title,
-    description: '우리집 — 신혼부부 2인이 주거 조건을 조율해 함께 살 구역을 찾아요',
+    description: '우리집 — 두 사람이 주거 조건을 조율해 함께 살 동네를 찾아요',
     openGraph: {
       title,
-      description: '함께 조건을 입력하고 둘 다 만족하는 구역을 찾아보세요',
+      description: '함께 조건을 입력하고 둘 다 만족하는 동네를 찾아보세요',
     },
   }
 }

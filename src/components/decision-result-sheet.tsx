@@ -45,7 +45,13 @@ export function DecisionResultSheet({
         </div>
         <div className="px-6 pt-4 pb-10">
           <Button
-            onClick={() => router.push(`/s/${sessionId}/result?notice=updated`)}
+            onClick={() => {
+              // 거절은 결정한 본인 화면이라 "상대방이 거절했어요"류 안내가 맞지
+              // 않는다 — 위 시트 문구로 이미 안내했으니 배너 없이 이동한다.
+              // 수락은 A/B 모두에게 같은 안내를 보여줘야 해서 notice를 붙인다.
+              const query = kind === 'accepted' ? '?notice=accepted' : ''
+              router.push(`/s/${sessionId}/result${query}`)
+            }}
             className="w-full font-montserrat text-mont-title-m"
           >
             결과 보기
