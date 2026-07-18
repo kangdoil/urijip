@@ -58,6 +58,10 @@ const DEFAULT_CENTER = { lat: 37.395, lng: 127.111 }
 // 핀이나 카드를 선택했을 때 확대할 레벨 — 호갱노노처럼 클릭 시 바로 줌인.
 const PIN_FOCUS_LEVEL = 3
 
+// 시군구별 추천 동네 상한(grouped-area-list.tsx의 "상위 최대 3곳" 규칙과 동일) —
+// 결과 요약 배지의 "총 N곳" 숫자를 시군구 수 × 3으로 계산하는 기준값이다.
+const RECOMMENDED_PER_SIGUNGU = 3
+
 // 시트를 끝까지 내리면 핸들+필수조건 요약줄+액션 버튼만 보이고(요구사항),
 // 기본은 필터+카드 한 줄이 보이는 높이로 편다.
 // (픽셀 정밀 계산/ResizeObserver로 스냅 높이를 맞추려던 시도는 지도를 거의
@@ -65,7 +69,7 @@ const PIN_FOCUS_LEVEL = 3
 // 흐름의 마지막 자식으로 둬서 카드-버튼 간격은 레이아웃상 항상 0이 되도록
 // 구조 자체를 바꿨다. 스냅 높이는 다시 단순 비율로 관리한다.)
 const SNAP_COLLAPSED = 0.3
-const SNAP_DEFAULT = 0.6
+const SNAP_DEFAULT = 0.62
 const SNAP_POINTS = [SNAP_COLLAPSED, SNAP_DEFAULT]
 
 interface PinData {
@@ -425,6 +429,17 @@ export function ResultMapSheet({
   // 않은(X 안 누른) 구역 전부를 기준으로 한다.
   const savedAreaCodes = areas.filter((a) => !excludedCodes.has(a.code)).map((a) => a.code)
 
+  // 실제 구역 개수(최대 89개까지 나와 압도적)를 그대로 보여주는 대신, "시군구별
+  // 추천 동네 3곳"이라는 기준값으로 상단 배지 숫자를 만든다 — 시군구 하나를
+  // 온전히 잃지 않는 한(그 시군구 구역이 전부 제외되지 않는 한) 숫자는
+  // 유지된다.
+  const sigunguCount = groups.length
+  const remainingSigunguCount = new Set(
+    areas.filter((a) => !excludedCodes.has(a.code)).map((a) => a.sigungu)
+  ).size
+  const displayCount = sigunguCount * RECOMMENDED_PER_SIGUNGU
+  const remainingDisplayCount = remainingSigunguCount * RECOMMENDED_PER_SIGUNGU
+
   return (
     <div className="relative mx-auto h-dvh w-full max-w-md overflow-hidden">
       <div className="absolute inset-0">
@@ -456,8 +471,8 @@ export function ResultMapSheet({
       >
         <ResultHeaderPill
           title={title}
-          count={isFallback ? undefined : matchCount}
-          excludedCount={isFallback ? 0 : excludedCodes.size}
+          count={isFallback ? undefined : displayCount}
+          excludedCount={isFallback ? 0 : displayCount - remainingDisplayCount}
           partnerConfirmed={isFallback ? undefined : partnerConfirmed ?? undefined}
         />
       </div>
@@ -616,7 +631,7 @@ export function ResultMapSheet({
           </button>
         )}
 
-        <div className="flex w-full flex-col items-center gap-3 px-4 pt-2.5 pb-5">
+        <div className="flex w-full flex-col items-center gap-3 px-4 pt-2.5 pb-2.5">
           <div className="flex w-full items-center gap-3">
             <button
               onClick={onRetry}
@@ -659,13 +674,13 @@ export function ResultMapSheet({
         mustConditions={mustConditions}
         budgetLabel={budgetLabel}
         conflict={conflict}
-        matchCount={matchCount}
+        count={displayCount}
       />
 
       <SaveOptionsSheet
         open={saveSheetOpen}
         onOpenChange={onSaveSheetOpenChange}
-        matchCount={savedAreaCodes.length}
+        count={remainingDisplayCount}
         onSaveImage={onSaveImage}
         onSaveText={onSaveText}
       />
@@ -686,7 +701,7 @@ export function ResultMapSheet({
               <p className="text-body-m text-neutral-500">우리가 함께 할 수 있는 동네</p>
               <p className="text-title-l font-bold text-neutral-900">
                 총 <span className="font-montserrat text-mont-title-l text-pink-500">
-                  {savedAreaCodes.length}
+                  {remainingDisplayCount}
                 </span>
                 곳
               </p>

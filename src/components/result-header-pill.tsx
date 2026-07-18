@@ -8,6 +8,8 @@ export function ResultHeaderPill({
   partnerConfirmed,
 }: {
   title: string
+  // 실제 구역 개수(89개까지 나와 압도적)가 아니라 "추천 시군구 수 × 3"을
+  // 받는다 — 시군구별 추천 동네가 최대 3곳이라는 기준을 곳 단위로 보여준다.
   count?: number
   // 0보다 크면 "총 N -> M곳"으로 제외 반영 전/후를 함께 보여준다.
   excludedCount?: number
@@ -23,7 +25,9 @@ export function ResultHeaderPill({
       <div className="flex shrink-0 items-center gap-1">
         {count != null && (
           <span className="whitespace-nowrap rounded-full bg-neutral-900 px-2 py-1.5 text-body-sb font-semibold text-pink-500">
-            {excludedCount > 0 ? `총 ${count} -> ${count - excludedCount}곳` : `총 ${count}곳`}
+            {excludedCount > 0
+              ? `총 ${count} -> ${count - excludedCount}곳`
+              : `총 ${count}곳`}
           </span>
         )}
         {partnerConfirmed != null && (

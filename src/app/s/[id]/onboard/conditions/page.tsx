@@ -172,8 +172,8 @@ export default function ConditionsStepPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col bg-neutral-50">
-      <div className="shrink-0 px-4">
-        <OnboardBackBar onBack={goBack} disabled={done || idx === 0 || saving} />
+      <div className="sticky top-0 z-10 shrink-0 bg-neutral-50 px-4">
+        <OnboardBackBar onBack={goBack} disabled={done || saving} />
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pt-4 pb-6">

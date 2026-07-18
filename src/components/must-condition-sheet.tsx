@@ -26,7 +26,8 @@ interface MustConditionSheetProps {
   mustConditions: string[]
   budgetLabel: string
   conflict: boolean
-  matchCount: number
+  // 시군구 수 × 3(시군구별 추천 동네 상한) 기준의 "곳" 수.
+  count: number
 }
 
 // "필수 조건 : 평형, 인프라 / ..." 요약 줄을 누르면 뜨는 풀페이지 시트.
@@ -39,7 +40,7 @@ export function MustConditionSheet({
   mustConditions,
   budgetLabel,
   conflict,
-  matchCount,
+  count,
 }: MustConditionSheetProps) {
   const mustNames = mustConditions.map((c) => CONDITION_LABEL[c] ?? c)
   const mustLabel = mustNames.length > 0 ? `${mustNames.join(', ')} 필수` : '필수 조건 없음'
@@ -94,7 +95,7 @@ export function MustConditionSheet({
             <p className="mb-1 text-sm font-semibold text-neutral-900">이렇게 추천했어요</p>
             <p className="text-sm leading-[1.5] text-neutral-600">
               두 분이 필수로 고른 조건({mustNames.length > 0 ? mustNames.join(', ') : '없음'})을 모두
-              만족하고, {budgetLabel}인 구역 {matchCount}곳을 통근시간 합이 짧은 순으로 보여드려요.
+              만족하고, {budgetLabel}인 구역 {count}곳을 통근시간 합이 짧은 순으로 보여드려요.
             </p>
           </div>
         </div>

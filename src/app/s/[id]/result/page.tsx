@@ -68,10 +68,15 @@ interface FallbackResult {
   b_only: FallbackArea[]
 }
 
+// 시군구별 추천 동네 상한(grouped-area-list.tsx의 "상위 최대 3곳" 규칙과 동일) —
+// "총 N곳" 헤더의 숫자를 시군구 수 × 3으로 계산하는 기준값이다.
+const RECOMMENDED_PER_SIGUNGU = 3
+
 function buildExportText(matches: MatchArea[], codes: string[]) {
   const selected = matches.filter((m) => codes.includes(m.code))
   const groups = groupBySigungu(selected)
-  const lines = [`우리가 함께 할 수 있는 동네 (총 ${selected.length}곳)`, '']
+  const count = groups.length * RECOMMENDED_PER_SIGUNGU
+  const lines = [`우리가 함께 할 수 있는 동네 (총 ${count}곳)`, '']
   for (const { sigungu, list } of groups) {
     lines.push(`[${sigungu}]`)
     for (const m of list) {

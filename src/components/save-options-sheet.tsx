@@ -6,7 +6,8 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } f
 interface SaveOptionsSheetProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  matchCount: number
+  // 시군구 수 × 3(시군구별 추천 동네 상한) 기준의 "곳" 수.
+  count: number
   onSaveImage: () => void
   onSaveText: () => void
 }
@@ -15,7 +16,7 @@ interface SaveOptionsSheetProps {
 export function SaveOptionsSheet({
   open,
   onOpenChange,
-  matchCount,
+  count,
   onSaveImage,
   onSaveText,
 }: SaveOptionsSheetProps) {
@@ -27,7 +28,7 @@ export function SaveOptionsSheet({
             우리가 함께 할 수 있는 동네
           </DrawerTitle>
           <DrawerDescription className="text-title-sb font-bold text-neutral-900">
-            총 <span className="font-montserrat text-mont-title-l text-pink-500">{matchCount}</span>곳
+            총 <span className="font-montserrat text-mont-title-l text-pink-500">{count}</span>곳
           </DrawerDescription>
         </DrawerHeader>
 

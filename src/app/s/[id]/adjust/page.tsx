@@ -16,6 +16,9 @@ import { cn } from '@/lib/utils'
 type Tier = 'must' | 'nice' | 'skip'
 const CODES = ['area_size', 'build_year', 'infra'] as const
 const TIER_LABEL: Record<Tier, string> = { must: '필수', nice: '선호', skip: '무관' }
+// 시군구별 추천 동네 상한(grouped-area-list.tsx의 "상위 최대 3곳" 규칙과 동일) —
+// "총 N곳" 배지의 숫자를 시군구 수 × 3으로 계산하는 기준값이다.
+const RECOMMENDED_PER_SIGUNGU = 3
 
 interface Candidate {
   code: string
@@ -64,8 +67,8 @@ function roleTokens(role: 'A' | 'B') {
     : { statusBg: 'bg-accent-teal/20', statusDot: 'bg-accent-teal', statusText: 'text-accent-teal', badgeBg: 'bg-accent-teal/20', badgeText: 'text-accent-teal' }
 }
 
-// 매칭 개수만 필요한 가벼운 버전 — "총 8곳 → 총 10곳" 비교용 (passing과 달리
-// niceCount/정렬은 카드 렌더링에만 필요해서 뺐다).
+// 시군구 개수만 필요한 가벼운 버전 — "총 8개 시군구 → 총 10개 시군구" 비교용
+// (passing과 달리 niceCount/정렬은 카드 렌더링에만 필요해서 뺐다).
 function countMatches(
   candidates: Candidate[],
   aTiers: Record<string, Tier>,
@@ -73,12 +76,13 @@ function countMatches(
   budget: number
 ) {
   const musts = CODES.filter((c) => aTiers[c] === 'must' || bTiers[c] === 'must')
-  return candidates.filter(
+  const passing = candidates.filter(
     (c) =>
       c.avg_price_krw != null &&
       c.avg_price_krw <= budget &&
       musts.every((code) => c.satisfied[code])
-  ).length
+  )
+  return new Set(passing.map((c) => c.sigungu)).size
 }
 
 function buildChanges(
@@ -117,7 +121,10 @@ export default function AdjustPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
-  const [decisionSheet, setDecisionSheet] = useState<'accepted' | 'rejected' | null>(null)
+  // 수락(Yesss!)은 확인 시트 없이 바로 결과 화면으로 이동한다 — 거절만
+  // "결과 보기" 버튼이 있는 시트를 거친다(본인이 거절한 화면이라 서두를 필요가
+  // 없고, 실수로 되돌릴 여지를 준다).
+  const [decisionSheet, setDecisionSheet] = useState<'rejected' | null>(null)
   const [resent, setResent] = useState(false)
 
   const [aTiers, setATiers] = useState<Record<string, Tier>>({})
@@ -324,7 +331,11 @@ export default function AdjustPage() {
       })
       if (decideError) throw decideError
 
-      setDecisionSheet(accept ? 'accepted' : 'rejected')
+      if (accept) {
+        router.push(`/s/${sessionId}/result?notice=accepted`)
+      } else {
+        setDecisionSheet('rejected')
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : '처리에 실패했어요')
     } finally {
@@ -451,13 +462,18 @@ export default function AdjustPage() {
     const changes = buildChanges(pending.payload, proposerOriginal)
 
     const beforeBudget = Math.min(data.a.budget_max_krw, data.b.budget_max_krw)
-    const matchCountBefore = countMatches(data.candidates, data.a.conditions, data.b.conditions, beforeBudget)
-    const matchCountAfter = countMatches(data.candidates, aTiers, bTiers, budgetValue)
+    const sigunguCountBefore = countMatches(data.candidates, data.a.conditions, data.b.conditions, beforeBudget)
+    const sigunguCountAfter = countMatches(data.candidates, aTiers, bTiers, budgetValue)
+    // "총 N곳" 배지 전용 — "N개 시군구에 걸쳐 있어요" 문구는 시군구 수 그대로 쓴다.
+    const displayCountBefore = sigunguCountBefore * RECOMMENDED_PER_SIGUNGU
+    const displayCountAfter = sigunguCountAfter * RECOMMENDED_PER_SIGUNGU
 
     return (
       <main className="flex flex-1 justify-center bg-neutral-50">
         <div className="w-full max-w-sm pb-40">
-          <OnboardBackBar onBack={() => router.push(`/s/${sessionId}/result`)} />
+          <div className="sticky top-0 z-10 bg-neutral-50">
+            <OnboardBackBar onBack={() => router.push(`/s/${sessionId}/result`)} />
+          </div>
 
           <div className="flex flex-col gap-10 px-4 pt-2">
             <h1 className="text-center text-[24px] leading-8 font-semibold tracking-[-0.03em] text-neutral-900">
@@ -484,9 +500,9 @@ export default function AdjustPage() {
               ))}
               <div className="h-px w-full bg-white/10" />
               <div className={cn('flex items-center justify-center gap-3 text-[15px] font-medium', badgeColors.badgeText)}>
-                <span>총 {matchCountBefore}곳</span>
+                <span>총 {displayCountBefore}곳</span>
                 <ArrowRight className="size-4" />
-                <span>총 {matchCountAfter}곳</span>
+                <span>총 {displayCountAfter}곳</span>
               </div>
             </div>
 
@@ -503,8 +519,7 @@ export default function AdjustPage() {
                     <div
                       className={cn(
                         'w-full rounded-full border-2 bg-white px-7 py-5 text-center text-body-m font-bold',
-                        tierPillClass('A'),
-                        proposerRole === 'A' && 'opacity-30'
+                        tierPillClass('A')
                       )}
                     >
                       {TIER_LABEL[aTiers[code]]}
@@ -512,8 +527,7 @@ export default function AdjustPage() {
                     <div
                       className={cn(
                         'w-full rounded-full border-2 bg-white px-7 py-5 text-center text-body-m font-bold',
-                        tierPillClass('B'),
-                        proposerRole === 'B' && 'opacity-30'
+                        tierPillClass('B')
                       )}
                     >
                       {TIER_LABEL[bTiers[code]]}
@@ -527,7 +541,14 @@ export default function AdjustPage() {
                   <span className="text-title-sb font-bold text-neutral-900">예산 상한</span>
                   <span className="text-title-sb font-bold text-pink-500">{formatEok(budgetValue)}</span>
                 </div>
-                <Slider value={[budgetValue]} min={lowBudgetOriginal} max={budgetSliderMax} step={10_000_000} disabled />
+                <Slider
+                  value={[budgetValue]}
+                  min={lowBudgetOriginal}
+                  max={budgetSliderMax}
+                  step={10_000_000}
+                  disabled
+                  className="data-disabled:opacity-100"
+                />
                 <div className="mt-2 flex justify-between text-body-sb font-semibold text-neutral-900">
                   <span>{formatEok(lowBudgetOriginal)}</span>
                   <span>{formatEok(budgetSliderMax)}</span>
@@ -540,7 +561,7 @@ export default function AdjustPage() {
                 <p className="text-body-m text-neutral-500">우리가 함께 할 수 있는 동네</p>
                 <p className="flex items-center gap-2 text-title-sb font-bold text-neutral-900">
                   <span className="rounded-full bg-neutral-900 px-4 py-2 font-montserrat text-mont-title-m text-white">
-                    {matchCountAfter}
+                    {sigunguCountAfter}
                   </span>
                   개 시군구에 걸쳐 있어요
                 </p>
@@ -570,12 +591,7 @@ export default function AdjustPage() {
         </div>
 
         {decisionSheet && (
-          <DecisionResultSheet
-            open
-            onOpenChange={() => {}}
-            sessionId={sessionId}
-            kind={decisionSheet}
-          />
+          <DecisionResultSheet open onOpenChange={() => {}} sessionId={sessionId} />
         )}
       </main>
     )
@@ -585,7 +601,9 @@ export default function AdjustPage() {
     <main className="flex flex-1 justify-center bg-neutral-50">
       <div className="w-full max-w-sm pb-32">
         <div className="rounded-b-[60px] bg-neutral-100 px-4 pb-8">
-          <OnboardBackBar onBack={() => router.push(`/s/${sessionId}/result`)} />
+          <div className="sticky top-0 z-10 -mx-4 bg-neutral-100 px-4">
+            <OnboardBackBar onBack={() => router.push(`/s/${sessionId}/result`)} />
+          </div>
 
           <div className="mt-2 mb-8 flex flex-col items-center gap-2 px-2 text-center">
             <p className="text-body-s font-medium text-neutral-400">함께 조율하기</p>

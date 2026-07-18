@@ -4,6 +4,10 @@ import { getSharedResult } from '@/lib/shared-result'
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
+// 시군구별 추천 동네 상한(grouped-area-list.tsx의 "상위 최대 3곳" 규칙과 동일) —
+// "총 N곳" 문구의 숫자를 시군구 수 × 3으로 계산하는 기준값이다.
+const RECOMMENDED_PER_SIGUNGU = 3
+
 export default async function Image({
   params,
 }: {
@@ -11,7 +15,9 @@ export default async function Image({
 }) {
   const { slug } = await params
   const shared = await getSharedResult(slug)
-  const count = shared?.areas.length ?? 0
+  const count = shared
+    ? new Set(shared.areas.map((a) => a.sigungu)).size * RECOMMENDED_PER_SIGUNGU
+    : 0
   const topNames = (shared?.areas ?? [])
     .slice(0, 3)
     .map((a) => a.name)

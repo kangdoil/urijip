@@ -40,7 +40,7 @@ export function ResultAreaCard({
     <div
       onClick={onSelect}
       className={cn(
-        'flex h-auto w-[304px] shrink-0 snap-start flex-col rounded-xl px-5 py-4',
+        'flex h-auto w-[304px] shrink-0 snap-start flex-col rounded-xl px-5 py-3',
         excluded ? 'bg-pink-50' : 'bg-neutral-50',
         onSelect && 'cursor-pointer'
       )}
