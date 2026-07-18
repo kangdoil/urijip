@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import { Geist_Mono, Montserrat } from "next/font/google";
 import "./globals.css";
 import { AuthBoot } from "@/components/auth-boot";
+import { MixpanelPageview } from "@/components/mixpanel-pageview";
 
 // 한글 UI 전용 서비스라 Pretendard(가변 폰트)를 기본 산세리프로 쓴다.
 // Tailwind의 font-sans가 이 값을 그대로 참조하도록 변수명을 --font-sans로 맞췄다
@@ -42,6 +43,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <AuthBoot />
+        <MixpanelPageview />
         {children}
       </body>
     </html>

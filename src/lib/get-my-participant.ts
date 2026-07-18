@@ -11,6 +11,7 @@ export interface MyParticipant {
   commute_max_min: number | null
   budget_max_krw: number | null
   completed_at: string | null
+  created_at: string
 }
 
 export async function getMyParticipant(
@@ -23,7 +24,7 @@ export async function getMyParticipant(
   const { data } = await supabase
     .from('participants')
     .select(
-      'id, role, display_name, anchor_label, anchor_lat, anchor_lng, transport_mode, commute_max_min, budget_max_krw, completed_at'
+      'id, role, display_name, anchor_label, anchor_lat, anchor_lng, transport_mode, commute_max_min, budget_max_krw, completed_at, created_at'
     )
     .eq('session_id', sessionId)
     .eq('user_id', userData.user.id)

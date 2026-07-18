@@ -91,7 +91,10 @@ export default async function SharePage({ params }: Props) {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Link href="/" className="text-sm font-medium text-primary-700 underline">
+            <Link
+              href="/?source=share_link"
+              className="text-sm font-medium text-primary-700 underline"
+            >
               나도 시작하기 →
             </Link>
           </CardContent>

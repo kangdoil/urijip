@@ -6,8 +6,20 @@ import { createClient } from '@/lib/supabase/client'
 import { getMyParticipant } from '@/lib/get-my-participant'
 import { CONDITION_LABEL, formatEok, type Tier } from '@/lib/condition-labels'
 import { ResultMapSheet } from '@/components/result-map-sheet'
+import { FeedbackBanner } from '@/components/feedback-banner'
 import { useCommuteStatus } from '@/lib/use-commute-status'
 import { groupBySigungu } from '@/lib/group-by-sigungu'
+import { track } from '@/lib/mixpanel'
+
+// 세션+역할 조합으로 "이 결과 화면을 처음 보는지"를 기기에 저장해 판단한다
+// (서버엔 조회 이력을 남기지 않으므로 DB로 대체 불가 — result_viewed 고유 목적).
+function markResultViewed(sessionId: string, role: 'A' | 'B'): boolean {
+  if (typeof window === 'undefined') return true
+  const key = `urijib:result_viewed:${sessionId}:${role}`
+  const isFirst = !window.localStorage.getItem(key)
+  window.localStorage.setItem(key, '1')
+  return isFirst
+}
 
 interface ParticipantSummary {
   role: 'A' | 'B'
@@ -146,6 +158,18 @@ export default function ResultPage() {
       }
       setResult(data as MatchResult)
 
+      if (me?.role) {
+        track(
+          'result_viewed',
+          { session_id: sessionId, role: me.role },
+          {
+            is_first_view: markResultViewed(sessionId, me.role),
+            candidate_count: (data as MatchResult).candidate_count,
+            had_conflict: (data as MatchResult).budget.conflict,
+          }
+        )
+      }
+
       if ((data as MatchResult).match_count === 0) {
         const { data: fb } = await supabase.rpc('get_fallback_matches', {
           sid: sessionId,
@@ -204,6 +228,9 @@ export default function ResultPage() {
 
   async function handleRetry() {
     if (retrying) return
+    if (myRole) {
+      track('result_retry', { session_id: sessionId, role: myRole }, {})
+    }
     setRetrying(true)
     try {
       if (resolved) {
@@ -234,6 +261,20 @@ export default function ResultPage() {
         .update({ confirmed_at: new Date().toISOString(), saved_area_codes: visibleAreaCodes })
         .eq('id', me.id)
       if (updateError) throw updateError
+
+      // 원자적으로 "둘 다 확정됐는지" 응답해주는 RPC가 없어 update 직후 상대 행을
+      // 다시 조회하는 best-effort 방식이다 — 두 사람이 수 초 이내 동시에 저장하면
+      // 이 판단이 어긋날 수 있음(양쪽 다 false로 보일 수 있음)을 알고 쓴다.
+      const { data: rows } = await supabase
+        .from('participants')
+        .select('role, confirmed_at')
+        .eq('session_id', sessionId)
+      const partnerRow = rows?.find((r) => r.role !== me.role)
+      track(
+        'result_saved',
+        { session_id: sessionId, role: me.role },
+        { is_joint_complete: Boolean(partnerRow?.confirmed_at) }
+      )
 
       setSavedCodes(visibleAreaCodes)
       setSaveSheetOpen(true)
@@ -360,6 +401,8 @@ export default function ResultPage() {
           </span>
         </div>
       )}
+
+      <FeedbackBanner sessionId={sessionId} />
     </main>
   )
 }

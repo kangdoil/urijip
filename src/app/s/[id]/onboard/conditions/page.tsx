@@ -7,6 +7,7 @@ import { getMyParticipant } from '@/lib/get-my-participant'
 import { OnboardBackBar } from '@/components/onboard-back-bar'
 import { OnboardStepDots } from '@/components/onboard-step-dots'
 import { Button } from '@/components/ui/button'
+import { track, type Role } from '@/lib/mixpanel'
 
 const MUST_LIMIT = 2
 
@@ -41,6 +42,8 @@ export default function ConditionsStepPage() {
   const sessionId = params.id
 
   const [participantId, setParticipantId] = useState<string | null>(null)
+  const [myRole, setMyRole] = useState<Role | null>(null)
+  const [myCreatedAt, setMyCreatedAt] = useState<string | null>(null)
   const [conditions, setConditions] = useState<Condition[]>([])
   const [idx, setIdx] = useState(0)
   const [results, setResults] = useState<{ code: string; tier: Tier }[]>([])
@@ -67,6 +70,8 @@ export default function ConditionsStepPage() {
         return
       }
       setParticipantId(me.id)
+      setMyRole(me.role)
+      setMyCreatedAt(me.created_at)
 
       const { data } = await supabase
         .from('conditions')
@@ -139,6 +144,18 @@ export default function ConditionsStepPage() {
           .update({ completed_at: new Date().toISOString() })
           .eq('id', participantId)
         if (completeError) throw completeError
+
+        if (myRole && myCreatedAt) {
+          const durationSec = Math.round(
+            (Date.now() - new Date(myCreatedAt).getTime()) / 1000
+          )
+          track(
+            'input_completed',
+            { session_id: sessionId, role: myRole },
+            { duration_sec: durationSec }
+          )
+        }
+
         setDone(true)
         setTimeout(() => router.push(`/s/${sessionId}`), 1200)
       } else {

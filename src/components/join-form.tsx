@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -8,12 +8,20 @@ import { ensureAnonSession } from '@/lib/supabase/ensure-anon'
 import { useProfileStore } from '@/store/use-profile-store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { track } from '@/lib/mixpanel'
 
 export function JoinForm({ code }: { code: string }) {
   const router = useRouter()
   const { displayName, setDisplayName } = useProfileStore()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    // get_invite_preview는 실제 sessions.id를 안 돌려줘서(RLS상 비참여자에게
+    // 굳이 노출할 필요가 없음) session_id는 아직 모른다 — invite_code로만 식별한다.
+    track('invite_opened', { session_id: null, role: '미참여' }, { invite_code: code })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function handleJoin() {
     if (!displayName.trim()) {
@@ -32,6 +40,8 @@ export function JoinForm({ code }: { code: string }) {
         { code, name: displayName.trim() }
       )
       if (joinError) throw joinError
+
+      track('b_started', { session_id: sessionId, role: 'B' }, {})
 
       router.push(`/s/${sessionId}/onboard/anchor`)
     } catch (e) {

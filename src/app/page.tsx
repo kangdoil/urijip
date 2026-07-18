@@ -1,17 +1,28 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Image from 'next/image'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { ensureAnonSession } from '@/lib/supabase/ensure-anon'
 import { useProfileStore } from '@/store/use-profile-store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { track } from '@/lib/mixpanel'
 
 export default function HomePage() {
+  // useSearchParams는 Suspense 경계 안에서만 정적 렌더링과 함께 쓸 수 있다.
+  return (
+    <Suspense fallback={null}>
+      <HomePageContent />
+    </Suspense>
+  )
+}
+
+function HomePageContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { displayName, setDisplayName } = useProfileStore()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -33,6 +44,14 @@ export default function HomePage() {
         name: displayName.trim(),
       })
       if (rpcError) throw rpcError
+
+      // 결과 화면 공유 카드의 "나도 시작하기" 링크만 ?source=share_link를 붙인다
+      // (invite_code를 통한 배우자 초대 플로우와는 무관한, 앱 자체의 획득 루프).
+      track(
+        'session_created',
+        { session_id: data.id, role: 'A' },
+        { source: searchParams.get('source') === 'share_link' ? 'share_link' : 'organic' }
+      )
 
       router.push(`/s/${data.id}/onboard/anchor`)
     } catch (e) {

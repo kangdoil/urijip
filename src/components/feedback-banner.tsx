@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { getMyParticipant } from '@/lib/get-my-participant'
 import { Button } from '@/components/ui/button'
+import { track, type Role } from '@/lib/mixpanel'
 
 const DWELL_MS = 4000
 
@@ -12,8 +13,13 @@ type Stage = 'hidden' | 'prompt' | 'comment' | 'done'
 export function FeedbackBanner({ sessionId }: { sessionId: string }) {
   const [stage, setStage] = useState<Stage>('hidden')
   const [participantId, setParticipantId] = useState<string | null>(null)
+  const [role, setRole] = useState<Role | null>(null)
   const [comment, setComment] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  // 배너가 '왜' 떴는지(이미 조율 종료됐거나 vs 4초 체류) — feedback_submitted의
+  // trigger 프로퍼티로 같이 보낸다. state가 아니라 ref인 이유는 리렌더를 유발할
+  // 필요 없이 다음 제출 시점에만 읽으면 되기 때문.
+  const triggerRef = useRef<'resolved' | 'dwell'>('dwell')
 
   useEffect(() => {
     const dismissedKey = `urijib-feedback-dismissed-${sessionId}`
@@ -34,6 +40,7 @@ export function FeedbackBanner({ sessionId }: { sessionId: string }) {
       if (existing || cancelled) return
 
       setParticipantId(me.id)
+      setRole(me.role)
 
       const { data: sessionRow } = await supabase
         .from('sessions')
@@ -43,10 +50,14 @@ export function FeedbackBanner({ sessionId }: { sessionId: string }) {
 
       if (cancelled) return
       if (sessionRow?.status === 'resolved') {
+        triggerRef.current = 'resolved'
         setStage('prompt')
       } else {
         setTimeout(() => {
-          if (!cancelled) setStage('prompt')
+          if (!cancelled) {
+            triggerRef.current = 'dwell'
+            setStage('prompt')
+          }
         }, DWELL_MS)
       }
     })()
@@ -58,6 +69,15 @@ export function FeedbackBanner({ sessionId }: { sessionId: string }) {
 
   function dismiss() {
     sessionStorage.setItem(`urijib-feedback-dismissed-${sessionId}`, '1')
+    // comment 단계의 "건너뛰기"는 이미 react('down')에서 반응을 남긴 뒤라
+    // 실질적인 제출 완료다 — prompt 단계에서 그냥 닫는 것과 구분한다.
+    if (stage === 'comment' && role) {
+      track(
+        'feedback_submitted',
+        { session_id: sessionId, role },
+        { reaction: 'down', has_comment: false, trigger: triggerRef.current }
+      )
+    }
     setStage('hidden')
   }
 
@@ -74,6 +94,13 @@ export function FeedbackBanner({ sessionId }: { sessionId: string }) {
       if (reaction === 'down') {
         setStage('comment')
       } else {
+        if (role) {
+          track(
+            'feedback_submitted',
+            { session_id: sessionId, role },
+            { reaction: 'up', has_comment: false, trigger: triggerRef.current }
+          )
+        }
         setStage('done')
         setTimeout(() => setStage('hidden'), 1800)
       }
@@ -87,11 +114,19 @@ export function FeedbackBanner({ sessionId }: { sessionId: string }) {
     setSubmitting(true)
     try {
       const supabase = createClient()
-      if (comment.trim()) {
+      const hasComment = Boolean(comment.trim())
+      if (hasComment) {
         await supabase
           .from('feedback')
           .update({ comment: comment.trim() })
           .eq('participant_id', participantId)
+      }
+      if (role) {
+        track(
+          'feedback_submitted',
+          { session_id: sessionId, role },
+          { reaction: 'down', has_comment: hasComment, trigger: triggerRef.current }
+        )
       }
       setStage('done')
       setTimeout(() => setStage('hidden'), 1800)

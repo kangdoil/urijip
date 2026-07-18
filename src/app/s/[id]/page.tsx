@@ -7,6 +7,7 @@ import Image from 'next/image'
 import { Check, Copy, RefreshCw } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
+import { track } from '@/lib/mixpanel'
 
 interface SessionRow {
   id: string
@@ -148,12 +149,20 @@ export default function SessionPage() {
     }
     setCopied(true)
     setTimeout(() => setCopied(false), 1800)
+    // navigator.share가 취소/미지원이라 여기로 대체돼도 실제로 클립보드엔
+    // 복사가 일어나므로 channel: 'copy'가 맞다 (아래 shareInviteUrl 주석 참고).
+    track('invite_sent', { session_id: sessionId, role: me?.role ?? '미참여' }, { channel: 'copy' })
   }
 
   async function shareInviteUrl() {
     if (navigator.share) {
       try {
         await navigator.share({ title: '우리집에 초대할게요', url: inviteUrl })
+        track(
+          'invite_sent',
+          { session_id: sessionId, role: me?.role ?? '미참여' },
+          { channel: 'share' }
+        )
         return
       } catch {
         // 사용자가 공유를 취소했거나 미지원 — 클립보드 복사로 대체한다.

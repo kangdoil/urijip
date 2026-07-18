@@ -31,9 +31,11 @@
 | 층위 | 지표 | 정의 | 소스 |
 |---|---|---|---|
 | 핵심 (행동) | 공동 후보 저장률 | 공동 결과 도달 세션 중 7일 내 양측 모두 저장 (확정) 클릭 (`result_saved`가 role=A·B 모두 발화) | `result_saved` |
-| 핵심 (선언) | 결정 자기보고 분포 | 피드백 배너 응답: 정해졌어요 / 아직 고민 중 / 여기엔 없어요 | `feedback_submitted` |
-| 지표 품질 | 행동-선언 불일치율 | 양측 확정인데 "여기엔 없어요" / 미확정인데 "정해졌어요" 비율. 분기별 점검 | 위 두 이벤트 교차 |
+| 핵심 (선언) | 결과 만족도 반응 분포 | 피드백 배너 반응: 👍(`up`) / 👎(`down`, 코멘트는 선택) 비율 | `feedback_submitted` |
+| 지표 품질 | 행동-선언 불일치율 | 양측 확정인데 👎 / 미확정인데 👍 비율. 분기별 점검 | 위 두 이벤트 교차 |
 | 가드레일 | 필수 교집합 0건 비율 | `result_viewed`의 `candidate_count=0` 비율 (별도 이벤트 불필요) | `result_viewed` |
+
+> PRD-우리집_v2.md §7.138은 피드백 배너를 "정해졌어요/아직 고민 중/여기엔 없어요" 3지선다로 정의하지만, 실제 구현된 `FeedbackBanner`는 👍/👎 반응 + `down`일 때만 선택적 코멘트 구조다. 이 문서는 실제 구현을 기준으로 업데이트했다 — PRD와의 정합은 별도로 확인 필요.
 
 ### H2 (전파 가설)
 
@@ -44,6 +46,17 @@
 | KPI③ | B 입력 완료율 | B 입력 시작 → 입력 완료 | `b_started` → `input_completed(B)` |
 | 가드레일 | A 온보딩 이탈률 | 세션 생성 → A 입력 완료 실패 비율. 단계별 상세는 페이지뷰로 대체 | `session_created` → `input_completed(A)` |
 
+### 진단 지표 (참고용 — 가설 검증 지표 아님)
+
+PRD-우리집_v2.md §"진단" 기준. 조율 진입률은 방향이 양가적(깊은 사용일 수도, 첫 결과 불만족일 수도)이라 NSM·H1·H2처럼 단일 방향으로 해석하지 않고 매트릭스로만 본다.
+
+| 지표 | 정의 | 소스 |
+|---|---|---|
+| 조율 진입률 | 결과 도달 세션 중 "조율하기" 클릭 비율 | `result_viewed` → `result_retry` |
+| 제안 수락률 | 세션 내 발송된 제안 중 accepted 비율 | `proposals` 테이블 쿼리 (Mixpanel 미대상 — 2번 참고) |
+
+해석: 진입高×수락高 = 건강한 협상 / 진입高×수락低 = 조건 설계 마찰 / 진입低×확정高 = 첫 결과가 충분 / 진입低×확정低 = 가치 전달 실패
+
 ---
 
 ## 2. MVP 이벤트 (9개)
@@ -53,14 +66,14 @@
 | # | 이벤트 | 페이지 | 트리거 | 프로퍼티 | 쓰이는 곳 |
 |---|---|---|---|---|---|
 | 1 | `session_created` | 랜딩 | 세션 생성 완료 | `source`: organic / share_link | 퍼널 시작, 획득 루프 |
-| 2 | `invite_sent` | 초대/대기 | 카카오 공유 또는 링크 복사 | `channel`: kakao / copy | H2 KPI① |
+| 2 | `invite_sent` | 초대/대기 | 웹 공유(`navigator.share`) 성공 또는 링크 복사 | `channel`: share / copy | H2 KPI① |
 | 3 | `invite_opened` | /j/[code] | 초대 페이지 로드 | — | H2 KPI② |
 | 4 | `b_started` | /j/[code] | join_session 성공 | — | H2 KPI②③ |
 | 5 | `input_completed` | 온보딩 종료 | 조건 분류 완료 (completed_at 기록) | `role`, `duration_sec` | H2 KPI①③, 가드레일 |
 | 6 | `result_viewed` | 결과 | 결과 로드 완료 | `role`, `is_first_view`, `candidate_count`, `had_conflict` | NSM 분모, 가드레일(0건) |
-| 7 | `result_saved` | 결과 | 저장하기 클릭 (확정) | `role`, `is_joint_complete`(서버 응답으로 채움) | NSM, H1 핵심 |
-| 8 | `result_retry` | 결과 | 조율하기 클릭 (확정) | | NSM, H1 kpi |
-| 8 | `feedback_submitted` | 결과 | 피드백 배너 응답 | `answer`: decided / thinking / not_here, `trigger` | H1 선언 |
+| 7 | `result_saved` | 결과 | 저장하기 클릭 (확정) | `role`, `is_joint_complete`(update 직후 재조회로 판단하는 best-effort 값 — 원자적 서버 응답 아님, 동시 저장 시 오판 가능) | NSM, H1 핵심 |
+| 8 | `result_retry` | 결과 | 조율하기 클릭 | — | 진단 지표(조율 진입률) |
+| 9 | `feedback_submitted` | 결과 | 피드백 배너 응답 | `reaction`: up / down, `has_comment`, `trigger`: resolved / dwell | H1 선언 |
 
 ## 3. 보류 이벤트 (v2 후보 — 지금은 구현하지 않음)
 
