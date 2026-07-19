@@ -1,0 +1,19 @@
+[   28067ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[   31074ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[   31540ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/webpack-hmr?id=x7V-Gj81VJIdMbZrAFHz1' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13422
+[   34062ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[   36545ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/webpack-hmr?id=x7V-Gj81VJIdMbZrAFHz1' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13422
+[   37093ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[   40073ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[   41547ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/webpack-hmr?id=x7V-Gj81VJIdMbZrAFHz1' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13422
+[   43076ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[   46066ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[   46550ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/webpack-hmr?id=x7V-Gj81VJIdMbZrAFHz1' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13422
+[   49070ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[   51555ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/webpack-hmr?id=x7V-Gj81VJIdMbZrAFHz1' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13422
+[   52069ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[   55079ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[   56559ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/webpack-hmr?id=x7V-Gj81VJIdMbZrAFHz1' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13422
+[   58067ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[   61076ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[   61564ms] [ERROR] WebSocket connection to 'ws://localhost:3000/_next/webpack-hmr?id=x7V-Gj81VJIdMbZrAFHz1' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_client_0r5nbpw._.js:13422

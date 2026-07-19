@@ -273,6 +273,15 @@ export default function SessionPage() {
         <p className="text-center text-body-s text-neutral-500">{footerNote}</p>
       </div>
 
+      {!bothReady && (
+        <Link
+          href={`/s/${sessionId}/result?solo=1`}
+          className="mt-6 text-center text-body-sb font-medium text-neutral-500 underline decoration-1 underline-offset-4"
+        >
+          먼저 혼자 둘러보기
+        </Link>
+      )}
+
       {copied && (
         <div className="pointer-events-none fixed inset-x-0 bottom-[108px] z-30 flex justify-center px-4">
           <span className="animate-in fade-in-0 slide-in-from-bottom-2 rounded-full bg-neutral-900 px-5 py-3 text-body-sb font-semibold text-neutral-0 shadow-lg">

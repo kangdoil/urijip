@@ -50,6 +50,10 @@ interface ResultMapSheetProps {
   saveSheetOpen: boolean
   onSaveSheetOpenChange: (open: boolean) => void
   exportRef?: React.RefObject<HTMLDivElement | null>
+  // "먼저 둘러보기" 모드 — B 온보딩 전 A 조건만으로 미리 본 결과. 조율/저장은
+  // 상대가 없어 의미가 없으므로 액션바를 "대기 화면으로 돌아가기" 하나로 바꾼다.
+  solo?: boolean
+  onBackToWaiting?: () => void
 }
 
 // 지원 지역(경기 동남부) 대략 중심 — 핀이 하나도 없을 때만 쓰는 기본 좌표.
@@ -186,6 +190,8 @@ export function ResultMapSheet({
   saveSheetOpen,
   onSaveSheetOpenChange,
   exportRef,
+  solo = false,
+  onBackToWaiting,
 }: ResultMapSheetProps) {
   // react-kakao-maps-sdk 기본값이 프로토콜 상대경로("//dapi.kakao.com/...")라
   // 로컬 개발 서버(http://localhost:3000)에서는 http로 풀려서 브라우저 ORB에
@@ -424,7 +430,11 @@ export function ResultMapSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSigungus, loading, error])
 
-  const title = isFallback ? '필수 조건을 모두 만족하는 구역이 없어요' : '추천 동네'
+  const title = solo
+    ? '먼저 둘러보기'
+    : isFallback
+      ? '필수 조건을 모두 만족하는 구역이 없어요'
+      : '추천 동네'
 
   const mustNames = mustConditions.map((c) => CONDITION_LABEL[c] ?? c)
   const mustSummary = mustNames.length > 0 ? mustNames.join(', ') : '없음'
@@ -509,8 +519,24 @@ export function ResultMapSheet({
               <div
               >
                 {isFallback ? (
-                  <div className="pt-4">
-                    <FallbackLists aOnly={fallback?.a_only ?? []} bOnly={fallback?.b_only ?? []} />
+                  <div className="flex flex-col gap-4 pt-4">
+                    {solo ? (
+                      <p className="px-4 text-center text-body-s text-neutral-400">
+                        내 조건만으로는 만족하는 구역이 없어요
+                      </p>
+                    ) : (
+                      <FallbackLists aOnly={fallback?.a_only ?? []} bOnly={fallback?.b_only ?? []} />
+                    )}
+                    {solo && (
+                      <div className="px-4 pb-2.5">
+                        <button
+                          onClick={onBackToWaiting}
+                          className="flex w-full items-center justify-center rounded-full bg-pink-500 px-10 py-4 text-body-m font-bold text-white"
+                        >
+                          대기 화면으로 돌아가기
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <>
@@ -591,28 +617,35 @@ export function ResultMapSheet({
                     </div>
 
                     <div className="flex w-full flex-col items-center gap-3 px-4 pt-2.5 pb-2.5">
-          <div className="flex w-full items-center gap-3">
+          {solo ? (
             <button
-              onClick={onRetry}
-              disabled={retrying}
-              className="flex flex-1 items-center justify-center rounded-full border-2 border-pink-500 px-10 py-4 text-body-m font-bold text-pink-500 disabled:opacity-50"
+              onClick={onBackToWaiting}
+              className="flex w-full items-center justify-center rounded-full bg-pink-500 px-10 py-4 text-body-m font-bold text-white"
             >
-              조율하기
+              대기 화면으로 돌아가기
             </button>
-            {!isFallback && (
-              <button
-                onClick={() => onSave(savedAreaCodes)}
-                disabled={saving}
-                className="flex flex-1 items-center justify-center rounded-full bg-pink-500 px-10 py-4 text-body-m font-bold text-white disabled:opacity-50"
-              >
-                저장하기
-              </button>
-            )}
-          </div>
-          {!isFallback && (
-            <p className="text-center text-caption-l font-medium text-neutral-500">
-              저장하기를 누르면 상대방에게 확정되었다고 뜨고, 동네 리스트도 저장할 수 있어요
-            </p>
+          ) : (
+            <>
+              <div className="flex w-full items-center gap-3">
+                <button
+                  onClick={onRetry}
+                  disabled={retrying}
+                  className="flex flex-1 items-center justify-center rounded-full border-2 border-pink-500 px-10 py-4 text-body-m font-bold text-pink-500 disabled:opacity-50"
+                >
+                  조율하기
+                </button>
+                <button
+                  onClick={() => onSave(savedAreaCodes)}
+                  disabled={saving}
+                  className="flex flex-1 items-center justify-center rounded-full bg-pink-500 px-10 py-4 text-body-m font-bold text-white disabled:opacity-50"
+                >
+                  저장하기
+                </button>
+              </div>
+              <p className="text-center text-caption-l font-medium text-neutral-500">
+                저장하기를 누르면 상대방에게 확정되었다고 뜨고, 동네 리스트도 저장할 수 있어요
+              </p>
+            </>
           )}
         </div>
                   </>
@@ -665,21 +698,30 @@ export function ResultMapSheet({
             <ChevronRight className="size-5 shrink-0 text-neutral-400" />
           </button>
           <div className="flex w-full items-center gap-3 px-4 pt-2.5 pb-2.5">
-            <button
-              onClick={onRetry}
-              disabled={retrying}
-              className="flex flex-1 items-center justify-center rounded-full border-2 border-pink-500 px-10 py-4 text-body-m font-bold text-pink-500 disabled:opacity-50"
-            >
-              조율하기
-            </button>
-            {!isFallback && (
+            {solo ? (
               <button
-                onClick={() => onSave(savedAreaCodes)}
-                disabled={saving}
-                className="flex flex-1 items-center justify-center rounded-full bg-pink-500 px-10 py-4 text-body-m font-bold text-white disabled:opacity-50"
+                onClick={onBackToWaiting}
+                className="flex flex-1 items-center justify-center rounded-full bg-pink-500 px-10 py-4 text-body-m font-bold text-white"
               >
-                저장하기
+                대기 화면으로 돌아가기
               </button>
+            ) : (
+              <>
+                <button
+                  onClick={onRetry}
+                  disabled={retrying}
+                  className="flex flex-1 items-center justify-center rounded-full border-2 border-pink-500 px-10 py-4 text-body-m font-bold text-pink-500 disabled:opacity-50"
+                >
+                  조율하기
+                </button>
+                <button
+                  onClick={() => onSave(savedAreaCodes)}
+                  disabled={saving}
+                  className="flex flex-1 items-center justify-center rounded-full bg-pink-500 px-10 py-4 text-body-m font-bold text-white disabled:opacity-50"
+                >
+                  저장하기
+                </button>
+              </>
             )}
           </div>
           </>

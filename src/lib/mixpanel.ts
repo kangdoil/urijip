@@ -29,7 +29,7 @@ function getDevice(): 'mobile' | 'desktop' {
   return /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? 'mobile' : 'desktop'
 }
 
-// docs/metrics-events.md §2의 MVP 10개 이벤트만 이 유니언에 존재한다 — 목록 밖
+// docs/metrics-events.md §2의 MVP 11개 이벤트만 이 유니언에 존재한다 — 목록 밖
 // 이벤트명은 타입 에러가 나도록 해서 "임의 이벤트 추가 금지"(§4 운영 원칙)를 강제한다.
 interface EventMap {
   session_created: { source: 'organic' | 'share_link' }
@@ -42,6 +42,7 @@ interface EventMap {
   result_retry: Record<string, never>
   feedback_submitted: { reaction: 'up' | 'down'; has_comment: boolean; trigger: 'resolved' | 'dwell' }
   result_exported: { format: 'image' | 'text' }
+  solo_preview_viewed: { candidate_count: number }
 }
 
 interface CommonProps {

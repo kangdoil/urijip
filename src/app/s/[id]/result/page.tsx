@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { getMyParticipant } from '@/lib/get-my-participant'
 import { CONDITION_LABEL, formatEok, type Tier } from '@/lib/condition-labels'
@@ -35,7 +36,8 @@ interface MatchArea {
   sigungu: string
   avg_price_krw: number | null
   a_minutes: number
-  b_minutes: number
+  // "먼저 둘러보기"(solo 미리보기)엔 B 데이터가 없어 null.
+  b_minutes: number | null
   lat: number
   lng: number
   satisfied: Record<string, boolean>
@@ -53,6 +55,15 @@ interface MatchResult {
   candidate_count: number
   match_count: number
   matches: MatchArea[]
+}
+
+// get_solo_preview RPC 응답 — A 조건만으로 계산되어 B 관련 필드가 아예 없다.
+interface SoloPreviewResult {
+  must_conditions: string[]
+  budget_krw: number | null
+  candidate_count: number
+  match_count: number
+  matches: Omit<MatchArea, 'b_minutes'>[]
 }
 
 interface FallbackArea {
@@ -125,7 +136,14 @@ export default function ResultPage() {
 
   const exportRef = useRef<HTMLDivElement>(null)
 
+  // "먼저 둘러보기" — B가 아직 온보딩 전이라도 A 조건만으로 미리 볼 수 있다.
+  const isSolo = searchParams.get('solo') === '1'
+  const [partnerReady, setPartnerReady] = useState(false)
+  const [partnerReadyDismissed, setPartnerReadyDismissed] = useState(false)
+
   const { ready: commuteReady, status: commuteStatus } = useCommuteStatus(sessionId)
+  // solo 모드는 상대 통근 계산까지 기다릴 필요 없이 내(A) 계산만 끝나면 된다.
+  const pageReady = isSolo ? (commuteStatus?.aReady ?? false) : commuteReady
 
   // 데이터 로딩이 끝나 실제 화면이 뜬 뒤에야 카운트다운을 시작한다 — 로딩이
   // 2.5초보다 길면 토스트가 뜨기도 전에 사라지는 문제가 있었다.
@@ -138,7 +156,7 @@ export default function ResultPage() {
   }, [notice, loading, sessionId, router])
 
   useEffect(() => {
-    if (!commuteReady) return
+    if (!pageReady) return
 
     const supabase = createClient()
     ;(async () => {
@@ -153,36 +171,74 @@ export default function ResultPage() {
       setMyRole(me?.role ?? null)
       setMyParticipantId(me?.id ?? null)
 
-      const { data, error: rpcError } = await supabase.rpc('get_matches', {
-        sid: sessionId,
-      })
-      if (rpcError) {
-        setError(rpcError.message)
-        setLoading(false)
-        return
-      }
-      setResult(data as MatchResult)
-
-      if (me?.role) {
-        track(
-          'result_viewed',
-          { session_id: sessionId, role: me.role },
-          {
-            is_first_view: markResultViewed(sessionId, me.role),
-            candidate_count: (data as MatchResult).candidate_count,
-            had_conflict: (data as MatchResult).budget.conflict,
-          }
-        )
-      }
-
-      if ((data as MatchResult).match_count === 0) {
-        const { data: fb } = await supabase.rpc('get_fallback_matches', {
+      if (isSolo) {
+        // B 온보딩 전이라 get_matches(둘 다 완료 요구)는 못 쓴다 — A 조건만으로
+        // 계산하는 별도 RPC. result_viewed는 진짜 결과 열람이 아니므로 발화하지
+        // 않는다(나중에 실제 결과를 볼 때의 is_first_view 판정을 그대로 둔다).
+        const { data, error: rpcError } = await supabase.rpc('get_solo_preview', {
           sid: sessionId,
         })
-        setFallback(fb as FallbackResult)
+        if (rpcError) {
+          setError(rpcError.message)
+          setLoading(false)
+          return
+        }
+        const preview = data as SoloPreviewResult
+        setResult({
+          ready: true,
+          must_conditions: preview.must_conditions,
+          budget: {
+            a_budget_krw: preview.budget_krw,
+            b_budget_krw: null,
+            applied_krw: preview.budget_krw,
+            conflict: false,
+          },
+          candidate_count: preview.candidate_count,
+          match_count: preview.match_count,
+          matches: preview.matches.map((m) => ({ ...m, b_minutes: null })),
+        })
+
+        if (me?.role) {
+          track(
+            'solo_preview_viewed',
+            { session_id: sessionId, role: me.role },
+            { candidate_count: preview.candidate_count }
+          )
+        }
+      } else {
+        const { data, error: rpcError } = await supabase.rpc('get_matches', {
+          sid: sessionId,
+        })
+        if (rpcError) {
+          setError(rpcError.message)
+          setLoading(false)
+          return
+        }
+        setResult(data as MatchResult)
+
+        if (me?.role) {
+          track(
+            'result_viewed',
+            { session_id: sessionId, role: me.role },
+            {
+              is_first_view: markResultViewed(sessionId, me.role),
+              candidate_count: (data as MatchResult).candidate_count,
+              had_conflict: (data as MatchResult).budget.conflict,
+            }
+          )
+        }
+
+        if ((data as MatchResult).match_count === 0) {
+          const { data: fb } = await supabase.rpc('get_fallback_matches', {
+            sid: sessionId,
+          })
+          setFallback(fb as FallbackResult)
+        }
       }
 
       // "자세히 보기" 펼침용 — 어차피 가벼운 조회라 펼치기 전에 미리 받아둔다.
+      // solo일 땐 RLS가 상대 행을 아직 안 돌려줘서(session_is_ready 전) 자연히
+      // 내 행만 담긴다.
       const { data: rows } = await supabase
         .from('participants')
         .select('role, display_name, budget_max_krw, commute_max_min, id, confirmed_at')
@@ -213,12 +269,12 @@ export default function ResultPage() {
 
       setLoading(false)
     })()
-  }, [sessionId, router, commuteReady])
+  }, [sessionId, router, pageReady, isSolo])
 
   // 상대가 Save(확정)하면 새로고침 없이도 상단 배지가 바뀌도록 주기적으로
-  // 상대의 확정 여부만 가볍게 다시 조회한다.
+  // 상대의 확정 여부만 가볍게 다시 조회한다. solo 모드는 상대가 아직 없어 skip.
   useEffect(() => {
-    if (!commuteReady || !myRole) return
+    if (!commuteReady || !myRole || isSolo) return
     const supabase = createClient()
     const interval = setInterval(async () => {
       const { data: rows } = await supabase
@@ -229,7 +285,33 @@ export default function ResultPage() {
       if (partner) setPartnerConfirmed(partner.confirmed_at != null)
     }, 5000)
     return () => clearInterval(interval)
-  }, [commuteReady, myRole, sessionId])
+  }, [commuteReady, myRole, sessionId, isSolo])
+
+  // solo 모드일 때만: 상대(B)가 조건 입력을 마쳐 session_is_ready가 true가
+  // 되는 순간을 감지해 "진짜 결과 보기"로 넘어갈 수 있는 배너를 띄운다.
+  // /s/[id] 대기 화면의 3초 폴링과 동일한 패턴(session_is_ready RPC).
+  useEffect(() => {
+    if (!isSolo) return
+    const supabase = createClient()
+    let cancelled = false
+    let interval: ReturnType<typeof setInterval> | null = null
+
+    async function check() {
+      const { data } = await supabase.rpc('session_is_ready', { sid: sessionId })
+      if (cancelled) return
+      if (data) {
+        setPartnerReady(true)
+        if (interval) clearInterval(interval)
+      }
+    }
+
+    check()
+    interval = setInterval(check, 3000)
+    return () => {
+      cancelled = true
+      if (interval) clearInterval(interval)
+    }
+  }, [isSolo, sessionId])
 
   async function handleRetry() {
     if (retrying) return
@@ -318,7 +400,7 @@ export default function ResultPage() {
     setTimeout(() => setCopiedText(false), 1800)
   }
 
-  if (!commuteReady) {
+  if (!pageReady) {
     return (
       <main className="flex flex-1 items-center justify-center p-6">
         <div className="w-full max-w-sm text-center">
@@ -326,9 +408,11 @@ export default function ResultPage() {
             통근시간을 계산하고 있어요
           </p>
           <p className="text-[13px] text-neutral-500">
-            {commuteStatus && !commuteStatus.aReady && !commuteStatus.bReady
-              ? '두 분 거점 기준으로 전 구역 통근시간을 처음 계산하는 중이에요'
-              : '상대방 거점 기준 계산이 아직 끝나지 않았어요'}
+            {isSolo
+              ? '내 거점 기준으로 전 구역 통근시간을 계산하는 중이에요'
+              : commuteStatus && !commuteStatus.aReady && !commuteStatus.bReady
+                ? '두 분 거점 기준으로 전 구역 통근시간을 처음 계산하는 중이에요'
+                : '상대방 거점 기준 계산이 아직 끝나지 않았어요'}
             {' · '}
             보통 몇 분 안에 끝나요, 잠시만 기다려주세요
           </p>
@@ -379,7 +463,30 @@ export default function ResultPage() {
         saveSheetOpen={saveSheetOpen}
         onSaveSheetOpenChange={setSaveSheetOpen}
         exportRef={exportRef}
+        solo={isSolo}
+        onBackToWaiting={() => router.push(`/s/${sessionId}`)}
       />
+
+      {isSolo && partnerReady && !partnerReadyDismissed && (
+        <div className="pointer-events-none fixed inset-x-0 z-40 flex justify-center px-4" style={{ top: 'calc(env(safe-area-inset-top) + 80px)' }}>
+          <div className="animate-in fade-in-0 slide-in-from-top-2 pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-full bg-neutral-900 py-2 pr-2 pl-5 shadow-[0_10px_30px_rgba(0,0,0,0.2)]">
+            <p className="flex-1 text-body-sb font-semibold text-white">상대방이 조건 입력을 완료했어요!</p>
+            <button
+              onClick={() => router.push(`/s/${sessionId}/result`)}
+              className="shrink-0 rounded-full bg-white px-4 py-2 text-caption-l font-bold text-neutral-900"
+            >
+              결과 보기
+            </button>
+            <button
+              onClick={() => setPartnerReadyDismissed(true)}
+              aria-label="닫기"
+              className="shrink-0 text-neutral-400 hover:text-neutral-200"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {actionError && (
         <div className="fixed inset-x-0 bottom-24 z-30 flex justify-center px-4">
@@ -409,7 +516,7 @@ export default function ResultPage() {
         </div>
       )}
 
-      <FeedbackBanner sessionId={sessionId} />
+      {!isSolo && <FeedbackBanner sessionId={sessionId} />}
     </main>
   )
 }

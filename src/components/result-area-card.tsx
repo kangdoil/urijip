@@ -8,7 +8,8 @@ export interface ResultAreaData {
   sigungu: string
   avg_price_krw: number | null
   a_minutes: number
-  b_minutes: number
+  // 먼저 둘러보기(solo 미리보기)는 B 데이터가 없어 null — 이땐 B 통근시간을 숨긴다.
+  b_minutes: number | null
   lat?: number
   lng?: number
   satisfied?: Record<string, boolean>
@@ -85,9 +86,11 @@ export function ResultAreaCard({
         <span className="flex shrink-0 items-center gap-1 text-pink-500">
           <Car className="size-3.5" fill="currentColor" />A {area.a_minutes}분
         </span>
-        <span className="flex shrink-0 items-center gap-1 text-accent-teal">
-          <Car className="size-3.5" fill="currentColor" />B {area.b_minutes}분
-        </span>
+        {area.b_minutes != null && (
+          <span className="flex shrink-0 items-center gap-1 text-accent-teal">
+            <Car className="size-3.5" fill="currentColor" />B {area.b_minutes}분
+          </span>
+        )}
       </div>
 
       {satisfiedCodes.length > 0 && (
