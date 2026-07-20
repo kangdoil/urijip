@@ -56,8 +56,8 @@ interface ResultMapSheetProps {
   onBackToWaiting?: () => void
 }
 
-// 지원 지역(경기 동남부) 대략 중심 — 핀이 하나도 없을 때만 쓰는 기본 좌표.
-const DEFAULT_CENTER = { lat: 37.395, lng: 127.111 }
+// 지원 지역 전체(경기 동남부~서북부)를 아우르는 서울 중심 근사 좌표 — 핀이 하나도 없을 때만 쓰는 기본 좌표.
+const DEFAULT_CENTER = { lat: 37.5665, lng: 126.978 }
 
 // 핀이나 카드를 선택했을 때 확대할 레벨 — 호갱노노처럼 클릭 시 바로 줌인.
 const PIN_FOCUS_LEVEL = 3
