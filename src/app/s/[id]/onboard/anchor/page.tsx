@@ -121,7 +121,8 @@ export default function AnchorStepPage() {
         .eq('user_id', userData.user.id)
       if (updateError) throw updateError
 
-      // 통근시간 배치(구역 수만큼 ODsay 순차 호출 — 152개 기준 실측 최대 141분)는
+      // 통근시간 배치(구역 수만큼 ODsay 순차 호출 — 2026-07 기준 areas 202개로 확장됨,
+      // 152개 기준이었던 "최대 141분" 실측치는 재측정 전까지 참고만 할 것)는
       // 서버가 응답을 보낸 뒤에도 after()로 계속 실행한다 (route.ts 참고) — 이
       // fetch 자체는 즉시 끝나므로 온보딩 진행을 막지 않는다. 완료 시각은
       // 서버가 participants.commute_batch_done_at에 직접 기록하고, 결과/조율
