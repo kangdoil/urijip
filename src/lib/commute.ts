@@ -174,8 +174,9 @@ export async function ensureCommuteForOrigin(
     // 카카오모빌리티는 일일 호출 한도가 10,000건으로 넉넉해 짧은 시간 단위
     // 요청 제한이 없다(ODsay와 다름) — 구역을 CAR_CONCURRENCY개씩 묶어
     // 동시 호출하면 순차 호출(구역당 150ms 대기) 대비 대기 시간이 거의
-    // CAR_CONCURRENCY배 줄어든다.
-    const CAR_CONCURRENCY = 8
+    // CAR_CONCURRENCY배 줄어든다. areas 252개 기준 8묶음(32라운드)이 체감상
+    // 너무 느려서 20묶음(약 13라운드)으로 올렸다 — 429가 늘면 낮출 것.
+    const CAR_CONCURRENCY = 20
 
     for (let i = 0; i < missing.length; i += CAR_CONCURRENCY) {
       const chunk = missing.slice(i, i + CAR_CONCURRENCY)

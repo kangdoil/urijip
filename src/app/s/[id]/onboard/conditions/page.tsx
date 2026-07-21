@@ -64,7 +64,6 @@ export default function ConditionsStepPage() {
   const [order, setOrder] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
-  const [done, setDone] = useState(false)
   const [ready, setReady] = useState(false)
 
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({})
@@ -192,8 +191,7 @@ export default function ConditionsStepPage() {
         track('input_completed', { session_id: sessionId, role: myRole }, { duration_sec: durationSec })
       }
 
-      setDone(true)
-      setTimeout(() => router.push(`/s/${sessionId}`), 1200)
+      router.push(`/s/${sessionId}`)
     } catch (e) {
       setError(e instanceof Error ? e.message : '저장에 실패했어요')
       setSaving(false)
@@ -207,94 +205,82 @@ export default function ConditionsStepPage() {
       <div className="sticky top-0 z-10 shrink-0 bg-neutral-50 px-4">
         <OnboardBackBar
           onBack={() => router.push(`/s/${sessionId}/onboard/budget`)}
-          disabled={done || saving}
+          disabled={saving}
         />
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pt-4 pb-6">
-        {done ? (
-          <div className="flex flex-col items-center pt-16 text-center">
-            <div className="mb-3 text-3xl" aria-hidden>
-              ✅
-            </div>
-            <p className="mb-1 text-lg font-semibold text-neutral-900">분류 완료</p>
-            <p className="text-sm text-neutral-500">상대의 입력이 끝나면 결과를 보여드릴게요</p>
+        <div className="mx-auto flex w-full max-w-sm flex-col items-center gap-6">
+          <div className="flex flex-col items-center gap-3 text-center">
+            <h1 className="text-2xl leading-8 font-semibold tracking-[-0.03em] text-neutral-900">
+              무엇이 더 중요한가요?
+            </h1>
+            <p className="text-base leading-[1.4] tracking-[-0.015em] text-neutral-500">
+              위로 올릴수록 결과에 더 크게 반영돼요
+            </p>
           </div>
-        ) : (
-          <div className="mx-auto flex w-full max-w-sm flex-col items-center gap-6">
-            <div className="flex flex-col items-center gap-3 text-center">
-              <h1 className="text-2xl leading-8 font-semibold tracking-[-0.03em] text-neutral-900">
-                무엇이 더 중요한가요?
-              </h1>
-              <p className="text-base leading-[1.4] tracking-[-0.015em] text-neutral-500">
-                위로 올릴수록 결과에 더 크게 반영돼요
-              </p>
-            </div>
 
-            <div className="flex w-full flex-col gap-3">
-              {order.map((code, i) => {
-                const cond = conditions.find((c) => c.code === code)
-                if (!cond) return null
-                const rank = i + 1
-                return (
-                  <div
-                    key={code}
-                    ref={(el) => {
-                      cardRefs.current[code] = el
-                    }}
-                    onPointerDown={(e) => handlePointerDown(code, e)}
-                    onPointerMove={(e) => handlePointerMove(code, e)}
-                    onPointerUp={() => endDrag(code)}
-                    onPointerCancel={() => endDrag(code)}
-                    className={cn(
-                      'flex touch-none items-center gap-3 rounded-3xl border-[1.5px] border-neutral-100 bg-white p-3.5 shadow-[0_10px_20px_rgba(0,0,0,0.04)] select-none',
-                      draggingCode === code
-                        ? 'z-20 cursor-grabbing shadow-[0_18px_36px_rgba(20,20,30,0.16)]'
-                        : 'cursor-grab transition-[border-color,box-shadow,background-color] duration-300',
-                      rank === 1 && 'border-pink-500 shadow-[0_12px_24px_rgba(255,77,139,0.14)]',
-                      rank === 3 && 'bg-neutral-50'
-                    )}
-                  >
-                    <span className={badgeClass(rank)}>{rank}</span>
-                    <span className={iconWrapClass(rank)} aria-hidden>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={ICON_SRC[code]} alt="" className={iconImgClass(rank)} />
+          <div className="flex w-full flex-col gap-3">
+            {order.map((code, i) => {
+              const cond = conditions.find((c) => c.code === code)
+              if (!cond) return null
+              const rank = i + 1
+              return (
+                <div
+                  key={code}
+                  ref={(el) => {
+                    cardRefs.current[code] = el
+                  }}
+                  onPointerDown={(e) => handlePointerDown(code, e)}
+                  onPointerMove={(e) => handlePointerMove(code, e)}
+                  onPointerUp={() => endDrag(code)}
+                  onPointerCancel={() => endDrag(code)}
+                  className={cn(
+                    'flex touch-none items-center gap-3 rounded-3xl border-[1.5px] border-neutral-100 bg-white p-3.5 shadow-[0_10px_20px_rgba(0,0,0,0.04)] select-none',
+                    draggingCode === code
+                      ? 'z-20 cursor-grabbing shadow-[0_18px_36px_rgba(20,20,30,0.16)]'
+                      : 'cursor-grab transition-[border-color,box-shadow,background-color] duration-300',
+                    rank === 1 && 'border-pink-500 shadow-[0_12px_24px_rgba(255,77,139,0.14)]',
+                    rank === 3 && 'bg-neutral-50'
+                  )}
+                >
+                  <span className={badgeClass(rank)}>{rank}</span>
+                  <span className={iconWrapClass(rank)} aria-hidden>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={ICON_SRC[code]} alt="" className={iconImgClass(rank)} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className={cn('block', nameClass(rank))}>{cond.name}</span>
+                    <span className="mt-0.5 block text-[13px] leading-[1.4] text-neutral-500">
+                      {cond.descr}
                     </span>
-                    <span className="min-w-0 flex-1">
-                      <span className={cn('block', nameClass(rank))}>{cond.name}</span>
-                      <span className="mt-0.5 block text-[13px] leading-[1.4] text-neutral-500">
-                        {cond.descr}
-                      </span>
-                    </span>
-                    <span className="shrink-0 p-1 text-lg tracking-[2px] text-neutral-300" aria-hidden>
-                      ⠿
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-
-            <p className="text-center text-[13px] text-neutral-500">카드를 눌러서 위아래로 옮겨보세요</p>
-
-            {error && <p className="text-center text-sm text-red-600">{error}</p>}
+                  </span>
+                  <span className="shrink-0 p-1 text-lg tracking-[2px] text-neutral-300" aria-hidden>
+                    ⠿
+                  </span>
+                </div>
+              )
+            })}
           </div>
-        )}
+
+          <p className="text-center text-[13px] text-neutral-500">카드를 눌러서 위아래로 옮겨보세요</p>
+
+          {error && <p className="text-center text-sm text-red-600">{error}</p>}
+        </div>
       </div>
 
-      {!done && (
-        <div className="shrink-0 px-4 pb-6">
-          <div className="mb-4">
-            <OnboardStepDots total={3} activeIndex={2} />
-          </div>
-          <Button
-            onClick={handleNext}
-            disabled={saving || order.length !== conditions.length}
-            className="w-full font-montserrat text-mont-title-m"
-          >
-            {saving ? '저장하는 중...' : 'Next'}
-          </Button>
+      <div className="shrink-0 px-4 pb-6">
+        <div className="mb-4">
+          <OnboardStepDots total={3} activeIndex={2} />
         </div>
-      )}
+        <Button
+          onClick={handleNext}
+          disabled={saving || order.length !== conditions.length}
+          className="w-full font-montserrat text-mont-title-m"
+        >
+          {saving ? '저장하는 중...' : 'Next'}
+        </Button>
+      </div>
     </main>
   )
 }
