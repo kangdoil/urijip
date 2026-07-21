@@ -15,6 +15,8 @@ import { SigunguFilterSheet } from '@/components/sigungu-filter-sheet'
 import { ConditionSummarySheet, type ParticipantConditionSummary } from '@/components/condition-summary-sheet'
 import { SaveOptionsSheet } from '@/components/save-options-sheet'
 import { ResultConcessionPanel } from '@/components/result-concession-panel'
+import type { ConcessionAreaData } from '@/components/concession-area-card'
+import { computeBenefitTags } from '@/lib/concession-benefit-tags'
 import { buildConcessionCopy, type ConcessionMatchResult } from '@/lib/concession-copy'
 
 interface ResultMapSheetProps {
@@ -341,16 +343,18 @@ export function ResultMapSheet({
         .filter((a) => includeExcluded || !excludedCodes.has(a.code))
 
   // 서로 양보(AB) 단일안 후보 — get_concession_matches가 계산해둔 순위 그대로 쓴다.
-  const concessionHoods: ResultAreaData[] = (concession?.areas ?? []).map((a) => ({
+  const aBudgetMaxKrw = participants?.find((p) => p.role === 'A')?.budget_max_krw ?? null
+  const bBudgetMaxKrw = participants?.find((p) => p.role === 'B')?.budget_max_krw ?? null
+  const concessionHoods: ConcessionAreaData[] = (concession?.areas ?? []).map((a) => ({
     code: a.code,
     name: a.name,
     sigungu: a.sigungu,
-    avg_price_krw: a.avg_price_krw,
-    a_minutes: a.a_minutes,
-    b_minutes: a.b_minutes,
     lat: a.lat ?? undefined,
     lng: a.lng ?? undefined,
-    satisfied: a.satisfied,
+    benefitTags: computeBenefitTags(
+      { avg_price_krw: a.avg_price_krw, satisfied: a.satisfied },
+      { aBudgetMaxKrw, bBudgetMaxKrw }
+    ),
   }))
   const concessionCopy = concession ? buildConcessionCopy(concession) : null
 
