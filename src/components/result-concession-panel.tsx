@@ -1,6 +1,6 @@
 import { ArrowRight, Lightbulb } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { ResultAreaCard, type ResultAreaData } from '@/components/result-area-card'
+import { ConcessionAreaCard, type ConcessionAreaData } from '@/components/concession-area-card'
 
 // 아래 리스트에 노출하는 후보 상한 — 초과분은 카드로 나열하지 않고
 // "지도에서 전체 보기" 버튼으로 넘긴다.
@@ -15,7 +15,7 @@ interface ResultConcessionPanelProps {
   // 서로 양보(AB) 단일안으로 새로 열리는 동네 목록. 비어 있으면 "메시지 →
   // 팁 카드 → 조율 버튼" 3단 구조로 렌더링한다 — A만/B만 개별 안은 없다.
   // 결과 화면 캐러셀과 같은 ResultAreaCard로 그려서 카드 모양·색을 통일한다.
-  hoods: ResultAreaData[]
+  hoods: ConcessionAreaData[]
   // 실제 후보 총 개수 — hoods는 카드용으로 상위 몇 개만 담겨 있을 수 있어
   // "N곳" 배지·0곳 판정은 반드시 이 값을 쓴다(hoods.length로 하면 캡에 걸려
   // 실제보다 작게 보일 수 있다).
@@ -23,7 +23,7 @@ interface ResultConcessionPanelProps {
   tipTitle: string
   tipBody: string
   onAdjust: () => void
-  onSelectHood?: (hood: ResultAreaData) => void
+  onSelectHood?: (hood: ConcessionAreaData) => void
   onViewMap?: () => void
 }
 
@@ -95,10 +95,9 @@ export function ResultConcessionPanel({
         ) : (
           <div className="flex flex-col gap-2.5">
             {visibleHoods.map((h) => (
-              <ResultAreaCard
+              <ConcessionAreaCard
                 key={h.code}
                 area={h}
-                fullWidth
                 onSelect={onSelectHood ? () => onSelectHood(h) : undefined}
               />
             ))}
