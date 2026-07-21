@@ -1,15 +1,14 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { getMyParticipant } from '@/lib/get-my-participant'
 import { OnboardBackBar } from '@/components/onboard-back-bar'
 import { OnboardStepDots } from '@/components/onboard-step-dots'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { track, type Role } from '@/lib/mixpanel'
-
-const MUST_LIMIT = 2
 
 interface Condition {
   code: string
@@ -17,23 +16,40 @@ interface Condition {
   descr: string | null
 }
 
-// Figma에서 내려받은 실제 아이콘은 '인프라'만 있다 — 나머지 조건은 기존 이모지를 그대로 쓴다.
-const ICON_SRC: Record<string, string> = { infra: '/icons/infra.svg' }
-const ICON_EMOJI: Record<string, string> = { area_size: '📐', build_year: '🏗️', infra: '🏥' }
+const ICON_SRC: Record<string, string> = {
+  area_size: '/asset/icon/m2.svg',
+  build_year: '/asset/icon/calendar.svg',
+  infra: '/asset/icon/infrastructure.svg',
+}
 
-type Tier = 'must' | 'nice' | 'skip'
+// 순위가 위로 갈수록(1위) 더 크고 진하게 — "위로 올릴수록 더 크게 반영돼요"를
+// 카드 자체의 시각적 무게로도 보여준다(목업에서 확정한 시그니처 인터랙션).
+function badgeClass(rank: number) {
+  if (rank === 1) {
+    return 'flex size-[30px] shrink-0 items-center justify-center rounded-full bg-pink-500 text-sm font-extrabold text-white'
+  }
+  if (rank === 2) {
+    return 'flex size-[26px] shrink-0 items-center justify-center rounded-full bg-pink-100 text-[12.5px] font-extrabold text-pink-500'
+  }
+  return 'flex size-6 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-[11.5px] font-extrabold text-neutral-600'
+}
 
-const TIER_OPTIONS: { tier: Tier; label: string }[] = [
-  { tier: 'must', label: '필수' },
-  { tier: 'nice', label: '선호' },
-  { tier: 'skip', label: '무관' },
-]
+function iconWrapClass(rank: number) {
+  if (rank === 1) return 'flex size-11 shrink-0 items-center justify-center rounded-full bg-pink-100'
+  if (rank === 2) return 'flex size-10 shrink-0 items-center justify-center rounded-full bg-neutral-100'
+  return 'flex size-9 shrink-0 items-center justify-center rounded-full bg-neutral-200'
+}
 
-const TIER_LABEL: Record<Tier, string> = { must: '필수', nice: '선호', skip: '무관' }
+function iconImgClass(rank: number) {
+  if (rank === 1) return 'size-6'
+  if (rank === 2) return 'size-[22px]'
+  return 'size-5'
+}
 
-function tierButtonClass(selected: boolean) {
-  if (!selected) return 'bg-neutral-100 text-neutral-900'
-  return 'border-2 border-pink-500 bg-white text-pink-500'
+function nameClass(rank: number) {
+  if (rank === 1) return 'text-base font-bold text-neutral-900'
+  if (rank === 2) return 'text-[15px] font-bold text-neutral-900'
+  return 'text-[14.5px] font-bold text-neutral-600'
 }
 
 export default function ConditionsStepPage() {
@@ -45,13 +61,15 @@ export default function ConditionsStepPage() {
   const [myRole, setMyRole] = useState<Role | null>(null)
   const [myCreatedAt, setMyCreatedAt] = useState<string | null>(null)
   const [conditions, setConditions] = useState<Condition[]>([])
-  const [idx, setIdx] = useState(0)
-  const [results, setResults] = useState<{ code: string; tier: Tier }[]>([])
-  const [override, setOverride] = useState<{ idx: number; tier: Tier } | null>(null)
+  const [order, setOrder] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [done, setDone] = useState(false)
   const [ready, setReady] = useState(false)
+
+  const cardRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const dragRef = useRef<{ code: string; startY: number } | null>(null)
+  const [draggingCode, setDraggingCode] = useState<string | null>(null)
 
   useEffect(() => {
     const supabase = createClient()
@@ -73,97 +91,111 @@ export default function ConditionsStepPage() {
       setMyRole(me.role)
       setMyCreatedAt(me.created_at)
 
-      const { data } = await supabase
+      const { data: condData } = await supabase
         .from('conditions')
         .select('code, name, descr')
         .order('sort_order')
-      setConditions(data ?? [])
+      const list = condData ?? []
+      setConditions(list)
+
+      // 뒤로 돌아왔을 때 이미 매긴 순위가 있으면 그 순서를 그대로 보여준다.
+      const { data: existing } = await supabase
+        .from('participant_conditions')
+        .select('condition_code, priority')
+        .eq('participant_id', me.id)
+        .order('priority')
+      setOrder(
+        existing && existing.length === list.length
+          ? existing.map((r) => r.condition_code)
+          : list.map((c) => c.code)
+      )
       setReady(true)
     })()
   }, [sessionId, router])
 
-  const current = conditions[idx]
-  const isLast = idx + 1 >= conditions.length
+  function moveIfCrossed(code: string, clientY: number) {
+    const drag = dragRef.current
+    if (!drag || drag.code !== code) return
+    const el = cardRefs.current[code]
+    if (!el) return
+    const deltaY = clientY - drag.startY
+    el.style.transform = `translateY(${deltaY}px)`
 
-  // 뒤로 돌아왔을 때 이미 고른 값이 있으면 그 값을 그대로 보여준다.
-  const committedTier = results.find((r) => r.code === current?.code)?.tier ?? null
-  const pendingTier = override && override.idx === idx ? override.tier : committedTier
+    const idx = order.indexOf(code)
+    const rect = el.getBoundingClientRect()
+    const mid = rect.top + rect.height / 2
 
-  const mustCountExcludingCurrent = results.filter(
-    (r) => r.tier === 'must' && r.code !== current?.code
-  ).length
+    for (let i = 0; i < order.length; i++) {
+      if (i === idx) continue
+      const sibEl = cardRefs.current[order[i]]
+      if (!sibEl) continue
+      const sibMid = sibEl.getBoundingClientRect().top + sibEl.getBoundingClientRect().height / 2
 
-  function goBack() {
-    if (idx > 0 && !done && !saving) {
-      setError(null)
-      setIdx(idx - 1)
-    } else if (idx === 0 && !done && !saving) {
-      router.push(`/s/${sessionId}/onboard/budget`)
+      const crossedDown = deltaY > 0 && i > idx && mid > sibMid
+      const crossedUp = deltaY < 0 && i < idx && mid < sibMid
+      if (crossedDown || crossedUp) {
+        const next = [...order]
+        next.splice(idx, 1)
+        next.splice(i, 0, code)
+        setOrder(next)
+        dragRef.current = { code, startY: clientY }
+        el.style.transform = 'translateY(0px)'
+        break
+      }
     }
   }
 
-  function pick(tier: Tier) {
-    if (!current || saving) return
-    if (tier === 'must' && mustCountExcludingCurrent >= MUST_LIMIT) {
-      setError(`필수는 ${MUST_LIMIT}개까지만 고를 수 있어요`)
-      setTimeout(() => setError(null), 1800)
-      return
-    }
-    setError(null)
-    setOverride({ idx, tier })
+  function handlePointerDown(code: string, e: ReactPointerEvent<HTMLDivElement>) {
+    if (saving) return
+    dragRef.current = { code, startY: e.clientY }
+    setDraggingCode(code)
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+
+  function handlePointerMove(code: string, e: ReactPointerEvent<HTMLDivElement>) {
+    if (dragRef.current?.code !== code) return
+    moveIfCrossed(code, e.clientY)
+  }
+
+  function endDrag(code: string) {
+    const el = cardRefs.current[code]
+    if (el) el.style.transform = ''
+    dragRef.current = null
+    setDraggingCode(null)
   }
 
   async function handleNext() {
-    if (!participantId || !current || !pendingTier || saving) return
+    if (!participantId || saving || order.length !== conditions.length) return
 
     setSaving(true)
     setError(null)
     try {
       const supabase = createClient()
-      const { error: upsertError } = await supabase
-        .from('participant_conditions')
-        .upsert(
-          { participant_id: participantId, condition_code: current.code, tier: pendingTier },
-          { onConflict: 'participant_id,condition_code' }
-        )
+      const { error: upsertError } = await supabase.from('participant_conditions').upsert(
+        order.map((code, i) => ({
+          participant_id: participantId,
+          condition_code: code,
+          priority: i + 1,
+        })),
+        { onConflict: 'participant_id,condition_code' }
+      )
       if (upsertError) throw upsertError
 
-      setResults((prev) => {
-        const existingIdx = prev.findIndex((r) => r.code === current.code)
-        if (existingIdx >= 0) {
-          const copy = [...prev]
-          copy[existingIdx] = { code: current.code, tier: pendingTier }
-          return copy
-        }
-        return [...prev, { code: current.code, tier: pendingTier }]
-      })
+      const { error: completeError } = await supabase
+        .from('participants')
+        .update({ completed_at: new Date().toISOString() })
+        .eq('id', participantId)
+      if (completeError) throw completeError
 
-      if (isLast) {
-        const { error: completeError } = await supabase
-          .from('participants')
-          .update({ completed_at: new Date().toISOString() })
-          .eq('id', participantId)
-        if (completeError) throw completeError
-
-        if (myRole && myCreatedAt) {
-          const durationSec = Math.round(
-            (Date.now() - new Date(myCreatedAt).getTime()) / 1000
-          )
-          track(
-            'input_completed',
-            { session_id: sessionId, role: myRole },
-            { duration_sec: durationSec }
-          )
-        }
-
-        setDone(true)
-        setTimeout(() => router.push(`/s/${sessionId}`), 1200)
-      } else {
-        setIdx(idx + 1)
+      if (myRole && myCreatedAt) {
+        const durationSec = Math.round((Date.now() - new Date(myCreatedAt).getTime()) / 1000)
+        track('input_completed', { session_id: sessionId, role: myRole }, { duration_sec: durationSec })
       }
+
+      setDone(true)
+      setTimeout(() => router.push(`/s/${sessionId}`), 1200)
     } catch (e) {
       setError(e instanceof Error ? e.message : '저장에 실패했어요')
-    } finally {
       setSaving(false)
     }
   }
@@ -173,7 +205,10 @@ export default function ConditionsStepPage() {
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col bg-neutral-50">
       <div className="sticky top-0 z-10 shrink-0 bg-neutral-50 px-4">
-        <OnboardBackBar onBack={goBack} disabled={done || saving} />
+        <OnboardBackBar
+          onBack={() => router.push(`/s/${sessionId}/onboard/budget`)}
+          disabled={done || saving}
+        />
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 pt-4 pb-6">
@@ -183,82 +218,66 @@ export default function ConditionsStepPage() {
               ✅
             </div>
             <p className="mb-1 text-lg font-semibold text-neutral-900">분류 완료</p>
-            <p className="text-sm text-neutral-500">
-              상대의 입력이 끝나면 결과를 보여드릴게요
-            </p>
+            <p className="text-sm text-neutral-500">상대의 입력이 끝나면 결과를 보여드릴게요</p>
           </div>
         ) : (
-          current && (
-            <div className="mx-auto flex w-full max-w-sm flex-col items-center gap-6">
-              <div className="flex flex-col items-center gap-3 text-center">
-                <h1 className="text-2xl leading-8 font-semibold tracking-[-0.03em] text-neutral-900">
-                  이 조건, 얼마나 중요한가요?
-                </h1>
-                <p className="text-base leading-[1.4] tracking-[-0.015em] text-neutral-500">
-                  {idx + 1}/{conditions.length}
-                </p>
-              </div>
-
-              <div className="flex w-full flex-col items-center gap-6 rounded-3xl bg-white p-8 shadow-[0_10px_20px_rgba(0,0,0,0.04)]">
-                <div className="flex flex-col items-center gap-5">
-                  <div className="flex size-20 items-center justify-center rounded-full bg-pink-100">
-                    {ICON_SRC[current.code] ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={ICON_SRC[current.code]} alt="" className="h-[27px] w-[33px]" />
-                    ) : (
-                      <span className="text-3xl" aria-hidden>
-                        {ICON_EMOJI[current.code] ?? '📋'}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex flex-col items-center gap-3">
-                    <h2 className="text-2xl leading-7 font-bold tracking-[-0.03em] text-neutral-900">
-                      {current.name}
-                    </h2>
-                    <p className="text-center text-base leading-[1.4] text-neutral-500">
-                      {current.descr}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex w-full flex-col items-start gap-3">
-                  {TIER_OPTIONS.map(({ tier, label }) => (
-                    <button
-                      key={tier}
-                      onClick={() => pick(tier)}
-                      disabled={saving}
-                      className={`w-full rounded-full px-7 py-5 text-base font-bold transition-colors ${tierButtonClass(
-                        pendingTier === tier
-                      )}`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {error && <p className="text-center text-sm text-red-600">{error}</p>}
-
-              {results.length > 0 && (
-                <div className="flex w-full flex-wrap justify-center gap-1.5 border-t border-neutral-200 pt-4">
-                  {results.map((r) => (
-                    <span
-                      key={r.code}
-                      className={`rounded-full px-2.5 py-1 text-xs ${
-                        r.tier === 'must'
-                          ? 'bg-pink-50 text-pink-700'
-                          : r.tier === 'nice'
-                            ? 'bg-neutral-100 text-neutral-800'
-                            : 'text-neutral-400'
-                      }`}
-                    >
-                      {conditions.find((c) => c.code === r.code)?.name} · {TIER_LABEL[r.tier]}
-                    </span>
-                  ))}
-                </div>
-              )}
+          <div className="mx-auto flex w-full max-w-sm flex-col items-center gap-6">
+            <div className="flex flex-col items-center gap-3 text-center">
+              <h1 className="text-2xl leading-8 font-semibold tracking-[-0.03em] text-neutral-900">
+                무엇이 더 중요한가요?
+              </h1>
+              <p className="text-base leading-[1.4] tracking-[-0.015em] text-neutral-500">
+                위로 올릴수록 결과에 더 크게 반영돼요
+              </p>
             </div>
-          )
+
+            <div className="flex w-full flex-col gap-3">
+              {order.map((code, i) => {
+                const cond = conditions.find((c) => c.code === code)
+                if (!cond) return null
+                const rank = i + 1
+                return (
+                  <div
+                    key={code}
+                    ref={(el) => {
+                      cardRefs.current[code] = el
+                    }}
+                    onPointerDown={(e) => handlePointerDown(code, e)}
+                    onPointerMove={(e) => handlePointerMove(code, e)}
+                    onPointerUp={() => endDrag(code)}
+                    onPointerCancel={() => endDrag(code)}
+                    className={cn(
+                      'flex touch-none items-center gap-3 rounded-3xl border-[1.5px] border-neutral-100 bg-white p-3.5 shadow-[0_10px_20px_rgba(0,0,0,0.04)] select-none',
+                      draggingCode === code
+                        ? 'z-20 cursor-grabbing shadow-[0_18px_36px_rgba(20,20,30,0.16)]'
+                        : 'cursor-grab transition-[border-color,box-shadow,background-color] duration-300',
+                      rank === 1 && 'border-pink-500 shadow-[0_12px_24px_rgba(255,77,139,0.14)]',
+                      rank === 3 && 'bg-neutral-50'
+                    )}
+                  >
+                    <span className={badgeClass(rank)}>{rank}</span>
+                    <span className={iconWrapClass(rank)} aria-hidden>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={ICON_SRC[code]} alt="" className={iconImgClass(rank)} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className={cn('block', nameClass(rank))}>{cond.name}</span>
+                      <span className="mt-0.5 block text-[13px] leading-[1.4] text-neutral-500">
+                        {cond.descr}
+                      </span>
+                    </span>
+                    <span className="shrink-0 p-1 text-lg tracking-[2px] text-neutral-300" aria-hidden>
+                      ⠿
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+
+            <p className="text-center text-[13px] text-neutral-500">카드를 눌러서 위아래로 옮겨보세요</p>
+
+            {error && <p className="text-center text-sm text-red-600">{error}</p>}
+          </div>
         )}
       </div>
 
@@ -269,10 +288,10 @@ export default function ConditionsStepPage() {
           </div>
           <Button
             onClick={handleNext}
-            disabled={!pendingTier || saving}
+            disabled={saving || order.length !== conditions.length}
             className="w-full font-montserrat text-mont-title-m"
           >
-            {saving ? '저장하는 중...' : isLast ? 'Done' : 'Next'}
+            {saving ? '저장하는 중...' : 'Next'}
           </Button>
         </div>
       )}

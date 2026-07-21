@@ -1,0 +1,16 @@
+- generic [active] [ref=f4e1]:
+  - main [ref=f4e2]:
+    - generic [ref=f4e14]:
+      - generic [ref=f4e15]:
+        - heading "제안이 완료되었어요" [level=1] [ref=f4e207]
+        - generic [ref=f4e208]: 상대 확인 중
+      - generic [ref=f4e86]:
+        - paragraph [ref=f4e87]: 변경 사항
+        - generic [ref=f4e213]:
+          - generic [ref=f4e214]: 우선순위
+          - generic [ref=f4e215]:
+            - generic [ref=f4e216]: 년식 · 평형 · 인프라
+            - generic [ref=f4e219]: 년식 · 인프라 · 평형
+        - button "다시 보내기" [ref=f4e220]
+  - button "Open Next.js Dev Tools" [ref=f4e9] [cursor=pointer]
+  - alert [ref=f4e13]

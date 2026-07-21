@@ -1,6 +1,5 @@
 'use client'
 
-import { FileText, Image as ImageIcon } from 'lucide-react'
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/components/ui/drawer'
 
 interface SaveOptionsSheetProps {
@@ -41,7 +40,8 @@ export function SaveOptionsSheet({
             className="flex items-center gap-4 border-b border-neutral-100 py-4"
           >
             <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-pink-50">
-              <ImageIcon className="size-5 text-pink-500" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/asset/icon/image.svg" alt="" className="size-5" />
             </span>
             <span className="text-body-m font-medium text-neutral-900">이미지로 저장하기</span>
           </button>
@@ -53,7 +53,8 @@ export function SaveOptionsSheet({
             className="flex items-center gap-4 py-4"
           >
             <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-pink-50">
-              <FileText className="size-5 text-pink-500" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/asset/icon/text.svg" alt="" className="size-5" />
             </span>
             <span className="text-body-m font-medium text-neutral-900">텍스트로 저장하기</span>
           </button>

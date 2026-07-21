@@ -16,7 +16,7 @@ export default function BudgetStepPage() {
   const params = useParams<{ id: string }>()
   const sessionId = params.id
 
-  const [budgetEok, setBudgetEok] = useState(5)
+  const [budgetEok, setBudgetEok] = useState(8)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [ready, setReady] = useState(false)
@@ -86,7 +86,7 @@ export default function BudgetStepPage() {
           <div className="flex w-full flex-col items-center gap-6 rounded-3xl bg-white p-8 shadow-[0_10px_20px_rgba(0,0,0,0.04)]">
             <div className="flex size-20 items-center justify-center rounded-full bg-pink-100">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/icons/budget.svg" alt="" className="h-[25px] w-[27px]" />
+              <img src="/asset/icon/money.svg" alt="" className="size-10" />
             </div>
 
             <div className="flex items-baseline gap-1">
@@ -102,13 +102,13 @@ export default function BudgetStepPage() {
               <Slider
                 value={[budgetEok]}
                 onValueChange={([v]) => setBudgetEok(v)}
-                min={2}
-                max={15}
+                min={4.5}
+                max={20}
                 step={0.5}
               />
               <div className="mt-2 flex w-full items-center justify-between px-2">
-                <span className="text-sm font-semibold text-neutral-900">2억</span>
-                <span className="text-sm font-semibold text-neutral-900">15억</span>
+                <span className="text-sm font-semibold text-neutral-900">4.5억</span>
+                <span className="text-sm font-semibold text-neutral-900">20억</span>
               </div>
             </div>
 

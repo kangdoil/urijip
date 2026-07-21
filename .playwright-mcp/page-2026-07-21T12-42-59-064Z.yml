@@ -1,0 +1,32 @@
+- generic [active] [ref=f1e1]:
+  - button "Open Next.js Dev Tools" [ref=f1e7] [cursor=pointer]
+  - alert [ref=f1e11]
+  - main [ref=f1e12]:
+    - button "이전으로" [ref=f1e15]
+    - generic [ref=f1e19]:
+      - generic [ref=f1e20]:
+        - heading "무엇이 더 중요한가요?" [level=1] [ref=f1e21]
+        - paragraph [ref=f1e22]: 위로 올릴수록 결과에 더 크게 반영돼요
+      - generic [ref=f1e23]:
+        - generic [ref=f1e31]:
+          - generic [ref=f1e32]: "1"
+          - generic [ref=f1e33]: 🏗️
+          - generic [ref=f1e34]:
+            - generic [ref=f1e35]: 년식
+            - generic [ref=f1e36]: 지어진 지 10년 이내
+          - generic [ref=f1e37]: ⠿
+        - generic [ref=f1e24]:
+          - generic [ref=f1e25]: "2"
+          - generic [ref=f1e26]: 📐
+          - generic [ref=f1e27]:
+            - generic [ref=f1e28]: 평형
+            - generic [ref=f1e29]: 면적이 넉넉한 곳
+          - generic [ref=f1e30]: ⠿
+        - generic [ref=f1e38]:
+          - generic [ref=f1e39]: "3"
+          - generic [ref=f1e41]:
+            - generic [ref=f1e42]: 인프라
+            - generic [ref=f1e43]: 마트·병원·공원이 가까운 곳
+          - generic [ref=f1e44]: ⠿
+      - paragraph [ref=f1e45]: 카드를 눌러서 위아래로 옮겨보세요
+    - button "Next" [ref=f1e52]

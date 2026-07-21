@@ -1,0 +1,20 @@
+- generic [active] [ref=f8e1]:
+  - button "Open Next.js Dev Tools" [ref=f8e17] [cursor=pointer]
+  - alert [ref=f8e11]
+  - main [ref=f8e84]:
+    - button "이전으로" [ref=f8e87]
+    - generic [ref=f8e91]:
+      - generic [ref=f8e92]:
+        - heading "예상 상한은 얼마인가요?" [level=1] [ref=f8e93]
+        - paragraph [ref=f8e94]: 예산은 나중에 언제든지 변경할 수 있어요
+      - generic [ref=f8e95]:
+        - generic [ref=f8e97]:
+          - generic [ref=f8e98]: "5.0"
+          - generic [ref=f8e99]: 억
+        - generic [ref=f8e100]:
+          - slider [ref=f8e105]
+          - generic [ref=f8e106]:
+            - generic [ref=f8e107]: 2억
+            - generic [ref=f8e108]: 15억
+        - paragraph [ref=f8e110]: 두 분의 상한이 다르면 낮은 쪽을 기본으로동네를 추천해요
+    - button "Next" [ref=f8e117]

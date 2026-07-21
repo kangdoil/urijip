@@ -12,29 +12,21 @@ import { cn } from '@/lib/utils'
 import { ResultHeaderPill } from '@/components/result-header-pill'
 import { ResultAreaCard, type ResultAreaData } from '@/components/result-area-card'
 import { SigunguFilterSheet } from '@/components/sigungu-filter-sheet'
-import { MustConditionSheet, type ParticipantConditionSummary } from '@/components/must-condition-sheet'
+import { ConditionSummarySheet, type ParticipantConditionSummary } from '@/components/condition-summary-sheet'
 import { SaveOptionsSheet } from '@/components/save-options-sheet'
-
-export interface FallbackArea {
-  code: string
-  name: string
-  sigungu: string
-  lat: number
-  lng: number
-}
-
-interface FallbackResult {
-  a_only: FallbackArea[]
-  b_only: FallbackArea[]
-}
+import { ResultConcessionPanel } from '@/components/result-concession-panel'
+import { buildConcessionCopy, type ConcessionMatchResult } from '@/lib/concession-copy'
 
 interface ResultMapSheetProps {
   sessionId: string
   myParticipantId: string | null
   areas: ResultAreaData[]
   matchCount: number
-  fallback: FallbackResult | null
-  mustConditions: string[]
+  // 통근·예산 조건에 맞는 후보 0건(콜드 스테이션)일 때 get_concession_matches가 계산한
+  // "서로 양보(AB)" 단일 추천안 — hoods/giveDetail/진단 문구를 여기서 뽑는다.
+  concession: ConcessionMatchResult | null
+  // get_matches가 내려주는 순위 순서(코드 배열, 1위부터) — A/B 각각.
+  priorities: { a: string[]; b: string[] }
   budgetLabel: string
   conflict: boolean
   participants: ParticipantConditionSummary[] | null
@@ -66,7 +58,7 @@ const PIN_FOCUS_LEVEL = 3
 // 동일한 기준(5)을 결과 화면 카드 리스트에도 그대로 적용한다.
 const MAX_PER_GROUP = 5
 
-// 시트를 끝까지 내리면 핸들+필수조건 요약줄+액션 버튼만 보이고(요구사항),
+// 시트를 끝까지 내리면 핸들+우선순위 요약줄+액션 버튼만 보이고(요구사항),
 // 기본은 컨텐츠 자연 높이만큼만 펼쳐진다.
 // vaul의 snapPoint 오프셋은 `containerHeight - snapPoint * containerHeight`로
 // 계산된다 — snapPoint가 1이면 오프셋이 항상 0이라 화면 크기와 무관하게
@@ -122,44 +114,6 @@ function Pin({
   )
 }
 
-function FallbackLists({ aOnly, bOnly }: { aOnly: FallbackArea[]; bOnly: FallbackArea[] }) {
-  return (
-    <div className="flex flex-col gap-4 px-4">
-      <p className="text-body-s text-neutral-500">
-        대신, 한쪽 필수 조건만 반영했을 때의 후보를 보여드릴게요
-      </p>
-      <div>
-        <p className="mb-2 text-body-sb font-bold text-pink-500">A의 필수만 반영 ({aOnly.length}곳)</p>
-        <div className="flex flex-col gap-1.5">
-          {aOnly.map((a) => (
-            <div key={a.code} className="flex items-center gap-2 rounded-lg bg-neutral-50 px-3 py-2.5">
-              <span className="size-1.5 shrink-0 rounded-full bg-pink-500" />
-              <span className="min-w-0 truncate text-body-sb font-medium text-neutral-900">
-                <span className="text-neutral-500">{a.sigungu}</span> {a.name}
-              </span>
-            </div>
-          ))}
-          {aOnly.length === 0 && <p className="text-xs text-neutral-400">후보가 없어요</p>}
-        </div>
-      </div>
-      <div>
-        <p className="mb-2 text-body-sb font-bold text-accent-teal">B의 필수만 반영 ({bOnly.length}곳)</p>
-        <div className="flex flex-col gap-1.5">
-          {bOnly.map((b) => (
-            <div key={b.code} className="flex items-center gap-2 rounded-lg bg-neutral-50 px-3 py-2.5">
-              <span className="size-1.5 shrink-0 rounded-full bg-accent-teal" />
-              <span className="min-w-0 truncate text-body-sb font-medium text-neutral-900">
-                <span className="text-neutral-500">{b.sigungu}</span> {b.name}
-              </span>
-            </div>
-          ))}
-          {bOnly.length === 0 && <p className="text-xs text-neutral-400">후보가 없어요</p>}
-        </div>
-      </div>
-    </div>
-  )
-}
-
 function sigunguTriggerLabel(selected: Set<string>) {
   const list = Array.from(selected)
   if (list.length === 0) return '시군구 선택'
@@ -169,14 +123,15 @@ function sigunguTriggerLabel(selected: Set<string>) {
 
 // 결과 화면 지도+바텀시트. 매칭 성공 시엔 시군구 다중 선택 + 선택/제외 필터로
 // 카드를 걸러 보여준다(핀 탭 → 리스트 스크롤 연동은 v1 범위 밖 — TODO).
-// 매칭 0건(폴백)일 땐 칩 없이 A/B 후보를 색으로 구분해 한 지도에 같이 보여준다.
+// 매칭 0건(폴백)일 땐 서로 양보(AB) 단일안 하나만 ResultConcessionPanel로 보여준다
+// (A만/B만 개별 안은 없음 — 설계 결정).
 export function ResultMapSheet({
   sessionId,
   myParticipantId,
   areas,
   matchCount,
-  fallback,
-  mustConditions,
+  concession,
+  priorities,
   budgetLabel,
   conflict,
   participants,
@@ -385,11 +340,22 @@ export function ResultMapSheet({
         .flatMap((g) => g.list)
         .filter((a) => includeExcluded || !excludedCodes.has(a.code))
 
+  // 서로 양보(AB) 단일안 후보 — get_concession_matches가 계산해둔 순위 그대로 쓴다.
+  const concessionHoods: ResultAreaData[] = (concession?.areas ?? []).map((a) => ({
+    code: a.code,
+    name: a.name,
+    sigungu: a.sigungu,
+    avg_price_krw: a.avg_price_krw,
+    a_minutes: a.a_minutes,
+    b_minutes: a.b_minutes,
+    lat: a.lat ?? undefined,
+    lng: a.lng ?? undefined,
+    satisfied: a.satisfied,
+  }))
+  const concessionCopy = concession ? buildConcessionCopy(concession) : null
+
   const pins: PinData[] = isFallback
-    ? [
-        ...(fallback?.a_only ?? []).map((a) => toPin(a, 'a')),
-        ...(fallback?.b_only ?? []).map((b) => toPin(b, 'b')),
-      ].filter((p): p is PinData => p != null)
+    ? concessionHoods.map((a) => toPin(a, 'neutral')).filter((p): p is PinData => p != null)
     : activeAreas.map((a) => toPin(a, 'neutral')).filter((p): p is PinData => p != null)
 
   // 핀을 클릭하거나(호갱노노처럼) 바텀시트에서 카드를 선택했을 때 지도를
@@ -433,11 +399,14 @@ export function ResultMapSheet({
   const title = solo
     ? '먼저 둘러보기'
     : isFallback
-      ? '필수 조건을 모두 만족하는 구역이 없어요'
+      ? '통근·예산 조건에 맞는 구역이 없어요'
       : '추천 동네'
 
-  const mustNames = mustConditions.map((c) => CONDITION_LABEL[c] ?? c)
-  const mustSummary = mustNames.length > 0 ? mustNames.join(', ') : '없음'
+  const priorityTopLabel = (codes: string[]) =>
+    codes[0] ? (CONDITION_LABEL[codes[0]] ?? codes[0]) : null
+  const aTop = priorityTopLabel(priorities.a)
+  const bTop = priorityTopLabel(priorities.b)
+  const prioritySummary = [aTop && `A ${aTop}`, bTop && `B ${bTop}`].filter(Boolean).join(' · ') || '없음'
 
   const isCollapsed = snap === SNAP_COLLAPSED
 
@@ -451,7 +420,7 @@ export function ResultMapSheet({
   const savedAreaCodes = cappedAreas.filter((a) => !excludedCodes.has(a.code)).map((a) => a.code)
 
   // 캡 반영 후 전체 후보 수 — 시군구 뷰 필터·제외와 무관하게 "조건에 맞는
-  // 구역이 몇 곳인지"를 그대로 설명할 때 쓴다(필수조건 시트 문구).
+  // 구역이 몇 곳인지"를 그대로 설명할 때 쓴다(우선순위 시트 문구).
   const totalMatchCount = cappedAreas.length
   // 실제로 저장될 개수 — 제외 반영, 시군구 뷰 필터와는 무관하다.
   const remainingMatchCount = savedAreaCodes.length
@@ -519,15 +488,11 @@ export function ResultMapSheet({
               <div
               >
                 {isFallback ? (
-                  <div className="flex flex-col gap-4 pt-4">
-                    {solo ? (
+                  solo ? (
+                    <div className="flex flex-col gap-4 pt-4">
                       <p className="px-4 text-center text-body-s text-neutral-400">
                         내 조건만으로는 만족하는 구역이 없어요
                       </p>
-                    ) : (
-                      <FallbackLists aOnly={fallback?.a_only ?? []} bOnly={fallback?.b_only ?? []} />
-                    )}
-                    {solo && (
                       <div className="px-4 pb-2.5">
                         <button
                           onClick={onBackToWaiting}
@@ -536,8 +501,29 @@ export function ResultMapSheet({
                           대기 화면으로 돌아가기
                         </button>
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  ) : (
+                    // 결과 화면(펼쳐진 캐러셀+지도)과 비슷한 비중으로 시트를 채우기
+                    // 위해 내용 높이를 따라가는 대신 고정 높이를 준다 — MustConditionSheet의
+                    // "거의 풀페이지" 패턴과 동일한 의도.
+                    <div className="flex h-[70dvh] flex-col pt-3">
+                      <ResultConcessionPanel
+                        message={concessionCopy?.message ?? '두 분 조건에 맞는 동네를 찾는 중이에요'}
+                        giveDetail={concessionCopy?.giveDetail ?? ''}
+                        hoods={concessionHoods}
+                        totalCount={concession?.total_count ?? 0}
+                        tipTitle={concessionCopy?.tipTitle ?? '이렇게 조정해보세요'}
+                        tipBody={concessionCopy?.tipBody ?? ''}
+                        onAdjust={onRetry}
+                        onSelectHood={(hood) => {
+                          if (hood.lat != null && hood.lng != null) focusPin(hood.lat, hood.lng)
+                        }}
+                        onViewMap={
+                          concessionHoods.length > 0 ? () => setSnap(SNAP_COLLAPSED) : undefined
+                        }
+                      />
+                    </div>
+                  )
                 ) : (
                   <>
                     {/* 시트가 펼쳐진 동안은 이전 디자인(큰 사이즈)으로 시트 맨 위에 보여주고,
@@ -551,7 +537,7 @@ export function ResultMapSheet({
                           <CirclePlus className="size-4 text-pink-500" />
                         </span>
                         <span className="truncate text-body-sb font-semibold text-pink-500">
-                          필수 조건 : {mustSummary} / {budgetLabel}
+                          우선순위 : {prioritySummary} / {budgetLabel}
                         </span>
                       </span>
                       <ChevronRight className="size-6 shrink-0 text-neutral-400" />
@@ -692,7 +678,7 @@ export function ResultMapSheet({
                 <CirclePlus className="size-4 text-pink-500" />
               </span>
               <span className="truncate text-body-sb font-semibold text-pink-500">
-                필수 조건 : {mustSummary} / {budgetLabel}
+                우선순위 : {prioritySummary} / {budgetLabel}
               </span>
             </span>
             <ChevronRight className="size-5 shrink-0 text-neutral-400" />
@@ -738,11 +724,11 @@ export function ResultMapSheet({
         onToggleAll={toggleAllSigungus}
       />
 
-      <MustConditionSheet
+      <ConditionSummarySheet
         open={conditionSheetOpen}
         onOpenChange={setConditionSheetOpen}
         participants={participants}
-        mustConditions={mustConditions}
+        priorities={priorities}
         budgetLabel={budgetLabel}
         conflict={conflict}
         count={totalMatchCount}

@@ -5,12 +5,13 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { getMyParticipant } from '@/lib/get-my-participant'
-import { CONDITION_LABEL, formatEok, type Tier } from '@/lib/condition-labels'
+import { CONDITION_LABEL, formatEok, type Priority } from '@/lib/condition-labels'
 import { ResultMapSheet } from '@/components/result-map-sheet'
 import { FeedbackBanner } from '@/components/feedback-banner'
 import { useCommuteStatus } from '@/lib/use-commute-status'
 import { groupBySigungu } from '@/lib/group-by-sigungu'
 import { track } from '@/lib/mixpanel'
+import type { ConcessionMatchResult } from '@/lib/concession-copy'
 
 // 세션+역할 조합으로 "이 결과 화면을 처음 보는지"를 기기에 저장해 판단한다
 // (서버엔 조회 이력을 남기지 않으므로 DB로 대체 불가 — result_viewed 고유 목적).
@@ -27,7 +28,7 @@ interface ParticipantSummary {
   display_name: string | null
   budget_max_krw: number | null
   commute_max_min: number | null
-  conditions: Record<string, Tier>
+  priorities: Record<string, Priority>
 }
 
 interface MatchArea {
@@ -45,7 +46,7 @@ interface MatchArea {
 
 interface MatchResult {
   ready: boolean
-  must_conditions: string[]
+  priorities: { a: string[]; b: string[] }
   budget: {
     a_budget_krw: number | null
     b_budget_krw: number | null
@@ -59,24 +60,11 @@ interface MatchResult {
 
 // get_solo_preview RPC 응답 — A 조건만으로 계산되어 B 관련 필드가 아예 없다.
 interface SoloPreviewResult {
-  must_conditions: string[]
+  priorities: string[]
   budget_krw: number | null
   candidate_count: number
   match_count: number
   matches: Omit<MatchArea, 'b_minutes'>[]
-}
-
-interface FallbackArea {
-  code: string
-  name: string
-  sigungu: string
-  lat: number
-  lng: number
-}
-
-interface FallbackResult {
-  a_only: FallbackArea[]
-  b_only: FallbackArea[]
 }
 
 // 시군구별 추천 동네 상한(grouped-area-list.tsx의 "상위 최대 5곳" 규칙과 동일) —
@@ -109,7 +97,7 @@ export default function ResultPage() {
   const sessionId = params.id
 
   const [result, setResult] = useState<MatchResult | null>(null)
-  const [fallback, setFallback] = useState<FallbackResult | null>(null)
+  const [concession, setConcession] = useState<ConcessionMatchResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [resolved, setResolved] = useState(false)
@@ -186,7 +174,7 @@ export default function ResultPage() {
         const preview = data as SoloPreviewResult
         setResult({
           ready: true,
-          must_conditions: preview.must_conditions,
+          priorities: { a: preview.priorities, b: [] },
           budget: {
             a_budget_krw: preview.budget_krw,
             b_budget_krw: null,
@@ -229,10 +217,10 @@ export default function ResultPage() {
         }
 
         if ((data as MatchResult).match_count === 0) {
-          const { data: fb } = await supabase.rpc('get_fallback_matches', {
+          const { data: cm } = await supabase.rpc('get_concession_matches', {
             sid: sessionId,
           })
-          setFallback(fb as FallbackResult)
+          setConcession(cm as ConcessionMatchResult)
         }
       }
 
@@ -249,16 +237,16 @@ export default function ResultPage() {
         for (const row of rows) {
           const { data: conds } = await supabase
             .from('participant_conditions')
-            .select('condition_code, tier')
+            .select('condition_code, priority')
             .eq('participant_id', row.id)
-          const conditions: Record<string, Tier> = {}
-          for (const c of conds ?? []) conditions[c.condition_code] = c.tier as Tier
+          const priorities: Record<string, Priority> = {}
+          for (const c of conds ?? []) priorities[c.condition_code] = c.priority as Priority
           summaries.push({
             role: row.role,
             display_name: row.display_name,
             budget_max_krw: row.budget_max_krw,
             commute_max_min: row.commute_max_min,
-            conditions,
+            priorities,
           })
         }
         setParticipants(summaries)
@@ -448,8 +436,8 @@ export default function ResultPage() {
         myParticipantId={myParticipantId}
         areas={result.matches}
         matchCount={result.match_count}
-        fallback={fallback}
-        mustConditions={result.must_conditions}
+        concession={concession}
+        priorities={result.priorities}
         budgetLabel={budgetLabel}
         conflict={result.budget.conflict}
         participants={participants}

@@ -1,4 +1,4 @@
-import { Car } from 'lucide-react'
+import { CarIcon } from '@/components/icons/car-icon'
 import { CONDITION_LABEL, formatEok } from '@/lib/condition-labels'
 import { cn } from '@/lib/utils'
 
@@ -25,6 +25,7 @@ export function ResultAreaCard({
   onExclude,
   onRestore,
   onSelect,
+  fullWidth = false,
 }: {
   area: ResultAreaData
   excluded?: boolean
@@ -32,6 +33,9 @@ export function ResultAreaCard({
   onRestore?: (code: string) => void
   // 카드를 탭하면(제외/복구 버튼 제외) 지도 핀으로 줌인 — 좌표가 없으면 안 넘어온다.
   onSelect?: () => void
+  // 가로 스크롤 캐러셀(기본, w-[304px] 고정) 대신 세로 리스트에서 컨테이너
+  // 폭을 그대로 채운다 — 결과 0곳 화면의 서로 양보(AB) 후보 리스트에서 사용.
+  fullWidth?: boolean
 }) {
   const satisfiedCodes = Object.entries(area.satisfied ?? {})
     .filter(([, ok]) => ok)
@@ -41,7 +45,8 @@ export function ResultAreaCard({
     <div
       onClick={onSelect}
       className={cn(
-        'flex h-auto w-[304px] shrink-0 snap-start flex-col rounded-xl px-5 py-3',
+        'flex h-auto flex-col rounded-xl px-5 py-3',
+        fullWidth ? 'w-full' : 'w-[304px] shrink-0 snap-start',
         excluded ? 'bg-pink-50' : 'bg-neutral-50',
         onSelect && 'cursor-pointer'
       )}
@@ -84,11 +89,13 @@ export function ResultAreaCard({
         <span className="min-w-0 shrink truncate text-neutral-500">{area.sigungu}</span>
         <span className="h-3 w-px shrink-0 bg-neutral-300" />
         <span className="flex shrink-0 items-center gap-1 text-pink-500">
-          <Car className="size-3.5" fill="currentColor" />A {area.a_minutes}분
+          <CarIcon className="size-3.5" />
+          {area.a_minutes}분
         </span>
         {area.b_minutes != null && (
           <span className="flex shrink-0 items-center gap-1 text-accent-teal">
-            <Car className="size-3.5" fill="currentColor" />B {area.b_minutes}분
+            <CarIcon className="size-3.5" />
+            {area.b_minutes}분
           </span>
         )}
       </div>

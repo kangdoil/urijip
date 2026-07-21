@@ -1,0 +1,749 @@
+- generic [ref=f3e1]:
+  - main [ref=f3e2]:
+    - generic [ref=f3e14]:
+      - generic [ref=f3e16]:
+        - generic [ref=f3e17]:
+          - button [ref=f3e21]:
+            - generic [ref=f3e22]: 성남동
+          - button [ref=f3e25]:
+            - generic [ref=f3e26]: 상대원3동
+          - button [ref=f3e29]:
+            - generic [ref=f3e30]: 상대원2동
+          - button [ref=f3e33]:
+            - generic [ref=f3e34]: 상대원1동
+          - button [ref=f3e37]:
+            - generic [ref=f3e38]: 광남1동
+          - button [ref=f3e41]:
+            - generic [ref=f3e42]: 광남2동
+          - button [ref=f3e45]:
+            - generic [ref=f3e46]: 탄벌동
+          - button [ref=f3e49]:
+            - generic [ref=f3e50]: 쌍령동
+          - button [ref=f3e53]:
+            - generic [ref=f3e54]: 오포1동
+          - button [ref=f3e57]:
+            - generic [ref=f3e58]: 영통1동
+          - button [ref=f3e61]:
+            - generic [ref=f3e62]: 영통3동
+          - button [ref=f3e65]:
+            - generic [ref=f3e66]: 매탄2동
+          - button [ref=f3e69]:
+            - generic [ref=f3e70]: 매탄1동
+          - button [ref=f3e73]:
+            - generic [ref=f3e74]: 상갈동
+          - button [ref=f3e77]:
+            - generic [ref=f3e78]: 상하동
+          - button [ref=f3e81]:
+            - generic [ref=f3e82]: 동백3동
+          - button [ref=f3e85]:
+            - generic [ref=f3e86]: 동백1동
+          - button [ref=f3e89]:
+            - generic [ref=f3e90]: 보라동
+          - button [ref=f3e93]:
+            - generic [ref=f3e94]: 오전동
+          - button [ref=f3e97]:
+            - generic [ref=f3e98]: 구운동
+          - button [ref=f3e101]:
+            - generic [ref=f3e102]: 입북동
+          - button [ref=f3e105]:
+            - generic [ref=f3e106]: 권선1동
+          - button [ref=f3e109]:
+            - generic [ref=f3e110]: 세류3동
+          - button [ref=f3e113]:
+            - generic [ref=f3e114]: 호매실동
+        - generic [ref=f3e116]:
+          - generic [ref=f3e117]: 8km
+          - link [ref=f3e121] [cursor=pointer]:
+            - /url: http://map.kakao.com/
+      - generic [ref=f3e124]:
+        - paragraph [ref=f3e125]:
+          - generic [ref=f3e129]: 추천 동네
+        - generic [ref=f3e130]:
+          - generic [ref=f3e131]: 총 24곳
+          - generic [ref=f3e132]: 상대 미확정
+      - generic:
+        - generic:
+          - generic:
+            - paragraph: 우리가 함께 할 수 있는 동네
+            - paragraph: 총 24곳
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 성남동
+                  - generic: 5.9억
+              - generic:
+                - generic: 경기 성남시 중원구
+                - generic: A 14분
+                - generic: B 24분
+              - generic:
+                - generic: 인프라 충족
+                - generic: 평형 충족
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 광남1동
+                  - generic: 4.6억
+              - generic:
+                - generic: 경기 광주시
+                - generic: A 26분
+                - generic: B 27분
+              - generic:
+                - generic: 인프라 충족
+                - generic: 평형 충족
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 영통1동
+                  - generic: 5.4억
+              - generic:
+                - generic: 경기 수원시 영통구
+                - generic: A 29분
+                - generic: B 29분
+              - generic:
+                - generic: 인프라 충족
+                - generic: 평형 충족
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 상갈동
+                  - generic: 4.9억
+              - generic:
+                - generic: 경기 용인시 기흥구
+                - generic: A 29분
+                - generic: B 32분
+              - generic:
+                - generic: 인프라 충족
+                - generic: 평형 충족
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 광남2동
+                  - generic: 4.6억
+              - generic:
+                - generic: 경기 광주시
+                - generic: A 30분
+                - generic: B 31분
+              - generic:
+                - generic: 인프라 충족
+                - generic: 평형 충족
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 오전동
+                  - generic: 5.3억
+              - generic:
+                - generic: 경기 의왕시
+                - generic: A 28분
+                - generic: B 33분
+              - generic:
+                - generic: 인프라 충족
+                - generic: 평형 충족
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 탄벌동
+                  - generic: 3.9억
+              - generic:
+                - generic: 경기 광주시
+                - generic: A 27분
+                - generic: B 35분
+              - generic:
+                - generic: 인프라 충족
+                - generic: 평형 충족
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 쌍령동
+                  - generic: 4.0억
+              - generic:
+                - generic: 경기 광주시
+                - generic: A 31분
+                - generic: B 32분
+              - generic:
+                - generic: 인프라 충족
+                - generic: 평형 충족
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 오포1동
+                  - generic: 4.6억
+              - generic:
+                - generic: 경기 광주시
+                - generic: A 32분
+                - generic: B 32분
+              - generic:
+                - generic: 인프라 충족
+                - generic: 평형 충족
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 영통3동
+                  - generic: 5.4억
+              - generic:
+                - generic: 경기 수원시 영통구
+                - generic: A 33분
+                - generic: B 35분
+              - generic:
+                - generic: 인프라 충족
+                - generic: 평형 충족
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 매탄2동
+                  - generic: 5.2억
+              - generic:
+                - generic: 경기 수원시 영통구
+                - generic: A 35분
+                - generic: B 33분
+              - generic:
+                - generic: 인프라 충족
+                - generic: 평형 충족
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 구운동
+                  - generic: 4.9억
+              - generic:
+                - generic: 경기 수원시 권선구
+                - generic: A 33분
+                - generic: B 37분
+              - generic:
+                - generic: 인프라 충족
+                - generic: 평형 충족
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 상하동
+                  - generic: 3.9억
+              - generic:
+                - generic: 경기 용인시 기흥구
+                - generic: A 35분
+                - generic: B 36분
+              - generic:
+                - generic: 인프라 충족
+                - generic: 평형 충족
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 매탄1동
+                  - generic: 5.2억
+              - generic:
+                - generic: 경기 수원시 영통구
+                - generic: A 38분
+                - generic: B 33분
+              - generic:
+                - generic: 인프라 충족
+                - generic: 평형 충족
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 동백3동
+                  - generic: 5.3억
+              - generic:
+                - generic: 경기 용인시 기흥구
+                - generic: A 37분
+                - generic: B 37분
+              - generic:
+                - generic: 인프라 충족
+                - generic: 평형 충족
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 입북동
+                  - generic: 4.3억
+              - generic:
+                - generic: 경기 수원시 권선구
+                - generic: A 38분
+                - generic: B 37분
+              - generic:
+                - generic: 인프라 충족
+                - generic: 평형 충족
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 권선1동
+                  - generic: 4.9억
+              - generic:
+                - generic: 경기 수원시 권선구
+                - generic: A 36분
+                - generic: B 39분
+              - generic:
+                - generic: 인프라 충족
+                - generic: 평형 충족
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 동백1동
+                  - generic: 5.3억
+              - generic:
+                - generic: 경기 용인시 기흥구
+                - generic: A 39분
+                - generic: B 37분
+              - generic:
+                - generic: 인프라 충족
+                - generic: 평형 충족
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 보라동
+                  - generic: 4.5억
+              - generic:
+                - generic: 경기 용인시 기흥구
+                - generic: A 39분
+                - generic: B 37분
+              - generic:
+                - generic: 인프라 충족
+                - generic: 평형 충족
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 세류3동
+                  - generic: 4.8억
+              - generic:
+                - generic: 경기 수원시 권선구
+                - generic: A 37분
+                - generic: B 40분
+              - generic:
+                - generic: 인프라 충족
+                - generic: 평형 충족
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 호매실동
+                  - generic: 4.9억
+              - generic:
+                - generic: 경기 수원시 권선구
+                - generic: A 40분
+                - generic: B 38분
+              - generic:
+                - generic: 인프라 충족
+                - generic: 평형 충족
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 상대원3동
+                  - generic: 4.4억
+              - generic:
+                - generic: 경기 성남시 중원구
+                - generic: A 23분
+                - generic: B 29분
+              - generic: 인프라 충족
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 상대원2동
+                  - generic: 4.4억
+              - generic:
+                - generic: 경기 성남시 중원구
+                - generic: A 23분
+                - generic: B 31분
+              - generic: 인프라 충족
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 상대원1동
+                  - generic: 4.4억
+              - generic:
+                - generic: 경기 성남시 중원구
+                - generic: A 25분
+                - generic: B 31분
+              - generic: 인프라 충족
+    - generic [ref=f3e135]:
+      - generic [ref=f3e136]:
+        - paragraph [ref=f3e137]: 이 결과가 도움이 됐나요?
+        - button [ref=f3e138]: ✕
+      - generic [ref=f3e139]:
+        - button [ref=f3e140]: 👍
+        - button [ref=f3e141]: 👎
+  - button "Open Next.js Dev Tools" [ref=f3e9] [cursor=pointer]
+  - alert [ref=f3e13]
+  - dialog:
+    - button
+    - generic:
+      - button [active]:
+        - generic: "우선순위 : A 년식 · B 인프라 / 예산 6.0억 이하"
+      - generic:
+        - button: 경기 성남시 중원구 외 5
+        - button: 제외된 동네 포함
+      - generic:
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic: 성남동
+                - generic: 5.9억
+              - button: 제외하기
+            - generic:
+              - generic: 경기 성남시 중원구
+              - generic: A 14분
+              - generic: B 24분
+            - generic:
+              - generic: 인프라 충족
+              - generic: 평형 충족
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic: 상대원3동
+                - generic: 4.4억
+              - button: 제외하기
+            - generic:
+              - generic: 경기 성남시 중원구
+              - generic: A 23분
+              - generic: B 29분
+            - generic: 인프라 충족
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic: 상대원2동
+                - generic: 4.4억
+              - button: 제외하기
+            - generic:
+              - generic: 경기 성남시 중원구
+              - generic: A 23분
+              - generic: B 31분
+            - generic: 인프라 충족
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic: 상대원1동
+                - generic: 4.4억
+              - button: 제외하기
+            - generic:
+              - generic: 경기 성남시 중원구
+              - generic: A 25분
+              - generic: B 31분
+            - generic: 인프라 충족
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic: 광남1동
+                - generic: 4.6억
+              - button: 제외하기
+            - generic:
+              - generic: 경기 광주시
+              - generic: A 26분
+              - generic: B 27분
+            - generic:
+              - generic: 인프라 충족
+              - generic: 평형 충족
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic: 광남2동
+                - generic: 4.6억
+              - button: 제외하기
+            - generic:
+              - generic: 경기 광주시
+              - generic: A 30분
+              - generic: B 31분
+            - generic:
+              - generic: 인프라 충족
+              - generic: 평형 충족
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic: 탄벌동
+                - generic: 3.9억
+              - button: 제외하기
+            - generic:
+              - generic: 경기 광주시
+              - generic: A 27분
+              - generic: B 35분
+            - generic:
+              - generic: 인프라 충족
+              - generic: 평형 충족
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic: 쌍령동
+                - generic: 4.0억
+              - button: 제외하기
+            - generic:
+              - generic: 경기 광주시
+              - generic: A 31분
+              - generic: B 32분
+            - generic:
+              - generic: 인프라 충족
+              - generic: 평형 충족
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic: 오포1동
+                - generic: 4.6억
+              - button: 제외하기
+            - generic:
+              - generic: 경기 광주시
+              - generic: A 32분
+              - generic: B 32분
+            - generic:
+              - generic: 인프라 충족
+              - generic: 평형 충족
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic: 영통1동
+                - generic: 5.4억
+              - button: 제외하기
+            - generic:
+              - generic: 경기 수원시 영통구
+              - generic: A 29분
+              - generic: B 29분
+            - generic:
+              - generic: 인프라 충족
+              - generic: 평형 충족
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic: 영통3동
+                - generic: 5.4억
+              - button: 제외하기
+            - generic:
+              - generic: 경기 수원시 영통구
+              - generic: A 33분
+              - generic: B 35분
+            - generic:
+              - generic: 인프라 충족
+              - generic: 평형 충족
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic: 매탄2동
+                - generic: 5.2억
+              - button: 제외하기
+            - generic:
+              - generic: 경기 수원시 영통구
+              - generic: A 35분
+              - generic: B 33분
+            - generic:
+              - generic: 인프라 충족
+              - generic: 평형 충족
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic: 매탄1동
+                - generic: 5.2억
+              - button: 제외하기
+            - generic:
+              - generic: 경기 수원시 영통구
+              - generic: A 38분
+              - generic: B 33분
+            - generic:
+              - generic: 인프라 충족
+              - generic: 평형 충족
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic: 상갈동
+                - generic: 4.9억
+              - button: 제외하기
+            - generic:
+              - generic: 경기 용인시 기흥구
+              - generic: A 29분
+              - generic: B 32분
+            - generic:
+              - generic: 인프라 충족
+              - generic: 평형 충족
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic: 상하동
+                - generic: 3.9억
+              - button: 제외하기
+            - generic:
+              - generic: 경기 용인시 기흥구
+              - generic: A 35분
+              - generic: B 36분
+            - generic:
+              - generic: 인프라 충족
+              - generic: 평형 충족
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic: 동백3동
+                - generic: 5.3억
+              - button: 제외하기
+            - generic:
+              - generic: 경기 용인시 기흥구
+              - generic: A 37분
+              - generic: B 37분
+            - generic:
+              - generic: 인프라 충족
+              - generic: 평형 충족
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic: 동백1동
+                - generic: 5.3억
+              - button: 제외하기
+            - generic:
+              - generic: 경기 용인시 기흥구
+              - generic: A 39분
+              - generic: B 37분
+            - generic:
+              - generic: 인프라 충족
+              - generic: 평형 충족
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic: 보라동
+                - generic: 4.5억
+              - button: 제외하기
+            - generic:
+              - generic: 경기 용인시 기흥구
+              - generic: A 39분
+              - generic: B 37분
+            - generic:
+              - generic: 인프라 충족
+              - generic: 평형 충족
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic: 오전동
+                - generic: 5.3억
+              - button: 제외하기
+            - generic:
+              - generic: 경기 의왕시
+              - generic: A 28분
+              - generic: B 33분
+            - generic:
+              - generic: 인프라 충족
+              - generic: 평형 충족
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic: 구운동
+                - generic: 4.9억
+              - button: 제외하기
+            - generic:
+              - generic: 경기 수원시 권선구
+              - generic: A 33분
+              - generic: B 37분
+            - generic:
+              - generic: 인프라 충족
+              - generic: 평형 충족
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic: 입북동
+                - generic: 4.3억
+              - button: 제외하기
+            - generic:
+              - generic: 경기 수원시 권선구
+              - generic: A 38분
+              - generic: B 37분
+            - generic:
+              - generic: 인프라 충족
+              - generic: 평형 충족
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic: 권선1동
+                - generic: 4.9억
+              - button: 제외하기
+            - generic:
+              - generic: 경기 수원시 권선구
+              - generic: A 36분
+              - generic: B 39분
+            - generic:
+              - generic: 인프라 충족
+              - generic: 평형 충족
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic: 세류3동
+                - generic: 4.8억
+              - button: 제외하기
+            - generic:
+              - generic: 경기 수원시 권선구
+              - generic: A 37분
+              - generic: B 40분
+            - generic:
+              - generic: 인프라 충족
+              - generic: 평형 충족
+        - generic:
+          - generic:
+            - generic:
+              - generic:
+                - generic: 호매실동
+                - generic: 4.9억
+              - button: 제외하기
+            - generic:
+              - generic: 경기 수원시 권선구
+              - generic: A 40분
+              - generic: B 38분
+            - generic:
+              - generic: 인프라 충족
+              - generic: 평형 충족
+      - generic:
+        - generic:
+          - button: 조율하기
+          - button: 저장하기
+        - paragraph: 저장하기를 누르면 상대방에게 확정되었다고 뜨고, 동네 리스트도 저장할 수 있어요
+  - dialog [ref=f3e716]:
+    - generic [ref=f3e718]:
+      - heading "두 분의 조건" [level=2] [ref=f3e719]
+      - paragraph [ref=f3e720]: A 1순위 년식 · B 1순위 인프라 · 예산 6.0억 이하 (예산은 낮은 쪽 기준)
+    - generic [ref=f3e721]:
+      - generic [ref=f3e722]:
+        - generic [ref=f3e723]:
+          - paragraph [ref=f3e724]: 이벤트검증A (A)
+          - generic [ref=f3e725]:
+            - generic [ref=f3e726]:
+              - term [ref=f3e727]: 예산
+              - definition [ref=f3e728]: 6.0억
+            - generic [ref=f3e729]:
+              - term [ref=f3e730]: 통근 상한
+              - definition [ref=f3e731]: 40분
+            - generic [ref=f3e732]:
+              - term [ref=f3e733]: 평형
+              - definition [ref=f3e734]: 2순위
+            - generic [ref=f3e735]:
+              - term [ref=f3e736]: 년식
+              - definition [ref=f3e737]: 1순위
+            - generic [ref=f3e738]:
+              - term [ref=f3e739]: 인프라
+              - definition [ref=f3e740]: 3순위
+        - generic [ref=f3e741]:
+          - paragraph [ref=f3e742]: 이벤트검증B (B)
+          - generic [ref=f3e743]:
+            - generic [ref=f3e744]:
+              - term [ref=f3e745]: 예산
+              - definition [ref=f3e746]: 6.5억
+            - generic [ref=f3e747]:
+              - term [ref=f3e748]: 통근 상한
+              - definition [ref=f3e749]: 40분
+            - generic [ref=f3e750]:
+              - term [ref=f3e751]: 평형
+              - definition [ref=f3e752]: 2순위
+            - generic [ref=f3e753]:
+              - term [ref=f3e754]: 년식
+              - definition [ref=f3e755]: 3순위
+            - generic [ref=f3e756]:
+              - term [ref=f3e757]: 인프라
+              - definition [ref=f3e758]: 1순위
+      - generic [ref=f3e759]:
+        - paragraph [ref=f3e760]: 이렇게 추천했어요
+        - paragraph [ref=f3e761]: 두 분이 매긴 순위를 반영해 더 잘 맞는 동네부터, 예산 6.0억 이하인 구역 24곳을 통근시간 합이 짧은 순으로 보여드려요.

@@ -1,0 +1,23 @@
+- generic [active] [ref=f7e1]:
+  - button "Open Next.js Dev Tools" [ref=f7e16] [cursor=pointer]
+  - alert [ref=f7e20]
+  - main [ref=f7e21]:
+    - button "이전으로" [ref=f7e24]
+    - generic [ref=f7e28]:
+      - generic [ref=f7e29]:
+        - heading "자주 가는 곳이 어디예요?" [level=1] [ref=f7e30]
+        - paragraph [ref=f7e31]: 여기서 가까운 순서로 구역을 찾아드려요
+      - generic [ref=f7e32]:
+        - generic [ref=f7e33]:
+          - button "직장" [ref=f7e34]
+          - button "학교" [ref=f7e35]
+          - button "부모님 집" [ref=f7e36]
+          - button "직접 입력" [ref=f7e37]
+        - 'textbox "예: 판교역 테크노밸리" [ref=f7e39]'
+        - generic [ref=f7e40]:
+          - generic [ref=f7e41]:
+            - generic [ref=f7e42]: 통근 상한
+            - generic [ref=f7e43]: 40분
+          - slider [ref=f7e48]
+          - paragraph [ref=f7e49]: 문에서 문까지, 자동차 기준이에요
+    - button "Next" [ref=f7e56]

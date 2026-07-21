@@ -1,0 +1,70 @@
+[     263ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[     276ms] [LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[   61934ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[   64921ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[   67909ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[   70920ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[   73906ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[   76922ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[   79905ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[   82928ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[   85907ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[   88927ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[   91909ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[   94930ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[   97930ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  100918ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  103908ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  106918ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  109515ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[  109541ms] [LOG] [Fast Refresh] done in 126ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[  109901ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  112918ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  115905ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  118921ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  121905ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  124922ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  127912ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  130921ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  133906ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  136925ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  137365ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[  137390ms] [LOG] [Fast Refresh] done in 53ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_1ybzpk2._.js:2477
+[  139940ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  142918ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  145910ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  148919ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  151908ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  154913ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  157937ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  160924ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  163913ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  166901ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  169914ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  172913ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  175917ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  178920ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  182009ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  184925ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  187918ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  190927ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  193928ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  196909ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  199970ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  202917ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  205919ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  208910ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  211917ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  214926ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  217922ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  220912ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  223919ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  226916ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  229916ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  232912ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  235916ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  238905ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  241910ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  244914ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  247908ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0
+[  250906ms] [ERROR] Failed to load resource: the server responded with a status of 400 () @ https://kvhsviugkbvrjdkfhlra.supabase.co/rest/v1/rpc/get_commute_status:0

@@ -4,8 +4,8 @@ export const CONDITION_LABEL: Record<string, string> = {
   infra: '인프라',
 }
 
-export type Tier = 'must' | 'nice' | 'skip'
-export const TIER_LABEL: Record<Tier, string> = { must: '필수', nice: '선호', skip: '무관' }
+export type Priority = 1 | 2 | 3
+export const PRIORITY_LABEL: Record<Priority, string> = { 1: '1순위', 2: '2순위', 3: '3순위' }
 
 export function formatEok(krw: number | null) {
   if (krw == null) return '-'

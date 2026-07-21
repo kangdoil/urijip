@@ -1,0 +1,12 @@
+- generic [active] [ref=f8e1]:
+  - main [ref=f8e2]:
+    - generic [ref=f8e3]:
+      - generic [ref=f8e4]:
+        - img "우리집" [ref=f8e5]
+        - paragraph [ref=f8e6]: 둘이서 주거 조건을 조율해함께 살 구역을 찾아요
+      - generic [ref=f8e7]:
+        - generic [ref=f8e8]: 닉네임
+        - textbox "닉네임" [ref=f8e9]:
+          - /placeholder: 닉네임을 입력해주세요.
+      - button "Start! (with A)" [ref=f8e10]
+  - alert [ref=f8e11]

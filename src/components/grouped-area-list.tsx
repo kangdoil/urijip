@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Car } from 'lucide-react'
+import { CarIcon } from '@/components/icons/car-icon'
 import { CONDITION_LABEL, formatEok } from '@/lib/condition-labels'
 import { groupBySigungu } from '@/lib/group-by-sigungu'
 
@@ -43,10 +43,12 @@ export function AreaCard({
       </div>
       <div className="flex items-center gap-3 text-caption-l font-medium">
         <span className="flex items-center gap-1 text-pink-500">
-          <Car className="size-3.5" fill="currentColor" />A {area.a_minutes}분
+          <CarIcon className="size-3.5" />
+          {area.a_minutes}분
         </span>
         <span className="flex items-center gap-1 text-accent-teal">
-          <Car className="size-3.5" fill="currentColor" />B {area.b_minutes}분
+          <CarIcon className="size-3.5" />
+          {area.b_minutes}분
         </span>
         {showConditionBadges && area.satisfied && (
           <span className="ml-auto flex gap-1">

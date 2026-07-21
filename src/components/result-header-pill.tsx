@@ -1,4 +1,3 @@
-import { Home } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export function ResultHeaderPill({
@@ -17,7 +16,8 @@ export function ResultHeaderPill({
   return (
     <div className="flex items-center justify-between gap-3 rounded-xl border border-white bg-neutral-50/50 px-5 py-3 shadow-[0_10px_40px_rgba(0,0,0,0.04)] backdrop-blur-[10px]">
       <p className="flex min-w-0 items-center gap-1.5 text-lg font-semibold tracking-[-0.03em] text-neutral-900">
-        <Home className="size-5 shrink-0 text-pink-500" fill="currentColor" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/asset/icon/house.svg" alt="" className="size-5 shrink-0" />
         <span className="truncate">{title}</span>
       </p>
       <div className="flex shrink-0 items-center gap-1">
