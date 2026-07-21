@@ -1,13 +1,15 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Check, Copy, RefreshCw } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
+import { RegionSuggestionBanner } from '@/components/region-suggestion-banner'
 import { track } from '@/lib/mixpanel'
+import { cn } from '@/lib/utils'
 
 interface SessionRow {
   id: string
@@ -89,6 +91,15 @@ export default function SessionPage() {
   const [inviteUrl, setInviteUrl] = useState('')
   const [copied, setCopied] = useState(false)
 
+  // 상대방이 막 조건 입력을 완료한 순간엔 곧바로 최종 상태를 보여주지 않고,
+  // 프로그레스바를 먼저 꽉 채운 뒤 2초 후에 B 카드에 불이 들어오도록 순서를
+  // 준다(요청된 인터랙션). 새로고침 등으로 이미 완료된 상태로 처음 로드되면
+  // 이 연출 없이 바로 최종 상태를 보여준다.
+  const [barFilled, setBarFilled] = useState(false)
+  const [revealPending, setRevealPending] = useState(false)
+  const prevBothReadyRef = useRef<boolean | null>(null)
+  const showBothReadyUI = bothReady && !revealPending
+
   const refresh = useCallback(async () => {
     const supabase = createClient()
     const { data: userData } = await supabase.auth.getUser()
@@ -139,6 +150,22 @@ export default function SessionPage() {
     return () => clearInterval(interval)
   }, [refresh])
 
+  useEffect(() => {
+    const prev = prevBothReadyRef.current
+    prevBothReadyRef.current = bothReady
+
+    if (prev === null) {
+      setBarFilled(bothReady)
+      return
+    }
+    if (!prev && bothReady) {
+      setBarFilled(true)
+      setRevealPending(true)
+      const timer = setTimeout(() => setRevealPending(false), 2000)
+      return () => clearTimeout(timer)
+    }
+  }, [bothReady])
+
   function copyInviteUrl() {
     // writeText는 동기적으로도, Promise reject로도 실패할 수 있다 — 클립보드
     // 접근이 막힌 환경(권한 거부 등)이어도 UI 피드백(토스트)은 그대로 보여준다.
@@ -185,19 +212,19 @@ export default function SessionPage() {
   const bInfo = presence.participants.find((p) => p.role === 'B') ?? null
   const partnerJoined = presence.participant_count >= 2
 
-  const title = bothReady
+  const title = showBothReadyUI
     ? '상대방이 조건 입력을 완료했어요'
     : partnerJoined
       ? '상대방이 참여했어요'
       : '상대방에게 초대를 보냈어요'
 
-  const description = bothReady
+  const description = showBothReadyUI
     ? '아래 버튼을 눌러 동네를 확인해보세요'
     : partnerJoined
       ? '조건 입력을 완료하면 알려드릴게요'
       : '상대방이 참여해야 결과를 볼 수 있어요'
 
-  const footerNote = bothReady ? (
+  const footerNote = showBothReadyUI ? (
     <>
       두 사람의 조건을 분석하여
       <br />
@@ -219,10 +246,12 @@ export default function SessionPage() {
 
   return (
     <main
-      className="mx-auto flex h-dvh w-full max-w-md flex-col overflow-y-auto bg-neutral-50 px-4 pt-16"
+      className="relative mx-auto flex h-dvh w-full max-w-md flex-col overflow-y-auto bg-neutral-50"
       style={{ paddingBottom: 'calc(120px + env(safe-area-inset-bottom))' }}
     >
-      <div className="flex flex-col items-center gap-3 text-center">
+      <RegionSuggestionBanner sessionId={sessionId} className="absolute inset-x-0 top-0 z-10" />
+
+      <div className="flex flex-col items-center gap-3 px-4 pt-[138px] text-center">
         <h1 className="text-2xl leading-8 font-semibold tracking-[-0.03em] text-neutral-900">
           {title}
         </h1>
@@ -232,7 +261,7 @@ export default function SessionPage() {
       </div>
 
       {/* 드래그 가능한 바텀시트가 아니라, 일반 문서 흐름 안에 놓인 정적 카드 */}
-      <div className="mt-6 flex flex-col items-center gap-8 rounded-[40px] bg-white p-8 shadow-[0_10px_20px_rgba(0,0,0,0.04)]">
+      <div className="mt-6 flex flex-col items-center gap-8 rounded-[40px] bg-white p-8 shadow-[0_10px_20px_rgba(0,0,0,0.04)] mx-4">
         <div className="flex items-center gap-4">
           <div className="flex flex-col items-center gap-5">
             <Avatar
@@ -247,7 +276,12 @@ export default function SessionPage() {
           </div>
 
           <div className="h-1 w-[92px] shrink-0 overflow-hidden rounded-full bg-neutral-100">
-            <div className="h-full w-[58%] rounded-full bg-pink-500" />
+            <div
+              className={cn(
+                'h-full rounded-full bg-pink-500 transition-[width] duration-1000 ease-out',
+                barFilled ? 'w-full' : 'w-[58%]'
+              )}
+            />
           </div>
 
           <div className="flex flex-col items-center gap-5">
@@ -257,7 +291,7 @@ export default function SessionPage() {
               bg="bg-accent-teal/10"
               border="border-accent-teal"
               faded={!partnerJoined}
-              checked={Boolean(bInfo?.completed_at)}
+              checked={showBothReadyUI}
               checkBg="bg-accent-teal"
             />
             <NamePill
@@ -273,7 +307,7 @@ export default function SessionPage() {
         <p className="text-center text-body-s text-neutral-500">{footerNote}</p>
       </div>
 
-      {!bothReady && (
+      {!showBothReadyUI && (
         <Link
           href={`/s/${sessionId}/result?solo=1`}
           className="mt-6 text-center text-body-sb font-medium text-neutral-500 underline decoration-1 underline-offset-4"
@@ -291,7 +325,7 @@ export default function SessionPage() {
       )}
 
       <div className="fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-md px-4 pb-[max(24px,env(safe-area-inset-bottom))]">
-        {bothReady ? (
+        {showBothReadyUI ? (
           <Button asChild className="w-full font-montserrat text-mont-title-m">
             <Link href={`/s/${sessionId}/result`}>View results</Link>
           </Button>

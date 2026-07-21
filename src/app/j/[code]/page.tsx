@@ -29,7 +29,7 @@ export default async function InvitePage({ params }: Props) {
 
   return (
     <main className="flex flex-1 flex-col bg-neutral-50">
-      <div className="flex-1 overflow-y-auto px-4 pt-6 pb-6">
+      <div className="flex-1 overflow-y-auto px-4 pt-[138px] pb-[138px]">
         <div className="mx-auto flex w-full max-w-sm flex-col items-center gap-6">
           <div className="flex flex-col items-center gap-3 text-center">
             <h1 className="text-2xl leading-8 font-semibold tracking-[-0.03em] text-neutral-900">

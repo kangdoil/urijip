@@ -1,0 +1,15 @@
+- generic [active] [ref=f12e1]:
+  - main [ref=f12e2]:
+    - generic [ref=f12e4]:
+      - generic [ref=f12e5]:
+        - heading "“이벤트검증A”님이 우리 집에 초대했어요" [level=1] [ref=f12e6]
+        - paragraph [ref=f12e7]: 지금 바로 내 조건을 입력하고이벤트검증A님과 함께 조율해 보세요
+      - generic [ref=f12e8]:
+        - img "우리집" [ref=f12e9]
+        - paragraph [ref=f12e10]: 둘이서 주거 조건을 조율해함께 살 동네를 찾아요
+        - textbox "닉네임" [ref=f12e12]:
+          - /placeholder: 닉네임을 입력해주세요.
+          - text: 이벤트검증A
+      - button "Start! (with B)" [ref=f12e14]
+  - button "Open Next.js Dev Tools" [ref=f12e20] [cursor=pointer]
+  - alert [ref=f12e24]

@@ -22,34 +22,24 @@ const ICON_SRC: Record<string, string> = {
   infra: '/asset/icon/infrastructure.svg',
 }
 
-// 순위가 위로 갈수록(1위) 더 크고 진하게 — "위로 올릴수록 더 크게 반영돼요"를
-// 카드 자체의 시각적 무게로도 보여준다(목업에서 확정한 시그니처 인터랙션).
+// 1위 카드만 핑크 보더+그림자로 강조하고, 2·3위는 동일한 톤으로 묶는다
+// (Figma: 무엇이 가장 중요한가요 프레임 — 순위별 크기 차등 없이 1위만 강조).
 function badgeClass(rank: number) {
-  if (rank === 1) {
-    return 'flex size-[30px] shrink-0 items-center justify-center rounded-full bg-pink-500 text-sm font-extrabold text-white'
-  }
-  if (rank === 2) {
-    return 'flex size-[26px] shrink-0 items-center justify-center rounded-full bg-pink-100 text-[12.5px] font-extrabold text-pink-500'
-  }
-  return 'flex size-6 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-[11.5px] font-extrabold text-neutral-600'
+  return rank === 1
+    ? 'flex size-6 shrink-0 items-center justify-center rounded-full bg-pink-500 text-[11.5px] font-extrabold text-white'
+    : 'flex size-6 shrink-0 items-center justify-center rounded-full bg-pink-100 text-[11.5px] font-extrabold text-pink-500'
 }
 
 function iconWrapClass(rank: number) {
-  if (rank === 1) return 'flex size-11 shrink-0 items-center justify-center rounded-full bg-pink-100'
-  if (rank === 2) return 'flex size-10 shrink-0 items-center justify-center rounded-full bg-neutral-100'
-  return 'flex size-9 shrink-0 items-center justify-center rounded-full bg-neutral-200'
-}
-
-function iconImgClass(rank: number) {
-  if (rank === 1) return 'size-6'
-  if (rank === 2) return 'size-[22px]'
-  return 'size-5'
+  return rank === 1
+    ? 'flex size-11 shrink-0 items-center justify-center rounded-full bg-pink-100'
+    : 'flex size-11 shrink-0 items-center justify-center rounded-full bg-neutral-100'
 }
 
 function nameClass(rank: number) {
-  if (rank === 1) return 'text-base font-bold text-neutral-900'
-  if (rank === 2) return 'text-[15px] font-bold text-neutral-900'
-  return 'text-[14.5px] font-bold text-neutral-600'
+  return rank === 1
+    ? 'text-base leading-6 font-bold text-neutral-900'
+    : 'text-[15px] leading-[22.5px] font-bold text-neutral-900'
 }
 
 export default function ConditionsStepPage() {
@@ -209,11 +199,11 @@ export default function ConditionsStepPage() {
         />
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-6">
+      <div className="flex-1 overflow-y-auto px-4 pt-[84px] pb-6">
         <div className="mx-auto flex w-full max-w-sm flex-col items-center gap-6">
           <div className="flex flex-col items-center gap-3 text-center">
             <h1 className="text-2xl leading-8 font-semibold tracking-[-0.03em] text-neutral-900">
-              무엇이 더 중요한가요?
+              무엇이 가장 중요한가요?
             </h1>
             <p className="text-base leading-[1.4] tracking-[-0.015em] text-neutral-500">
               위로 올릴수록 결과에 더 크게 반영돼요
@@ -236,18 +226,19 @@ export default function ConditionsStepPage() {
                   onPointerUp={() => endDrag(code)}
                   onPointerCancel={() => endDrag(code)}
                   className={cn(
-                    'flex touch-none items-center gap-3 rounded-3xl border-[1.5px] border-neutral-100 bg-white p-3.5 shadow-[0_10px_20px_rgba(0,0,0,0.04)] select-none',
+                    'flex touch-none items-center gap-3 rounded-xl border bg-white p-[15px] select-none',
                     draggingCode === code
                       ? 'z-20 cursor-grabbing shadow-[0_18px_36px_rgba(20,20,30,0.16)]'
                       : 'cursor-grab transition-[border-color,box-shadow,background-color] duration-300',
-                    rank === 1 && 'border-pink-500 shadow-[0_12px_24px_rgba(255,77,139,0.14)]',
-                    rank === 3 && 'bg-neutral-50'
+                    rank === 1
+                      ? 'border-pink-500 drop-shadow-[0px_10px_10px_rgba(0,0,0,0.04)]'
+                      : 'border-neutral-100'
                   )}
                 >
                   <span className={badgeClass(rank)}>{rank}</span>
                   <span className={iconWrapClass(rank)} aria-hidden>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={ICON_SRC[code]} alt="" className={iconImgClass(rank)} />
+                    <img src={ICON_SRC[code]} alt="" className="size-6" />
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className={cn('block', nameClass(rank))}>{cond.name}</span>
@@ -262,6 +253,8 @@ export default function ConditionsStepPage() {
               )
             })}
           </div>
+
+          <div className="h-px w-[294px] bg-neutral-100" />
 
           <p className="text-center text-[13px] text-neutral-500">카드를 눌러서 위아래로 옮겨보세요</p>
 

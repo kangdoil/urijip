@@ -11,6 +11,7 @@ import { useCommuteStatus } from '@/lib/use-commute-status'
 import { Slider } from '@/components/ui/slider'
 import { OnboardBackBar } from '@/components/onboard-back-bar'
 import { DecisionResultSheet } from '@/components/decision-result-sheet'
+import { FindingBestAreasScreen } from '@/components/finding-best-areas-screen'
 import { cn } from '@/lib/utils'
 import type { ConcessionMatchResult } from '@/lib/concession-copy'
 
@@ -165,7 +166,7 @@ export default function AdjustPage() {
   const [highlightTarget, setHighlightTarget] = useState<string | null>(null)
   const budgetCardRef = useRef<HTMLDivElement>(null)
 
-  const { ready: commuteReady, status: commuteStatus } = useCommuteStatus(sessionId)
+  const { ready: commuteReady } = useCommuteStatus(sessionId)
 
   const refresh = useCallback(async () => {
     const supabase = createClient()
@@ -422,22 +423,7 @@ export default function AdjustPage() {
   }
 
   if (!commuteReady) {
-    return (
-      <main className="flex flex-1 items-center justify-center p-6">
-        <div className="w-full max-w-sm text-center">
-          <p className="mb-2 text-lg font-medium text-neutral-900">
-            통근시간을 계산하고 있어요
-          </p>
-          <p className="text-[13px] text-neutral-500">
-            {commuteStatus && !commuteStatus.aReady && !commuteStatus.bReady
-              ? '두 분 거점 기준으로 전 구역 통근시간을 처음 계산하는 중이에요'
-              : '상대방 거점 기준 계산이 아직 끝나지 않았어요'}
-            {' · '}
-            보통 몇 분 안에 끝나요, 잠시만 기다려주세요
-          </p>
-        </div>
-      </main>
-    )
+    return <FindingBestAreasScreen />
   }
 
   if (loading) {

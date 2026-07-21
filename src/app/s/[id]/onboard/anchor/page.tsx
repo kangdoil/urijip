@@ -155,7 +155,7 @@ export default function AnchorStepPage() {
         <OnboardBackBar onBack={() => router.push('/')} />
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pt-6 pb-6">
+      <div className="flex-1 overflow-y-auto px-4 pt-[84px] pb-6">
         <div className="mx-auto flex w-full max-w-sm flex-col items-center gap-6">
           <div className="flex flex-col items-center gap-3 text-center">
             <h1 className="text-2xl leading-8 font-semibold tracking-[-0.03em] text-neutral-900">
@@ -166,8 +166,13 @@ export default function AnchorStepPage() {
             </p>
           </div>
 
-          <div className="flex w-full flex-col gap-5 rounded-3xl bg-white p-8 shadow-[0_10px_20px_rgba(0,0,0,0.04)]">
-            <div className="flex flex-wrap gap-1.5">
+          <div className="flex w-full flex-col items-center gap-5 rounded-3xl bg-white p-8 shadow-[0_10px_20px_rgba(0,0,0,0.04)]">
+            <div className="flex size-20 items-center justify-center rounded-full bg-pink-100">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/asset/icon/car.svg" alt="" className="size-10" />
+            </div>
+
+            <div className="flex w-full flex-wrap gap-1.5">
               {CATEGORIES.map((c) => (
                 <Chip
                   key={c.key}
@@ -179,7 +184,7 @@ export default function AnchorStepPage() {
               ))}
             </div>
 
-            <div className="relative">
+            <div className="relative w-full">
               <Input
                 value={query}
                 onChange={(e) => {
@@ -215,7 +220,7 @@ export default function AnchorStepPage() {
               )}
             </div>
 
-            <div className="flex flex-col gap-2">
+            <div className="flex w-full flex-col gap-4">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-neutral-600">통근 상한</span>
                 <span className="text-sm font-semibold text-neutral-900">{commuteMin}분</span>

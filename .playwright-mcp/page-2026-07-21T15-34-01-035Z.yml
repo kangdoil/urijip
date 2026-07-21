@@ -1,0 +1,30 @@
+- generic [active] [ref=f13e1]:
+  - button "Open Next.js Dev Tools" [ref=f13e7] [cursor=pointer]
+  - alert [ref=f13e11]
+  - main [ref=f13e109]:
+    - button "이전으로" [ref=f13e112]
+    - generic [ref=f13e116]:
+      - generic [ref=f13e117]:
+        - heading "무엇이 가장 중요한가요?" [level=1] [ref=f13e118]
+        - paragraph [ref=f13e119]: 위로 올릴수록 결과에 더 크게 반영돼요
+      - generic [ref=f13e120]:
+        - generic [ref=f13e121]:
+          - generic [ref=f13e122]: "1"
+          - generic [ref=f13e124]:
+            - generic [ref=f13e125]: 평형
+            - generic [ref=f13e126]: 전용 59㎡ 이상 매물이 많은 곳
+          - generic [ref=f13e127]: ⠿
+        - generic [ref=f13e128]:
+          - generic [ref=f13e129]: "2"
+          - generic [ref=f13e131]:
+            - generic [ref=f13e132]: 년식
+            - generic [ref=f13e133]: 지어진 지 10년 이내
+          - generic [ref=f13e134]: ⠿
+        - generic [ref=f13e135]:
+          - generic [ref=f13e136]: "3"
+          - generic [ref=f13e138]:
+            - generic [ref=f13e139]: 인프라
+            - generic [ref=f13e140]: 마트·병원·공원이 가까운 곳
+          - generic [ref=f13e141]: ⠿
+      - paragraph [ref=f13e143]: 카드를 눌러서 위아래로 옮겨보세요
+    - button "Next" [ref=f13e150]

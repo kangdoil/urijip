@@ -72,7 +72,7 @@ export default function BudgetStepPage() {
         <OnboardBackBar onBack={() => router.push(`/s/${sessionId}/onboard/anchor`)} />
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 pt-6 pb-6">
+      <div className="flex-1 overflow-y-auto px-4 pt-[84px] pb-6">
         <div className="mx-auto flex w-full max-w-sm flex-col items-center gap-6">
           <div className="flex flex-col items-center gap-3 text-center">
             <h1 className="text-2xl leading-8 font-semibold tracking-[-0.03em] text-neutral-900">
