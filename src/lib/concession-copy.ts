@@ -1,14 +1,9 @@
 import { CONDITION_LABEL, formatEok } from '@/lib/condition-labels'
 
 export interface ConcessionGiveSide {
-  field: 'commute' | 'budget'
-  amount: number
-}
-
-export interface ConcessionBottleneck {
-  role: 'A' | 'B'
-  field: string
-  fail_count: number
+  commute_widen_min: number
+  budget_widen_krw: number
+  relieved_condition: string | null
 }
 
 export interface ConcessionArea {
@@ -25,54 +20,74 @@ export interface ConcessionArea {
   b_violations: number
 }
 
-export interface ConcessionMatchResult {
-  widen_level: 'default' | 'max' | 'none'
-  give: { widen_level: string; a: ConcessionGiveSide | null; b: ConcessionGiveSide | null }
-  bottleneck: ConcessionBottleneck
-  // 카드/지도용 상위 10개만 담는다 — 실제 "N곳" 문구는 반드시 total_count를 쓴다.
+export interface ConcessionLadderResult {
+  ladder_step: 0 | 1 | 2 | 3 | 4 | null
+  give: { a: ConcessionGiveSide; b: ConcessionGiveSide }
   areas: ConcessionArea[]
   total_count: number
 }
 
-function fieldLabel(field: string) {
-  if (field === 'commute') return '출퇴근 조건'
-  if (field === 'budget') return '예산'
-  return CONDITION_LABEL[field] ?? field
+// get_concession_matches 응답 — main은 항상 존재(실패해도 ladder_step=null로
+// areas=[]인 상태로 옴), extra는 main이 3곳 미만일 때만 채워진다.
+export interface ConcessionMatchResult {
+  main: ConcessionLadderResult
+  extra: ConcessionLadderResult | null
 }
 
-function giveText(side: ConcessionGiveSide | null, role: 'A' | 'B') {
-  if (!side) return null
-  const amount = side.field === 'commute' ? `+${side.amount}분` : `+${formatEok(side.amount)}`
-  return `${role} ${amount}`
+function giveText(side: ConcessionGiveSide, role: 'A' | 'B'): string | null {
+  const parts: string[] = []
+  if (side.relieved_condition) {
+    parts.push(`${role} ${CONDITION_LABEL[side.relieved_condition] ?? side.relieved_condition} 내려놓음`)
+  }
+  if (side.commute_widen_min > 0) parts.push(`${role} +${side.commute_widen_min}분`)
+  if (side.budget_widen_krw > 0) parts.push(`${role} +${formatEok(side.budget_widen_krw)}`)
+  return parts.length > 0 ? parts.join(' · ') : null
 }
 
-// get_concession_matches RPC 결과를 ResultConcessionPanel이 바로 쓸 수 있는
+const STEP_MESSAGE: Record<number, string> = {
+  0: '두 분 조건이 거의 맞았어요',
+  1: '출퇴근 폭을 조금 넓혀 찾아봤어요',
+  2: '두 분의 2순위 조건을 잠시 내려놓고 찾아봤어요',
+  3: '출퇴근 조건이 가장 멀었어요. 그만큼 폭을 넓혀 찾아봤어요',
+  4: '예산 범위를 조금 넓혀 찾아봤어요',
+}
+
+const STEP_TAG: Record<number, string | null> = {
+  0: null,
+  1: '폭 넓힘',
+  2: '2순위 내려놓음',
+  3: '폭 넓힘',
+  4: '예산 폭 넓힘',
+}
+
+// get_concession_matches 응답을 ResultConcessionPanel이 바로 쓸 수 있는
 // 카피(문구)로 변환한다. PRD §시스템 역할 경계 원칙("B가 양보하세요류의
 // 처방적 메시지는 금지")에 따라 원인만 설명하고 특정 role에게 행동을
-// 지시하지 않는다 — "B 예산이 낮았어요"는 원인 설명이라 허용, "B가
-// 예산을 올리세요"는 금지 대상이라 쓰지 않는다.
+// 지시하지 않는다.
 export function buildConcessionCopy(result: ConcessionMatchResult) {
-  const { bottleneck, give, widen_level } = result
-  const bLabel = fieldLabel(bottleneck.field)
+  const { main } = result
 
-  const message =
-    widen_level === 'none'
-      ? '폭을 많이 넓혀도 맞는 동네를 찾기 어려웠어요.'
-      : `${bottleneck.role} ${bLabel}에서 두 분 차이가 가장 컸어요. 그만큼 폭을 넓혀 찾아봤어요.`
+  if (main.ladder_step == null) {
+    return {
+      message: '폭을 많이 넓혀도 맞는 동네를 찾기 어려웠어요.',
+      giveDetail: '',
+      giveTag: null,
+      tipTitle: '이렇게 조정해보세요',
+      tipBody: '조건이나 우선순위를 조정하면 맞는 동네가 나올 수 있어요.',
+    }
+  }
 
-  const giveParts = [giveText(give.b, 'B'), giveText(give.a, 'A')].filter(
+  const giveParts = [giveText(main.give.a, 'A'), giveText(main.give.b, 'B')].filter(
     (v): v is string => v != null
   )
   const giveDetail =
-    giveParts.length > 0
-      ? giveParts.join(' · ')
-      : '조건을 조율하면 새로 열리는 동네를 여기서 보여드려요'
+    giveParts.length > 0 ? giveParts.join(' · ') : '조건을 조율하면 새로 열리는 동네를 여기서 보여드려요'
 
-  const tipTitle = '이렇게 조정해보세요'
-  const tipBody =
-    widen_level === 'none'
-      ? `${bottleneck.role} ${bLabel}이 두 분 조건 중 가장 크게 어긋나 후보를 찾기 어려웠어요. ${bLabel}이나 우선순위를 조정하면 맞는 동네가 나올 수 있어요.`
-      : ''
-
-  return { message, giveDetail, tipTitle, tipBody }
+  return {
+    message: STEP_MESSAGE[main.ladder_step],
+    giveDetail,
+    giveTag: STEP_TAG[main.ladder_step],
+    tipTitle: '이렇게 조정해보세요',
+    tipBody: '',
+  }
 }
