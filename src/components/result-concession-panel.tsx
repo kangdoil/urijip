@@ -12,6 +12,9 @@ interface ResultConcessionPanelProps {
   // "서로 양보" 요약 줄의 보조 설명(예: "B +15분 · A +0.8억"). 실제 양보 폭
   // 계산 로직이 아직 없어 지금은 일반 안내 문구를 쓴다.
   giveDetail: string
+  // "서로 양보" 요약 줄의 배지 텍스트("폭 넓힘"/"2순위 내려놓음"/"예산 폭 넓힘").
+  // null이면 양보 없이 이미 열린 상태(사다리 0단계)라 배지 자체를 숨긴다.
+  giveTag: string | null
   // 서로 양보(AB) 단일안으로 새로 열리는 동네 목록. 비어 있으면 "메시지 →
   // 팁 카드 → 조율 버튼" 3단 구조로 렌더링한다 — A만/B만 개별 안은 없다.
   // 결과 화면 캐러셀과 같은 ResultAreaCard로 그려서 카드 모양·색을 통일한다.
@@ -37,6 +40,7 @@ interface ResultConcessionPanelProps {
 export function ResultConcessionPanel({
   message,
   giveDetail,
+  giveTag,
   hoods,
   totalCount,
   tipTitle,
@@ -64,7 +68,7 @@ export function ResultConcessionPanel({
           {message}
         </p>
 
-        {!isZero && (
+        {!isZero && giveTag != null && (
           <div className="flex items-center gap-3 rounded-r-xl border-l-4 border-accent-lavender bg-neutral-50 px-3.5 py-3">
             <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent-lavender text-[11px] font-bold text-neutral-900">
               AB
@@ -73,7 +77,7 @@ export function ResultConcessionPanel({
               <p className="flex items-center gap-1.5 text-body-sb font-bold text-neutral-900">
                 서로 양보
                 <span className="rounded-md bg-pink-50 px-1.5 py-0.5 text-caption-m font-bold text-pink-700">
-                  폭 넓힘
+                  {giveTag}
                 </span>
               </p>
               <p className="mt-0.5 truncate text-caption-l text-neutral-500">{giveDetail}</p>
