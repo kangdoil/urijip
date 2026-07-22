@@ -60,6 +60,14 @@ function priorityWeight(order: string[], code: string) {
   return idx === -1 ? 0 : 3 - idx // 1위=3점, 2위=2점, 3위=1점
 }
 
+// get_matches의 _priority_hard_ok(SQL)와 동일한 규칙 — 1·2순위 조건이 전부
+// 충족돼야 통과. relievePriority2는 이 페이지에서는 항상 기본값(false)으로만
+// 쓴다(라이브 프리뷰는 완화 사다리를 반영하지 않음).
+function priorityHardOk(order: string[], satisfied: Record<string, boolean>, relievePriority2 = false) {
+  const threshold = relievePriority2 ? 1 : 2
+  return order.slice(0, threshold).every((code) => satisfied[code])
+}
+
 function orderLabel(order: string[]) {
   return order.map((code) => CONDITION_LABEL[code] ?? code).join(' · ')
 }
@@ -309,6 +317,7 @@ export default function AdjustPage() {
     if (!data) return []
     return data.candidates
       .filter((c) => c.avg_price_krw != null && c.avg_price_krw <= budgetValue)
+      .filter((c) => priorityHardOk(aOrder, c.satisfied) && priorityHardOk(bOrder, c.satisfied))
       .map((c) => {
         const score = CODES.reduce((sum, code) => {
           if (!c.satisfied[code]) return sum
