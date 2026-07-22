@@ -1,0 +1,11 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - heading "최적의 동네를 찾고 있어요" [level=1] [ref=e4]
+      - paragraph [ref=e5]: 보통 30초 안에 끝나요, 잠시만 기다려주세요
+    - generic [ref=e6]:
+      - img "우리집" [ref=e7]
+      - generic [ref=e8]:
+        - paragraph [ref=e10]: 상대방과의 교집합 찾는 중...
+        - status [ref=e11]: 나의 출퇴근 최적 거리 찾는 중...
+  - button "Open Next.js Dev Tools" [ref=e17] [cursor=pointer]
