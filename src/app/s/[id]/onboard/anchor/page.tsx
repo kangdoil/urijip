@@ -15,7 +15,6 @@ const CATEGORIES = [
   { key: 'work', label: '직장' },
   { key: 'school', label: '학교' },
   { key: 'parents', label: '부모님 집' },
-  { key: 'custom', label: '직접 입력' },
 ] as const
 
 interface SearchResult {
