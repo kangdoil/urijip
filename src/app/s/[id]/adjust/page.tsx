@@ -295,12 +295,12 @@ export default function AdjustPage() {
   //    예산" 쪽이라 그 role에게만 보여준다.
   const budgetRecommendation = (() => {
     if (!concession || !data || !me) return null
-    if (concession.total_count === 0) return null
+    if (concession.main.total_count === 0) return null
     const lowerRole: 'A' | 'B' = data.a.budget_max_krw <= data.b.budget_max_krw ? 'A' : 'B'
     if (me.role !== lowerRole) return null
-    const side = lowerRole === 'A' ? concession.give.a : concession.give.b
-    if (!side || side.field !== 'budget') return null
-    return { kind: 'budget' as const, role: lowerRole, amount: side.amount, areaCount: concession.total_count }
+    const side = lowerRole === 'A' ? concession.main.give.a : concession.main.give.b
+    if (side.budget_widen_krw === 0) return null
+    return { kind: 'budget' as const, role: lowerRole, amount: side.budget_widen_krw, areaCount: concession.main.total_count }
   })()
 
   // 순위(area_size/build_year/infra)는 더 이상 하드 필터가 아니라서 "넓힐"
