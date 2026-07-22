@@ -100,11 +100,12 @@ function roleTokens(role: 'A' | 'B') {
     : { statusBg: 'bg-accent-teal/20', statusDot: 'bg-accent-teal', statusText: 'text-accent-teal', badgeBg: 'bg-accent-teal/20', badgeText: 'text-accent-teal' }
 }
 
-// 시군구 개수만 필요한 가벼운 버전 — "총 8개 시군구 → 총 10개 시군구" 비교용
-// 순위는 더 이상 하드 필터가 아니라서(정렬 가중치일 뿐) 예산 상한만 후보
-// 개수를 바꾼다 — musts 필터링이 통째로 사라졌다.
-function countMatches(candidates: Candidate[], budget: number) {
-  const passing = candidates.filter((c) => c.avg_price_krw != null && c.avg_price_krw <= budget)
+// 시군구 개수만 필요한 가벼운 버전 — "총 8개 시군구 → 총 10개 시군구" 비교용.
+// 예산 상한 + 순위 하드필터(1·2순위)를 함께 반영한다 — passing과 동일한 필터 규칙.
+function countMatches(candidates: Candidate[], budget: number, aOrder: string[], bOrder: string[]) {
+  const passing = candidates
+    .filter((c) => c.avg_price_krw != null && c.avg_price_krw <= budget)
+    .filter((c) => priorityHardOk(aOrder, c.satisfied) && priorityHardOk(bOrder, c.satisfied))
   return new Set(passing.map((c) => c.sigungu)).size
 }
 
@@ -244,7 +245,13 @@ export default function AdjustPage() {
     // 원래(조율 전) 조건 기준으로 콜드 스테이션이었던 세션만 추천 조정 카드를
     // 계산한다 — 애초에 매칭이 있던 세션에 뜬금없는 추천을 보여주지 않기 위함.
     const originalLowBudget = Math.min(parsed.a.budget_max_krw, parsed.b.budget_max_krw)
-    const wasColdStation = countMatches(parsed.candidates, originalLowBudget) === 0
+    const wasColdStation =
+      countMatches(
+        parsed.candidates,
+        originalLowBudget,
+        orderFromPriorities(parsed.a.priorities),
+        orderFromPriorities(parsed.b.priorities)
+      ) === 0
     if (wasColdStation) {
       const { data: cm } = await supabase.rpc('get_concession_matches', { sid: sessionId })
       setConcession(cm as ConcessionMatchResult)
@@ -535,8 +542,8 @@ export default function AdjustPage() {
     const changes = buildChanges(pending.payload, proposerOriginal)
 
     const beforeBudget = Math.min(data.a.budget_max_krw, data.b.budget_max_krw)
-    const sigunguCountBefore = countMatches(data.candidates, beforeBudget)
-    const sigunguCountAfter = countMatches(data.candidates, budgetValue)
+    const sigunguCountBefore = countMatches(data.candidates, beforeBudget, aOrder, bOrder)
+    const sigunguCountAfter = countMatches(data.candidates, budgetValue, aOrder, bOrder)
     // "총 N곳" 배지 전용 — "N개 시군구에 걸쳐 있어요" 문구는 시군구 수 그대로 쓴다.
     const displayCountBefore = sigunguCountBefore * RECOMMENDED_PER_SIGUNGU
     const displayCountAfter = sigunguCountAfter * RECOMMENDED_PER_SIGUNGU
