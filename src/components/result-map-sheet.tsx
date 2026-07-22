@@ -345,7 +345,7 @@ export function ResultMapSheet({
   // 서로 양보(AB) 단일안 후보 — get_concession_matches가 계산해둔 순위 그대로 쓴다.
   const aBudgetMaxKrw = participants?.find((p) => p.role === 'A')?.budget_max_krw ?? null
   const bBudgetMaxKrw = participants?.find((p) => p.role === 'B')?.budget_max_krw ?? null
-  const concessionHoods: ConcessionAreaData[] = (concession?.areas ?? []).map((a) => ({
+  const concessionHoods: ConcessionAreaData[] = (concession?.main.areas ?? []).map((a) => ({
     code: a.code,
     name: a.name,
     sigungu: a.sigungu,
@@ -514,8 +514,9 @@ export function ResultMapSheet({
                       <ResultConcessionPanel
                         message={concessionCopy?.message ?? '두 분 조건에 맞는 동네를 찾는 중이에요'}
                         giveDetail={concessionCopy?.giveDetail ?? ''}
+                        giveTag={concessionCopy?.giveTag ?? null}
                         hoods={concessionHoods}
-                        totalCount={concession?.total_count ?? 0}
+                        totalCount={concession?.main.total_count ?? 0}
                         tipTitle={concessionCopy?.tipTitle ?? '이렇게 조정해보세요'}
                         tipBody={concessionCopy?.tipBody ?? ''}
                         onAdjust={onRetry}
