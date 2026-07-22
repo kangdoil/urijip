@@ -8,6 +8,7 @@ import { getMyParticipant } from '@/lib/get-my-participant'
 import { CONDITION_LABEL, formatEok, type Priority } from '@/lib/condition-labels'
 import { ResultMapSheet } from '@/components/result-map-sheet'
 import { FeedbackBanner } from '@/components/feedback-banner'
+import { FindingBestAreasScreen } from '@/components/finding-best-areas-screen'
 import { useCommuteStatus } from '@/lib/use-commute-status'
 import { groupBySigungu } from '@/lib/group-by-sigungu'
 import { track } from '@/lib/mixpanel'
@@ -389,24 +390,7 @@ export default function ResultPage() {
   }
 
   if (!pageReady) {
-    return (
-      <main className="flex flex-1 items-center justify-center p-6">
-        <div className="w-full max-w-sm text-center">
-          <p className="mb-2 text-lg font-medium text-neutral-900">
-            통근시간을 계산하고 있어요
-          </p>
-          <p className="text-[13px] text-neutral-500">
-            {isSolo
-              ? '내 거점 기준으로 전 구역 통근시간을 계산하는 중이에요'
-              : commuteStatus && !commuteStatus.aReady && !commuteStatus.bReady
-                ? '두 분 거점 기준으로 전 구역 통근시간을 처음 계산하는 중이에요'
-                : '상대방 거점 기준 계산이 아직 끝나지 않았어요'}
-            {' · '}
-            보통 몇 분 안에 끝나요, 잠시만 기다려주세요
-          </p>
-        </div>
-      </main>
-    )
+    return <FindingBestAreasScreen />
   }
 
   if (loading) {
