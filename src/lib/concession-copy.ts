@@ -44,6 +44,22 @@ function giveText(side: ConcessionGiveSide, role: 'A' | 'B'): string | null {
   return parts.length > 0 ? parts.join(' · ') : null
 }
 
+// extra 섹션 전용 — extra.give(그 단계까지의 누적 양보 전체)를 그대로 보여주지
+// 않고, main.give와 비교해 "새로 추가된" 부분만 뽑는다(스펙 §7 "어떤 양보가
+// 더해졌는지"). relieved_condition은 main에 없다가 extra에 새로 생긴 경우만
+// "내려놓음"으로 표기(대부분 이미 2단계에서 해제된 상태라 흔치 않은 케이스).
+function giveDiffText(mainSide: ConcessionGiveSide, extraSide: ConcessionGiveSide, role: 'A' | 'B'): string | null {
+  const parts: string[] = []
+  if (extraSide.relieved_condition && !mainSide.relieved_condition) {
+    parts.push(`${role} ${CONDITION_LABEL[extraSide.relieved_condition] ?? extraSide.relieved_condition} 내려놓음`)
+  }
+  const commuteDiff = extraSide.commute_widen_min - mainSide.commute_widen_min
+  if (commuteDiff > 0) parts.push(`${role} +${commuteDiff}분`)
+  const budgetDiff = extraSide.budget_widen_krw - mainSide.budget_widen_krw
+  if (budgetDiff > 0) parts.push(`${role} +${formatEok(budgetDiff)}`)
+  return parts.length > 0 ? parts.join(' · ') : null
+}
+
 const STEP_MESSAGE: Record<number, string> = {
   0: '두 분 조건이 거의 맞았어요',
   1: '출퇴근 폭을 조금 넓혀 찾아봤어요',
@@ -65,7 +81,13 @@ const STEP_TAG: Record<number, string | null> = {
 // 처방적 메시지는 금지")에 따라 원인만 설명하고 특정 role에게 행동을
 // 지시하지 않는다.
 export function buildConcessionCopy(result: ConcessionMatchResult) {
-  const { main } = result
+  const { main, extra } = result
+
+  const extraGiveDetail = extra
+    ? [giveDiffText(main.give.a, extra.give.a, 'A'), giveDiffText(main.give.b, extra.give.b, 'B')]
+        .filter((v): v is string => v != null)
+        .join(' · ')
+    : ''
 
   if (main.ladder_step == null) {
     return {
@@ -74,6 +96,7 @@ export function buildConcessionCopy(result: ConcessionMatchResult) {
       giveTag: null,
       tipTitle: '이렇게 조정해보세요',
       tipBody: '조건이나 우선순위를 조정하면 맞는 동네가 나올 수 있어요.',
+      extraGiveDetail,
     }
   }
 
@@ -89,5 +112,6 @@ export function buildConcessionCopy(result: ConcessionMatchResult) {
     giveTag: STEP_TAG[main.ladder_step],
     tipTitle: '이렇게 조정해보세요',
     tipBody: '',
+    extraGiveDetail,
   }
 }
