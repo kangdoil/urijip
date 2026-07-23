@@ -357,6 +357,17 @@ export function ResultMapSheet({
     ),
   }))
   const concessionCopy = concession ? buildConcessionCopy(concession) : null
+  const extraHoods: ConcessionAreaData[] = (concession?.extra?.areas ?? []).map((a) => ({
+    code: a.code,
+    name: a.name,
+    sigungu: a.sigungu,
+    lat: a.lat ?? undefined,
+    lng: a.lng ?? undefined,
+    benefitTags: computeBenefitTags(
+      { avg_price_krw: a.avg_price_krw, satisfied: a.satisfied },
+      { aBudgetMaxKrw, bBudgetMaxKrw }
+    ),
+  }))
 
   const pins: PinData[] = isFallback
     ? concessionHoods.map((a) => toPin(a, 'neutral')).filter((p): p is PinData => p != null)
@@ -516,6 +527,9 @@ export function ResultMapSheet({
                         giveDetail={concessionCopy?.giveDetail ?? ''}
                         giveTag={concessionCopy?.giveTag ?? null}
                         hoods={concessionHoods}
+                        extraHoods={extraHoods}
+                        extraCount={concession?.extra?.total_count ?? 0}
+                        extraGiveDetail={concessionCopy?.extraGiveDetail ?? ''}
                         totalCount={concession?.main.total_count ?? 0}
                         tipTitle={concessionCopy?.tipTitle ?? '이렇게 조정해보세요'}
                         tipBody={concessionCopy?.tipBody ?? ''}
