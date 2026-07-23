@@ -1,3 +1,6 @@
+'use client'
+
+import { useState } from 'react'
 import { ArrowRight, Lightbulb } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ConcessionAreaCard, type ConcessionAreaData } from '@/components/concession-area-card'
@@ -19,6 +22,13 @@ interface ResultConcessionPanelProps {
   // 팁 카드 → 조율 버튼" 3단 구조로 렌더링한다 — A만/B만 개별 안은 없다.
   // 결과 화면 캐러셀과 같은 ResultAreaCard로 그려서 카드 모양·색을 통일한다.
   hoods: ConcessionAreaData[]
+  // 사다리 다음 단계를 미리 계산해둔 opt-in 후보(메인과 겹치는 동네는 이미
+  // 제외된 차집합) — 비어 있으면 "조금 더 양보하면" 섹션 자체를 렌더링 안 함.
+  extraHoods: ConcessionAreaData[]
+  // "+N곳" 표기용 실제 개수(extraHoods는 카드용 상위 몇 개만 담겨 있을 수 있음).
+  extraCount: number
+  // extra 섹션 펼쳤을 때 보여줄 안내 문구 — main 대비 "새로 추가된" 양보만.
+  extraGiveDetail: string
   // 실제 후보 총 개수 — hoods는 카드용으로 상위 몇 개만 담겨 있을 수 있어
   // "N곳" 배지·0곳 판정은 반드시 이 값을 쓴다(hoods.length로 하면 캡에 걸려
   // 실제보다 작게 보일 수 있다).
@@ -48,9 +58,13 @@ export function ResultConcessionPanel({
   onAdjust,
   onSelectHood,
   onViewMap,
+  extraHoods,
+  extraCount,
+  extraGiveDetail,
 }: ResultConcessionPanelProps) {
   const isZero = totalCount === 0
   const visibleHoods = hoods.slice(0, MAX_VISIBLE_HOODS)
+  const [extraOpen, setExtraOpen] = useState(false)
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -105,6 +119,31 @@ export function ResultConcessionPanel({
                 onSelect={onSelectHood ? () => onSelectHood(h) : undefined}
               />
             ))}
+
+            {extraHoods.length > 0 && (
+              <div className="mt-1">
+                <button
+                  onClick={() => setExtraOpen((v) => !v)}
+                  className="w-full py-1 text-center text-caption-l font-semibold text-pink-500"
+                >
+                  {extraOpen ? '접기 ▲' : `조금 더 양보하면 (+${extraCount}곳) ▼`}
+                </button>
+                {extraOpen && (
+                  <div className="mt-2 flex flex-col gap-2.5">
+                    {extraGiveDetail && (
+                      <p className="px-1 text-caption-l text-neutral-500">{extraGiveDetail}</p>
+                    )}
+                    {extraHoods.map((h) => (
+                      <ConcessionAreaCard
+                        key={h.code}
+                        area={h}
+                        onSelect={onSelectHood ? () => onSelectHood(h) : undefined}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
