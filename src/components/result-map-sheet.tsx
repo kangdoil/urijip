@@ -16,7 +16,7 @@ import { SigunguFilterSheet } from '@/components/sigungu-filter-sheet'
 import { ConditionSummarySheet, type ParticipantConditionSummary } from '@/components/condition-summary-sheet'
 import { SaveOptionsSheet } from '@/components/save-options-sheet'
 import { ResultConcessionPanel } from '@/components/result-concession-panel'
-import { buildConcessionCopy, type ConcessionMatchResult } from '@/lib/concession-copy'
+import { buildConcessionCopy, buildStatsComparisonProps, type ConcessionMatchResult } from '@/lib/concession-copy'
 
 interface ResultMapSheetProps {
   sessionId: string
@@ -496,6 +496,9 @@ export function ResultMapSheet({
   // 서로 양보(AB) 단일안 후보 — get_concession_matches가 계산해둔 순위 그대로
   // 지도 핀만 찍는다(카드 리스트는 더 이상 이 화면에서 보여주지 않음).
   const concessionCopy = concession ? buildConcessionCopy(concession) : null
+  const concessionStats = concession
+    ? buildStatsComparisonProps(concession.main)
+    : { rows: [], benefit: null }
 
   const pins: PinData[] = isFallback
     ? (concession?.main.areas ?? [])
@@ -707,6 +710,7 @@ export function ResultMapSheet({
                         tipTitle={concessionCopy?.tipTitle ?? '이렇게 조율해봤어요'}
                         tipBody={concessionCopy?.tipBody ?? ''}
                         giveChips={concessionCopy?.giveChips ?? []}
+                        stats={concessionStats}
                         applying={applyingConcession}
                         onApply={onApplyConcession}
                       />
