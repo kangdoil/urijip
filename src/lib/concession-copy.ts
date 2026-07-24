@@ -24,11 +24,31 @@ export interface ConcessionArea {
   b_violations: number
 }
 
+export interface ConditionImpactRow {
+  condition_code: string
+  total_count: number
+}
+
+export interface ConcessionBenefitTag {
+  code: string
+  count: number
+}
+
+export interface ConcessionBenefit {
+  condition_code: string
+  tags: ConcessionBenefitTag[]
+}
+
 export interface ConcessionLadderResult {
   ladder_step: 0 | 1 | 2 | 3 | 4 | 5 | null
   give: { a: ConcessionGiveSide; b: ConcessionGiveSide }
   areas: ConcessionArea[]
   total_count: number
+  // get_concession_matches가 승리 단계 기준으로 계산한 조건별 완화 임팩트.
+  // 실패(ladder_step=null)나 A·B가 서로 다른 조건을 완화한 경우엔 각각
+  // []/null — 프론트는 이 값을 그대로 신뢰하고 재계산하지 않는다.
+  condition_impact: ConditionImpactRow[]
+  benefit: ConcessionBenefit | null
 }
 
 // get_concession_matches 응답 — main은 항상 존재(실패해도 ladder_step=null로
@@ -98,4 +118,62 @@ export function buildConcessionCopy(result: ConcessionMatchResult) {
     tipBody: `조건에 맞는 동네를 찾지 못했어요\n${STEP_MESSAGE[main.ladder_step]}`,
     giveChips,
   }
+}
+
+export interface StatsComparisonRow {
+  code: string
+  label: string
+  count: number
+  highlighted: boolean
+}
+
+export interface StatsComparisonBenefit {
+  title: string
+  tags: string[]
+}
+
+export interface StatsComparisonProps {
+  rows: StatsComparisonRow[]
+  benefit: StatsComparisonBenefit | null
+}
+
+// 한국어 명사에 을/를 조사를 붙인다 — "년식을", "인프라를"처럼 받침 유무로
+// 갈라진다(유니코드 한글 음절 오프셋: (code - 0xAC00) % 28 === 0이면 받침 없음).
+function withEulReul(word: string): string {
+  const last = word.charCodeAt(word.length - 1)
+  const hasBatchim = last >= 0xac00 && last <= 0xd7a3 && (last - 0xac00) % 28 !== 0
+  return `${word}${hasBatchim ? '을' : '를'}`
+}
+
+// StatsComparisonCard(조건별 완화 시 열리는 구역 수 막대차트) props로 변환.
+// 행은 열리는 구역 수 내림차순 — 시스템이 자동 선택한 조건(highlighted)이
+// 꼭 1등은 아니다(다른 조건이 더 많이 열릴 수도 있다는 걸 보여주는 게 의도).
+export function buildStatsComparisonProps(main: ConcessionLadderResult): StatsComparisonProps {
+  const relievedCodes = new Set(
+    [main.give.a.relieved_condition, main.give.b.relieved_condition].filter(
+      (c): c is string => c != null
+    )
+  )
+
+  const rows = [...main.condition_impact]
+    .sort((a, b) => b.total_count - a.total_count)
+    .map((row) => ({
+      code: row.condition_code,
+      label: CONDITION_LABEL[row.condition_code] ?? row.condition_code,
+      count: row.total_count,
+      highlighted: relievedCodes.has(row.condition_code),
+    }))
+
+  const benefit = main.benefit
+    ? {
+        title: `${withEulReul(CONDITION_LABEL[main.benefit.condition_code] ?? main.benefit.condition_code)} 양보하면 이런 곳이 열려요`,
+        tags: main.benefit.tags.map((tag) =>
+          tag.code === 'budget'
+            ? `예산 여유 ${tag.count}곳`
+            : `${CONDITION_LABEL[tag.code] ?? tag.code} 우수 ${tag.count}곳`
+        ),
+      }
+    : null
+
+  return { rows, benefit }
 }
