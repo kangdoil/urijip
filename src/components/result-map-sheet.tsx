@@ -34,6 +34,11 @@ interface ResultMapSheetProps {
   partnerConfirmed: boolean | null
   retrying: boolean
   onRetry: () => void
+  // 콜드 스테이션 팁 카드의 "이 조건으로 바꾸고 동네 보러 가기" 전용 —
+  // onRetry(그냥 /adjust로 이동)와 달리 apply_concession RPC로 두 참여자의
+  // 조건을 실제로 반영한 뒤 이동한다.
+  applyingConcession: boolean
+  onApplyConcession: () => void
   saving: boolean
   onSave: (visibleAreaCodes: string[]) => void
   onSaveImage: () => void
@@ -236,6 +241,8 @@ export function ResultMapSheet({
   partnerConfirmed,
   retrying,
   onRetry,
+  applyingConcession,
+  onApplyConcession,
   saving,
   onSave,
   onSaveImage,
@@ -697,11 +704,11 @@ export function ResultMapSheet({
                     <div className="flex h-[70dvh] flex-col pt-3">
                       <ResultConcessionPanel
                         totalCount={concession?.main.total_count ?? 0}
-                        giveTag={concessionCopy?.giveTag ?? null}
-                        tipTitle={concessionCopy?.tipTitle ?? '이렇게 조정해보세요'}
+                        tipTitle={concessionCopy?.tipTitle ?? '이렇게 조율해봤어요'}
                         tipBody={concessionCopy?.tipBody ?? ''}
                         giveChips={concessionCopy?.giveChips ?? []}
-                        onAdjust={onRetry}
+                        applying={applyingConcession}
+                        onApply={onApplyConcession}
                       />
                     </div>
                   )

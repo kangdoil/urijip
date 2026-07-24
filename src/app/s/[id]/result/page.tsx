@@ -103,6 +103,7 @@ export default function ResultPage() {
   const [loading, setLoading] = useState(true)
   const [resolved, setResolved] = useState(false)
   const [retrying, setRetrying] = useState(false)
+  const [applyingConcession, setApplyingConcession] = useState(false)
   const [participants, setParticipants] = useState<ParticipantSummary[] | null>(null)
 
   const [myRole, setMyRole] = useState<'A' | 'B' | null>(null)
@@ -117,9 +118,13 @@ export default function ResultPage() {
   // 조율 화면에서 제안이 수락/거절돼 결과 화면으로 넘어온 직후 — 무슨 일이
   // 있었는지 토스트로 안내하고, 새로고침 시 다시 뜨지 않도록 쿼리를 정리한다.
   // accepted/rejected는 A·B 모두에게 동일하게 뜬다(제안자든 결정자든).
-  const [notice, setNotice] = useState<'accepted' | 'rejected' | 'updated' | null>(() => {
+  // concession은 콜드 스테이션 팁 카드에서 "이 조건으로 바꾸고 동네 보러
+  // 가기"를 눌러 apply_concession이 조건을 실제로 반영한 직후에 뜬다.
+  const [notice, setNotice] = useState<'accepted' | 'rejected' | 'updated' | 'concession' | null>(() => {
     const value = searchParams.get('notice')
-    return value === 'accepted' || value === 'rejected' || value === 'updated' ? value : null
+    return value === 'accepted' || value === 'rejected' || value === 'updated' || value === 'concession'
+      ? value
+      : null
   })
   const noticeTimerStarted = useRef(false)
 
@@ -323,6 +328,25 @@ export default function ResultPage() {
     }
   }
 
+  // 콜드 스테이션 팁 카드의 "이 조건으로 바꾸고 동네 보러 가기" — apply_concession이
+  // A/B 조건을 실제로 반영한 뒤, 이 페이지를 완전히 새로 불러온다(같은 라우트로
+  // router.push/replace만 하면 검색 파라미터만 바뀔 뿐 데이터 fetch useEffect가
+  // 다시 돌지 않아 "35곳"이 곧바로 반영되지 않는다 — 전체 새로고침으로 확실히 한다).
+  async function handleApplyConcession() {
+    if (applyingConcession) return
+    setApplyingConcession(true)
+    setActionError(null)
+    try {
+      const supabase = createClient()
+      const { error: applyError } = await supabase.rpc('apply_concession', { sid: sessionId })
+      if (applyError) throw applyError
+      window.location.href = `/s/${sessionId}/result?notice=concession`
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : '조건 반영에 실패했어요')
+      setApplyingConcession(false)
+    }
+  }
+
   async function handleSave(visibleAreaCodes: string[]) {
     if (saving) return
     setSaving(true)
@@ -428,6 +452,8 @@ export default function ResultPage() {
         partnerConfirmed={partnerConfirmed}
         retrying={retrying}
         onRetry={handleRetry}
+        applyingConcession={applyingConcession}
+        onApplyConcession={handleApplyConcession}
         saving={saving}
         onSave={handleSave}
         onSaveImage={handleSaveImage}
@@ -483,7 +509,9 @@ export default function ResultPage() {
               ? '조율된 동네 리스트를 확인해보세요'
               : notice === 'rejected'
                 ? '상대방이 조율을 거절했어요'
-                : '새로운 결과로 이동했어요'}
+                : notice === 'concession'
+                  ? '조건이 자동으로 조율됐어요'
+                  : '새로운 결과로 이동했어요'}
           </span>
         </div>
       )}

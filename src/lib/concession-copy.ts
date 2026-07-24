@@ -4,6 +4,10 @@ export interface ConcessionGiveSide {
   commute_widen_min: number
   budget_widen_krw: number
   relieved_condition: string | null
+  // true면 특정 조건 하나가 아니라 우선순위 하드필터 전체(1·2순위 모두)를
+  // 풀었다는 뜻 — 사다리 마지막 안전망 단계에서만 켜진다. relieved_condition은
+  // 이때 항상 null(둘 중 하나만 의미 있음).
+  relieved_all: boolean
 }
 
 export interface ConcessionArea {
@@ -21,7 +25,7 @@ export interface ConcessionArea {
 }
 
 export interface ConcessionLadderResult {
-  ladder_step: 0 | 1 | 2 | 3 | 4 | null
+  ladder_step: 0 | 1 | 2 | 3 | 4 | 5 | null
   give: { a: ConcessionGiveSide; b: ConcessionGiveSide }
   areas: ConcessionArea[]
   total_count: number
@@ -40,7 +44,9 @@ export interface ConcessionMatchResult {
 // 하나도 없으면(=이 role은 그대로) null을 반환해 칩 자체를 숨긴다.
 function giveChipText(side: ConcessionGiveSide): string | null {
   const parts: string[] = []
-  if (side.relieved_condition) {
+  if (side.relieved_all) {
+    parts.push('우선순위 전체')
+  } else if (side.relieved_condition) {
     parts.push(CONDITION_LABEL[side.relieved_condition] ?? side.relieved_condition)
   }
   if (side.commute_widen_min > 0) parts.push(`통근 +${side.commute_widen_min}분`)
@@ -55,14 +61,9 @@ const STEP_MESSAGE: Record<number, string> = {
   2: '두 분의 2순위 조건을 잠시 내려놓고 찾아봤어요',
   3: '출퇴근 조건이 가장 멀었어요. 그만큼 폭을 넓혀 찾아봤어요',
   4: '예산 범위를 조금 넓혀 찾아봤어요',
-}
-
-const STEP_TAG: Record<number, string | null> = {
-  0: null,
-  1: '폭 넓힘',
-  2: '2순위 내려놓음',
-  3: '폭 넓힘',
-  4: '예산 폭 넓힘',
+  // 2순위까지 내려놔도 안 열려서(주로 1순위 조건 자체가 드문 경우) 순위
+  // 하드필터를 전부 풀고 통근·예산 위주로 찾은 마지막 안전망 단계.
+  5: '우선순위 조건은 참고만 하고 통근·예산 위주로 찾아봤어요',
 }
 
 // get_concession_matches 응답을 ResultConcessionPanel이 바로 쓸 수 있는
@@ -86,16 +87,14 @@ export function buildConcessionCopy(result: ConcessionMatchResult) {
 
   if (main.ladder_step == null) {
     return {
-      giveTag: null,
-      tipTitle: '이렇게 조정해보세요',
+      tipTitle: '이렇게 조율해봤어요',
       tipBody: '조건이나 우선순위를 조정하면 맞는 동네가 나올 수 있어요.',
       giveChips,
     }
   }
 
   return {
-    giveTag: STEP_TAG[main.ladder_step],
-    tipTitle: '이렇게 조정해보세요',
+    tipTitle: '이렇게 조율해봤어요',
     tipBody: `조건에 맞는 동네를 찾지 못했어요\n${STEP_MESSAGE[main.ladder_step]}`,
     giveChips,
   }
