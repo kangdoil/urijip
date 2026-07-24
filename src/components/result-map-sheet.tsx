@@ -11,12 +11,11 @@ import { CONDITION_LABEL } from '@/lib/condition-labels'
 import { cn } from '@/lib/utils'
 import { ResultHeaderPill } from '@/components/result-header-pill'
 import { ResultAreaCard, type ResultAreaData } from '@/components/result-area-card'
+import { ResultAreaGroupList } from '@/components/result-area-group-list'
 import { SigunguFilterSheet } from '@/components/sigungu-filter-sheet'
 import { ConditionSummarySheet, type ParticipantConditionSummary } from '@/components/condition-summary-sheet'
 import { SaveOptionsSheet } from '@/components/save-options-sheet'
 import { ResultConcessionPanel } from '@/components/result-concession-panel'
-import type { ConcessionAreaData } from '@/components/concession-area-card'
-import { computeBenefitTags } from '@/lib/concession-benefit-tags'
 import { buildConcessionCopy, type ConcessionMatchResult } from '@/lib/concession-copy'
 
 interface ResultMapSheetProps {
@@ -60,17 +59,16 @@ const PIN_FOCUS_LEVEL = 3
 // 동일한 기준(5)을 결과 화면 카드 리스트에도 그대로 적용한다.
 const MAX_PER_GROUP = 5
 
-// 시트를 끝까지 내리면 핸들+우선순위 요약줄+액션 버튼만 보이고(요구사항),
-// 기본은 컨텐츠 자연 높이만큼만 펼쳐진다.
-// vaul의 snapPoint 오프셋은 `containerHeight - snapPoint * containerHeight`로
-// 계산된다 — snapPoint가 1이면 오프셋이 항상 0이라 화면 크기와 무관하게
-// Drawer.Content의 실제(자연) 높이가 그대로 펼쳐진 높이가 된다. 예전에
-// ResizeObserver로 픽셀 단위 스냅 높이를 직접 계산하려던 시도는 지도를 거의
-// 가려버리는 버그로 이어졌는데, snapPoint=1은 그 계산을 vaul에 맡기면서도
-// 같은 효과(컨텐츠만큼만 높이)를 얻는 방법이다.
-const SNAP_COLLAPSED = 0.3
-const SNAP_DEFAULT = 1
-const SNAP_POINTS = [SNAP_COLLAPSED, SNAP_DEFAULT]
+// 바텀시트 3단 스냅(Figma 기준, 844px 프레임 대비 비율):
+// 접힘(161px) / 중간(399px) / 전체(뷰포트 풀). vaul의 오프셋 공식은
+// `containerHeight - snapPoint*containerHeight`이고 containerHeight는
+// window.innerHeight를 쓴다 — Drawer.Content 박스 자체 높이가 뷰포트와
+// 같아야(h-dvh) SNAP_FULL(offset=0)이 실제 전체화면이 되고, 세 스냅이
+// 같은 박스 안에서 위치만 바뀌므로 중간/전체가 같은 콘텐츠를 공유하며
+// 리스트 스크롤 영역만 커진다.
+const SNAP_COLLAPSED = 0.19
+const SNAP_MID = 0.47
+const SNAP_FULL = 1
 
 interface PinData {
   code: string
@@ -123,6 +121,104 @@ function sigunguTriggerLabel(selected: Set<string>) {
   return `${list[0]} 외 ${list.length - 1}`
 }
 
+// 시군구 선택 칩 + "제외된 동네 포함" 체크박스 — 펼친 상태와 접힌 상태(요구사항:
+// 접혔을 때도 핸들/필터칩/버튼은 보여줄 것) 양쪽에서 재사용한다.
+function FilterChipRow({
+  label,
+  onOpenSigunguSheet,
+  includeExcluded,
+  onToggleIncludeExcluded,
+}: {
+  label: string
+  onOpenSigunguSheet: () => void
+  includeExcluded: boolean
+  onToggleIncludeExcluded: () => void
+}) {
+  return (
+    <div className="flex w-full items-center gap-1.5 px-4 pt-2 pb-1">
+      <button
+        onClick={onOpenSigunguSheet}
+        className="flex shrink-0 items-center gap-1 rounded-full bg-neutral-900 px-[12px] py-[6px] text-[12px] font-medium tracking-[-0.3px] text-white"
+      >
+        {label}
+        <ChevronDown className="size-4" />
+      </button>
+      <button
+        type="button"
+        onClick={onToggleIncludeExcluded}
+        aria-pressed={includeExcluded}
+        className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full pl-4 py-2 text-[12px] font-medium tracking-[-0.3px] text-neutral-500"
+      >
+        <span
+          className={cn(
+            'flex size-4 shrink-0 items-center justify-center rounded border',
+            includeExcluded ? 'border-neutral-900 bg-neutral-900' : 'border-neutral-300 bg-white'
+          )}
+        >
+          {includeExcluded && <Check className="size-3 text-white" strokeWidth={3} />}
+        </span>
+        제외된 동네 포함
+      </button>
+    </div>
+  )
+}
+
+// 조율하기/저장하기(또는 solo의 단일 버튼) 액션바 — 리스트 위에 겹쳐서(absolute)
+// 쓸 때 그라디언트로 아래 콘텐츠가 자연스럽게 페이드아웃되도록 fill 대신
+// bg-gradient-to-t를 쓴다(요구사항: 패딩 영역에 fill 말고 그라디언트).
+function ActionButtonsFooter({
+  solo,
+  retrying,
+  saving,
+  onRetry,
+  onSave,
+  onBackToWaiting,
+  className,
+}: {
+  solo: boolean
+  retrying: boolean
+  saving: boolean
+  onRetry: () => void
+  onSave: () => void
+  onBackToWaiting?: () => void
+  className?: string
+}) {
+  // 버튼 자체는 배경이 불투명해 그라디언트 위에 있어도 상관없다 — 그라디언트
+  // (페이드)는 버튼 위 여백에만 짧게 주고, 버튼은 불투명한 흰 배경 블록에 둔다.
+  return (
+    <div className={cn('flex flex-col items-center', className)}>
+      <div className="h-6 w-full bg-gradient-to-t from-white to-white/0" />
+      <div className="flex w-full flex-col items-center gap-3 bg-white px-4 pb-4">
+        {solo ? (
+          <button
+            onClick={onBackToWaiting}
+            className="flex w-full items-center justify-center rounded-full bg-pink-500 px-10 py-4 text-body-m font-bold text-white"
+          >
+            대기 화면으로 돌아가기
+          </button>
+        ) : (
+          <div className="flex w-full items-center gap-3">
+            <button
+              onClick={onRetry}
+              disabled={retrying}
+              className="flex flex-1 items-center justify-center rounded-full border-2 border-pink-500 bg-neutral-0 px-[42px] py-[18px] text-body-m font-bold text-pink-500 disabled:opacity-50"
+            >
+              조율하기
+            </button>
+            <button
+              onClick={onSave}
+              disabled={saving}
+              className="flex flex-1 items-center justify-center rounded-full bg-pink-500 px-[40px] py-[16px] text-body-m font-bold text-white disabled:opacity-50"
+            >
+              저장하기
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // 결과 화면 지도+바텀시트. 매칭 성공 시엔 시군구 다중 선택 + 선택/제외 필터로
 // 카드를 걸러 보여준다(핀 탭 → 리스트 스크롤 연동은 v1 범위 밖 — TODO).
 // 매칭 0건(폴백)일 땐 서로 양보(AB) 단일안 하나만 ResultConcessionPanel로 보여준다
@@ -173,9 +269,17 @@ export function ResultMapSheet({
   // 건드린 뒤엔(빈 Set 포함) 현재 groups에 남아있는 것만 걸러서 쓴다 — "모두
   // 선택 취소"로 0개를 명시적으로 고른 상태도 유효해야 하기 때문.
   const [manualSigungus, setManualSigungus] = useState<Set<string> | null>(null)
-  const selectedSigungus = manualSigungus
-    ? new Set(Array.from(manualSigungus).filter((s) => groups.some((g) => g.sigungu === s)))
-    : new Set(groups.map((g) => g.sigungu))
+  // useMemo로 감싸 manualSigungus/groups가 실제로 바뀔 때만 새 Set을 만든다 —
+  // 이전엔 매 렌더 새 Set을 만들어서, 이 값을 deps로 쓰는 지도 bounds-fit
+  // effect가 카드 클릭 등 무관한 상태 변경에도 매번 재실행되며 focusPin의
+  // 줌인을 곧바로 덮어써버리는 버그가 있었다(실측 확인).
+  const selectedSigungus = useMemo(
+    () =>
+      manualSigungus
+        ? new Set(Array.from(manualSigungus).filter((s) => groups.some((g) => g.sigungu === s)))
+        : new Set(groups.map((g) => g.sigungu)),
+    [manualSigungus, groups]
+  )
 
   // 카드의 X 버튼으로 뺀 구역 — area_exclusions 테이블에 저장되는 세션 공유
   // 상태다. 한쪽이 제외/복구하면 Realtime으로 상대방 화면에도 반영되고,
@@ -193,7 +297,15 @@ export function ResultMapSheet({
   // 디폴트는 꺼짐(선택된 동네만 노출) — 체크하면 제외된 동네도 같이 보여준다.
   const [includeExcluded, setIncludeExcluded] = useState(false)
 
-  const [snap, setSnap] = useState<number | string | null>(SNAP_DEFAULT)
+  // 매칭 성공 분기만 3단 스냅(접힘/중간/전체)을 쓴다 — fallback·solo는 그 콘텐츠에
+  // 맞춘 자연 높이(접힘/전체 2단)를 그대로 유지한다(범위 밖).
+  const snapPoints = useMemo(
+    () => (isFallback || solo ? [SNAP_COLLAPSED, SNAP_FULL] : [SNAP_COLLAPSED, SNAP_MID, SNAP_FULL]),
+    [isFallback, solo]
+  )
+  const [snap, setSnap] = useState<number | string | null>(() =>
+    isFallback || solo ? SNAP_FULL : SNAP_MID
+  )
   const [sigunguSheetOpen, setSigunguSheetOpen] = useState(false)
   const [conditionSheetOpen, setConditionSheetOpen] = useState(false)
   const mapRef = useRef<kakao.maps.Map | null>(null)
@@ -205,6 +317,12 @@ export function ResultMapSheet({
   // 드래그가 인식하지 못한다 — 위로 스와이프하면 직접 스냅을 올려준다.
   const collapsedDragStartY = useRef<number | null>(null)
 
+  // 스크롤로 포커스된 시군구(핑크 60% 배경 틴트)와 클릭으로 선택된 카드(핑크
+  // 테두리)는 서로 독립적인 두 상태다 — ResultAreaGroupList의 스크롤스파이와
+  // 카드 클릭이 각각 갱신한다.
+  const [focusedSigungu, setFocusedSigungu] = useState<string | null>(null)
+  const [selectedAreaCode, setSelectedAreaCode] = useState<string | null>(null)
+
   function handleCollapsedHandlePointerDown(e: React.PointerEvent<HTMLButtonElement>) {
     collapsedDragStartY.current = e.clientY
   }
@@ -212,7 +330,7 @@ export function ResultMapSheet({
   function handleCollapsedHandlePointerMove(e: React.PointerEvent<HTMLButtonElement>) {
     if (collapsedDragStartY.current === null) return
     if (collapsedDragStartY.current - e.clientY > 24) {
-      setSnap(SNAP_DEFAULT)
+      setSnap(isFallback || solo ? SNAP_FULL : SNAP_MID)
       collapsedDragStartY.current = null
     }
   }
@@ -342,35 +460,40 @@ export function ResultMapSheet({
         .flatMap((g) => g.list)
         .filter((a) => includeExcluded || !excludedCodes.has(a.code))
 
-  // 서로 양보(AB) 단일안 후보 — get_concession_matches가 계산해둔 순위 그대로 쓴다.
-  const aBudgetMaxKrw = participants?.find((p) => p.role === 'A')?.budget_max_krw ?? null
-  const bBudgetMaxKrw = participants?.find((p) => p.role === 'B')?.budget_max_krw ?? null
-  const concessionHoods: ConcessionAreaData[] = (concession?.main.areas ?? []).map((a) => ({
-    code: a.code,
-    name: a.name,
-    sigungu: a.sigungu,
-    lat: a.lat ?? undefined,
-    lng: a.lng ?? undefined,
-    benefitTags: computeBenefitTags(
-      { avg_price_krw: a.avg_price_krw, satisfied: a.satisfied },
-      { aBudgetMaxKrw, bBudgetMaxKrw }
-    ),
-  }))
+  // 세로 그룹 리스트(ResultAreaGroupList)용 — activeAreas와 같은 필터를 시군구
+  // 그룹 구조를 유지한 채 적용한다. selectedSigungus는 매 렌더 새로 파생되는
+  // Set이라 deps에 넣으면 매번 재계산되므로, 실제 의존은 groups/manualSigungus다
+  // (파일 전반에 이미 쓰인 패턴 — 아래 bounds-fit effect와 동일).
+  const visibleGroups = useMemo(
+    () =>
+      groups
+        .filter((g) => selectedSigungus.has(g.sigungu))
+        .map((g) => ({
+          sigungu: g.sigungu,
+          list: g.list.filter((a) => includeExcluded || !excludedCodes.has(a.code)),
+        }))
+        .filter((g) => g.list.length > 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [groups, manualSigungus, includeExcluded, excludedCodes]
+  )
+
+  // 필터 변경으로 포커스 중인 시군구가 화면에서 사라지면(예: 그 시군구를
+  // 선택 해제하거나 "제외된 동네 포함"을 꺼서 그룹이 비면) 첫 번째로 보이는
+  // 그룹으로 대체해 렌더링한다 — effect로 상태를 되맞추는 대신, 렌더 중
+  // 파생값으로 계산해 불필요한 재렌더를 피한다.
+  const effectiveFocusedSigungu =
+    focusedSigungu && visibleGroups.some((g) => g.sigungu === focusedSigungu)
+      ? focusedSigungu
+      : (visibleGroups[0]?.sigungu ?? null)
+
+  // 서로 양보(AB) 단일안 후보 — get_concession_matches가 계산해둔 순위 그대로
+  // 지도 핀만 찍는다(카드 리스트는 더 이상 이 화면에서 보여주지 않음).
   const concessionCopy = concession ? buildConcessionCopy(concession) : null
-  const extraHoods: ConcessionAreaData[] = (concession?.extra?.areas ?? []).map((a) => ({
-    code: a.code,
-    name: a.name,
-    sigungu: a.sigungu,
-    lat: a.lat ?? undefined,
-    lng: a.lng ?? undefined,
-    benefitTags: computeBenefitTags(
-      { avg_price_krw: a.avg_price_krw, satisfied: a.satisfied },
-      { aBudgetMaxKrw, bBudgetMaxKrw }
-    ),
-  }))
 
   const pins: PinData[] = isFallback
-    ? concessionHoods.map((a) => toPin(a, 'neutral')).filter((p): p is PinData => p != null)
+    ? (concession?.main.areas ?? [])
+        .map((a) => toPin({ ...a, lat: a.lat ?? undefined, lng: a.lng ?? undefined }, 'neutral'))
+        .filter((p): p is PinData => p != null)
     : activeAreas.map((a) => toPin(a, 'neutral')).filter((p): p is PinData => p != null)
 
   // 핀을 클릭하거나(호갱노노처럼) 바텀시트에서 카드를 선택했을 때 지도를
@@ -382,11 +505,20 @@ export function ResultMapSheet({
     kakaoMap.setCenter(new kakao.maps.LatLng(lat, lng))
   }
 
+  // 리스트 스크롤로 포커스된 시군구를 따라가는 약한 이동 — 줌 레벨은 바꾸지
+  // 않는다. 스크롤할 때마다 확대까지 하면 산만하고, 사용자가 직접 축소해둔
+  // 지도를 자꾸 되돌리게 되므로 pan만 한다(명시적 클릭 시엔 focusPin으로 줌인).
+  function panPin(lat: number, lng: number) {
+    const kakaoMap = mapRef.current
+    if (!kakaoMap) return
+    kakaoMap.setCenter(new kakao.maps.LatLng(lat, lng))
+  }
+
   // 지도 핀을 클릭하면 그 좌표로 확대하는 것과 동시에, 시트가 접혀있으면
   // 펼치고 바텀시트 안 해당 카드로 스크롤해 정보를 보여준다.
   function focusArea(code: string, lat: number, lng: number) {
     focusPin(lat, lng)
-    setSnap((prev) => (prev === SNAP_COLLAPSED ? SNAP_DEFAULT : prev))
+    setSnap((prev) => (prev === SNAP_COLLAPSED ? SNAP_MID : prev))
     requestAnimationFrame(() => {
       cardRefs.current[code]?.scrollIntoView({
         behavior: 'smooth',
@@ -394,6 +526,36 @@ export function ResultMapSheet({
         block: 'nearest',
       })
     })
+  }
+
+  // 카드를 클릭한 직후 짧은 시간 동안은 스크롤스파이의 pan을 무시한다 —
+  // 클릭이 (완전히 보이지 않던 카드라) 리스트를 살짝 스크롤시키면 그 스크롤이
+  // 곧바로 IntersectionObserver 콜백을 유발해 방금 focusPin으로 줌인한 지도를
+  // 다른 그룹으로 되돌려버리는 경합이 실측 확인됐다 — 클릭이라는 명시적
+  // 의도가 스크롤 추적보다 우선해야 한다.
+  const suppressPanUntilRef = useRef(0)
+
+  // ResultAreaGroupList의 스크롤스파이가 통지하는 "현재 화면 중간에 걸린
+  // 시군구" — 배경 틴트 + 지도 pan(줌 유지).
+  function handleGroupFocusChange(sigungu: string | null) {
+    setFocusedSigungu(sigungu)
+    // 이벤트 콜백(스크롤스파이 통지)에서만 호출되는 함수라 렌더 중 실행되지
+    // 않는다 — Date.now()는 여기선 순수성 문제가 없다.
+    // eslint-disable-next-line react-hooks/purity
+    if (!sigungu || Date.now() < suppressPanUntilRef.current) return
+    const rep = visibleGroups
+      .find((g) => g.sigungu === sigungu)
+      ?.list.find((a) => a.lat != null && a.lng != null)
+    if (rep) panPin(rep.lat!, rep.lng!)
+  }
+
+  // 카드를 직접 클릭했을 때 — 테두리 강조 + 지도 줌인(기존 focusPin 그대로).
+  function handleCardSelect(area: ResultAreaData) {
+    setSelectedAreaCode(area.code)
+    // 클릭 이벤트 핸들러에서만 호출된다 — 렌더 중 실행되지 않으므로 안전하다.
+    // eslint-disable-next-line react-hooks/purity
+    suppressPanUntilRef.current = Date.now() + 600
+    if (area.lat != null && area.lng != null) focusPin(area.lat, area.lng)
   }
 
   useEffect(() => {
@@ -411,11 +573,11 @@ export function ResultMapSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSigungus, loading, error])
 
-  const title = solo
-    ? '먼저 둘러보기'
-    : isFallback
-      ? '통근·예산 조건에 맞는 구역이 없어요'
-      : '추천 동네'
+  // 폴백(매칭 0건)일 때도 "추천 동네" 타이틀은 그대로 두고, 진단 문구는
+  // 옆에 subtitle로 나란히 붙인다(Figma: 추천 동네 + 통근·예산 조건에 맞는
+  // 구역이 없어요).
+  const title = solo ? '먼저 둘러보기' : '추천 동네'
+  const subtitle = !solo && isFallback ? '통근·예산 조건에 맞는 구역이 없어요' : undefined
 
   const priorityTopLabel = (codes: string[]) =>
     codes[0] ? (CONDITION_LABEL[codes[0]] ?? codes[0]) : null
@@ -471,6 +633,7 @@ export function ResultMapSheet({
       >
         <ResultHeaderPill
           title={title}
+          subtitle={subtitle}
           count={isFallback ? undefined : activeAreas.length}
           partnerConfirmed={isFallback ? undefined : partnerConfirmed ?? undefined}
         />
@@ -481,26 +644,36 @@ export function ResultMapSheet({
         open
         modal={false}
         dismissible={false}
-        snapPoints={SNAP_POINTS}
+        snapPoints={snapPoints}
         activeSnapPoint={snap}
         setActiveSnapPoint={setSnap}
       >
         <Drawer.Portal>
           <Drawer.Overlay className="pointer-events-none fixed inset-0 bg-black/40" />
-          {/* 액션바(조율하기/저장하기)는 Drawer.Content 안 일반 흐름의 마지막
-              자식으로 둬서 카드-버튼 간격이 항상 0이 되도록 한다. Content는
-              max-h만 안전장치로 두고 나머지는 컨텐츠 자연 높이를 그대로
-              따른다(SNAP_DEFAULT=1이라 vaul 오프셋이 항상 0 — 위 주석 참고).
-              내부 스크롤은 원치 않아 overflow-hidden으로 넘치는 부분은
-              스크롤 대신 그냥 잘리게 둔다(카드 줄 자체의 가로 스크롤은
-              별도 요소에 있어 영향 없음). */}
-          <Drawer.Content className="fixed inset-x-0 bottom-0 z-10 mx-auto flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl border border-pink-100 bg-white shadow-[0_-8px_32px_rgba(0,0,0,0.1)] outline-none">
-            <button className="h-7">
+          {/* 매칭 성공 분기는 h-dvh로 고정해 SNAP_FULL(offset=0)이 실제
+              전체화면이 되도록 하고(요구사항 4), fallback·solo는 기존처럼
+              max-h만 안전장치로 둔 자연 높이를 유지한다(범위 밖 — 그대로). */}
+          <Drawer.Content
+            className={cn(
+              'fixed inset-x-0 bottom-0 z-10 mx-auto flex w-full max-w-md flex-col overflow-hidden rounded-t-3xl border border-pink-100 bg-white shadow-[0_-8px_32px_rgba(0,0,0,0.1)] outline-none',
+              isFallback || solo ? 'max-h-[92dvh]' : 'h-dvh'
+            )}
+          >
+            <button className="h-7 shrink-0">
               <div className="mx-auto mt-3 h-1 w-10 shrink-0 rounded-full bg-neutral-300" />
             </button>
 
             {!isCollapsed && (
               <div
+                className="flex min-h-0 flex-1 flex-col"
+                // Drawer.Content 박스 자체는 h-dvh로 고정돼 있어(요구사항 4를 위해)
+                // flex-1만으로는 지금 스냅에서 실제로 "보이는" 높이를 알 수 없다
+                // (vaul이 translateY로 박스를 가릴 뿐, 박스 자신은 항상 뷰포트
+                // 전체 높이라 flex 계산은 항상 그 기준으로 이뤄진다). vaul이
+                // Drawer.Content에 심어주는 --snap-point-height(현재 스냅의
+                // translateY 오프셋)로 실제 보이는 높이를 역산해 캡을 걸어야
+                // 안의 리스트가 "보이는 만큼만" 스크롤 영역을 갖는다(요구사항 5).
+                style={{ maxHeight: 'calc(100dvh - var(--snap-point-height, 0px) - 28px)' }}
               >
                 {isFallback ? (
                   solo ? (
@@ -523,33 +696,30 @@ export function ResultMapSheet({
                     // "거의 풀페이지" 패턴과 동일한 의도.
                     <div className="flex h-[70dvh] flex-col pt-3">
                       <ResultConcessionPanel
-                        message={concessionCopy?.message ?? '두 분 조건에 맞는 동네를 찾는 중이에요'}
-                        giveDetail={concessionCopy?.giveDetail ?? ''}
-                        giveTag={concessionCopy?.giveTag ?? null}
-                        hoods={concessionHoods}
-                        extraHoods={extraHoods}
-                        extraCount={concession?.extra?.total_count ?? 0}
-                        extraGiveDetail={concessionCopy?.extraGiveDetail ?? ''}
                         totalCount={concession?.main.total_count ?? 0}
+                        giveTag={concessionCopy?.giveTag ?? null}
                         tipTitle={concessionCopy?.tipTitle ?? '이렇게 조정해보세요'}
                         tipBody={concessionCopy?.tipBody ?? ''}
+                        giveChips={concessionCopy?.giveChips ?? []}
                         onAdjust={onRetry}
-                        onSelectHood={(hood) => {
-                          if (hood.lat != null && hood.lng != null) focusPin(hood.lat, hood.lng)
-                        }}
-                        onViewMap={
-                          concessionHoods.length > 0 ? () => setSnap(SNAP_COLLAPSED) : undefined
-                        }
                       />
                     </div>
                   )
                 ) : (
                   <>
-                    {/* 시트가 펼쳐진 동안은 이전 디자인(큰 사이즈)으로 시트 맨 위에 보여주고,
-                        시트를 끝까지 내리면 위 축약 버전으로 바뀐다. */}
+                    {/* Figma: 필터 영역이 위, 그 아래 우선순위 요약 프레임이 온다. */}
+                    {groups.length > 0 && (
+                      <FilterChipRow
+                        label={sigunguTriggerLabel(selectedSigungus)}
+                        onOpenSigunguSheet={() => setSigunguSheetOpen(true)}
+                        includeExcluded={includeExcluded}
+                        onToggleIncludeExcluded={() => setIncludeExcluded((v) => !v)}
+                      />
+                    )}
+
                     <button
                       onClick={() => setConditionSheetOpen(true)}
-                      className="flex w-full items-center justify-between gap-2 border-b border-neutral-100 px-4 mt-3 pb-3" 
+                      className="flex w-full shrink-0 items-center justify-between gap-2 border-b border-neutral-100 px-4 pb-3"
                     >
                       <span className="flex min-w-0 items-center gap-2">
                         <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-pink-50">
@@ -562,97 +732,22 @@ export function ResultMapSheet({
                       <ChevronRight className="size-6 shrink-0 text-neutral-400" />
                     </button>
 
-                    {groups.length > 0 && (
-                      <div className="flex items-center gap-1.5 px-4 pt-2 pb-1">
-                        <button
-                          onClick={() => setSigunguSheetOpen(true)}
-                          className="flex shrink-0 items-center gap-1 rounded-full bg-neutral-900 px-4 py-2 text-body-sb font-medium text-white"
-                        >
-                          {sigunguTriggerLabel(selectedSigungus)}
-                          <ChevronDown className="size-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setIncludeExcluded((v) => !v)}
-                          aria-pressed={includeExcluded}
-                          className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full pl-4 py-2 text-body-sb font-medium text-neutral-500"
-                        >
-                          <span
-                            className={cn(
-                              'flex size-4 shrink-0 items-center justify-center rounded border',
-                              includeExcluded
-                                ? 'border-neutral-900 bg-neutral-900'
-                                : 'border-neutral-300 bg-white'
-                            )}
-                          >
-                            {includeExcluded && <Check className="size-3 text-white" strokeWidth={3} />}
-                          </span>
-                          제외된 동네 포함
-                        </button>
-                      </div>
-                    )}
-
-                    <div className="flex snap-x gap-3 overflow-x-auto px-4 pt-1.5 pb-3 scroll-pl-4">
-                      {activeAreas.map((area) => (
-                        <div
-                          key={area.code}
-                          ref={(el) => {
-                            cardRefs.current[area.code] = el
-                          }}
-                          className="shrink-0"
-                        >
-                          <ResultAreaCard
-                            area={area}
-                            excluded={excludedCodes.has(area.code)}
-                            onExclude={excludeArea}
-                            onRestore={restoreArea}
-                            onSelect={
-                              area.lat != null && area.lng != null
-                                ? () => focusPin(area.lat!, area.lng!)
-                                : undefined
-                            }
-                          />
-                        </div>
-                      ))}
-                      {activeAreas.length === 0 && (
-                        <p className="py-4 text-center text-body-s text-neutral-400">
-                          이 조건을 만족하는 구역이 없어요
-                        </p>
-                      )}
+                    <div className="min-h-0 flex-1">
+                      <ResultAreaGroupList
+                        groups={visibleGroups}
+                        excludedCodes={excludedCodes}
+                        onExclude={excludeArea}
+                        onRestore={restoreArea}
+                        selectedAreaCode={selectedAreaCode}
+                        focusedSigungu={effectiveFocusedSigungu}
+                        onCardSelect={handleCardSelect}
+                        onGroupFocusChange={handleGroupFocusChange}
+                        registerCardRef={(code, el) => {
+                          cardRefs.current[code] = el
+                        }}
+                        emptyLabel="이 조건을 만족하는 구역이 없어요"
+                      />
                     </div>
-
-                    <div className="flex w-full flex-col items-center gap-3 px-4 pt-2.5 pb-2.5">
-          {solo ? (
-            <button
-              onClick={onBackToWaiting}
-              className="flex w-full items-center justify-center rounded-full bg-pink-500 px-10 py-4 text-body-m font-bold text-white"
-            >
-              대기 화면으로 돌아가기
-            </button>
-          ) : (
-            <>
-              <div className="flex w-full items-center gap-3">
-                <button
-                  onClick={onRetry}
-                  disabled={retrying}
-                  className="flex flex-1 items-center justify-center rounded-full border-2 border-pink-500 px-10 py-4 text-body-m font-bold text-pink-500 disabled:opacity-50"
-                >
-                  조율하기
-                </button>
-                <button
-                  onClick={() => onSave(savedAreaCodes)}
-                  disabled={saving}
-                  className="flex flex-1 items-center justify-center rounded-full bg-pink-500 px-10 py-4 text-body-m font-bold text-white disabled:opacity-50"
-                >
-                  저장하기
-                </button>
-              </div>
-              <p className="text-center text-caption-l font-medium text-neutral-500">
-                저장하기를 누르면 상대방에게 확정되었다고 뜨고, 동네 리스트도 저장할 수 있어요
-              </p>
-            </>
-          )}
-        </div>
                   </>
                 )}
               </div>
@@ -662,18 +757,33 @@ export function ResultMapSheet({
       </Drawer.Root>
      )}
 
-      {/* Drawer.Content는 스냅과 무관하게 항상 h-full(90vh) 박스이고, vaul은
-          접힌(또는 좁은) 스냅에서 그걸 translateY로 아래로 밀 뿐이라 시트
-          레이아웃 안에 두면 화면 밖으로 밀려난다. 그래서 뷰포트 기준 fixed로
-          따로 띄워 항상 보이게 한다. */}
+      {/* vaul이 snapPoint 오프셋을 Drawer.Content 자체에 transform으로 적용하는데,
+          CSS상 transform이 걸린 조상은 그 안의 fixed/absolute 자손의 containing
+          block이 된다 — 즉 Drawer.Content 안에 action bar를 absolute bottom-0로
+          두면 "화면 하단"이 아니라 "h-dvh 박스(내용보다 훨씬 큼)의 바닥"에 붙어
+          버려서 중간 스냅에서는 화면 밖으로 밀려난다. 그래서 접힘 상태와 동일하게
+          Drawer.Content 밖, 뷰포트 기준 fixed로 따로 띄운다(중간/전체 스냅
+          공통 — 어느 스냅이든 시트의 시각적 바닥은 항상 화면 맨 아래와 일치한다). */}
+      {!isFallback && !isCollapsed && (
+        <ActionButtonsFooter
+          className="fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-md"
+          solo={solo}
+          retrying={retrying}
+          saving={saving}
+          onRetry={onRetry}
+          onSave={() => onSave(savedAreaCodes)}
+          onBackToWaiting={onBackToWaiting}
+        />
+      )}
+
             {!isFallback && isCollapsed && (
       <div className="fixed inset-x-0 bottom-0 z-20 mx-auto flex w-full max-w-md flex-col items-center bg-white rounded-t-3xl border-2 border-pink-100">
         {/* Drawer.Content의 핸들은 접힌 스냅에서 이 fixed 블록에 가려 안 보이므로,
             접혔을 때 다시 펼 수 있도록 여기에도 탭/드래그 가능한 핸들을 따로 둔다. */}
-      
+
           <button
             type="button"
-            onClick={() => setSnap(SNAP_DEFAULT)}
+            onClick={() => setSnap(isFallback || solo ? SNAP_FULL : SNAP_MID)}
             onPointerDown={handleCollapsedHandlePointerDown}
             onPointerMove={handleCollapsedHandlePointerMove}
             onPointerUp={handleCollapsedHandlePointerUp}
@@ -683,52 +793,29 @@ export function ResultMapSheet({
           >
             <span className="h-1 w-10 rounded-full bg-neutral-300" />
           </button>
-      
+
         {/* 시트를 끝까지 내렸을 때만 이 축약 버전이 버튼 바로 위에 보인다.
-            펼쳐져 있을 땐 시트 안(이전 디자인)에서 대신 보여준다. */}
+            펼쳐져 있을 땐 시트 안(이전 디자인)에서 대신 보여준다. Figma
+            State A(접힘)는 우선순위 요약 대신 필터칩 영역을 보여준다. */}
         {!isFallback && isCollapsed && (
           <>
-          <button
-            onClick={() => setConditionSheetOpen(true)}
-            className="flex w-full shrink-0 items-center justify-between gap-2 border-b border-neutral-100 px-4 py-3"
-          >
-            <span className="flex min-w-0 items-center gap-1.5">
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-pink-50">
-                <CirclePlus className="size-4 text-pink-500" />
-              </span>
-              <span className="truncate text-body-sb font-semibold text-pink-500">
-                우선순위 : {prioritySummary} / {budgetLabel}
-              </span>
-            </span>
-            <ChevronRight className="size-5 shrink-0 text-neutral-400" />
-          </button>
-          <div className="flex w-full items-center gap-3 px-4 pt-2.5 pb-2.5">
-            {solo ? (
-              <button
-                onClick={onBackToWaiting}
-                className="flex flex-1 items-center justify-center rounded-full bg-pink-500 px-10 py-4 text-body-m font-bold text-white"
-              >
-                대기 화면으로 돌아가기
-              </button>
-            ) : (
-              <>
-                <button
-                  onClick={onRetry}
-                  disabled={retrying}
-                  className="flex flex-1 items-center justify-center rounded-full border-2 border-pink-500 px-10 py-4 text-body-m font-bold text-pink-500 disabled:opacity-50"
-                >
-                  조율하기
-                </button>
-                <button
-                  onClick={() => onSave(savedAreaCodes)}
-                  disabled={saving}
-                  className="flex flex-1 items-center justify-center rounded-full bg-pink-500 px-10 py-4 text-body-m font-bold text-white disabled:opacity-50"
-                >
-                  저장하기
-                </button>
-              </>
-            )}
-          </div>
+          {groups.length > 0 && (
+            <FilterChipRow
+              label={sigunguTriggerLabel(selectedSigungus)}
+              onOpenSigunguSheet={() => setSigunguSheetOpen(true)}
+              includeExcluded={includeExcluded}
+              onToggleIncludeExcluded={() => setIncludeExcluded((v) => !v)}
+            />
+          )}
+          <ActionButtonsFooter
+            className="w-full"
+            solo={solo}
+            retrying={retrying}
+            saving={saving}
+            onRetry={onRetry}
+            onSave={() => onSave(savedAreaCodes)}
+            onBackToWaiting={onBackToWaiting}
+          />
           </>
         )}
       </div>
@@ -786,7 +873,7 @@ export function ResultMapSheet({
               {areas
                 .filter((a) => savedAreaCodes.includes(a.code))
                 .map((area) => (
-                  <ResultAreaCard key={area.code} area={area} />
+                  <ResultAreaCard key={area.code} area={area} fullWidth />
                 ))}
             </div>
           </div>

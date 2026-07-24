@@ -1,174 +1,117 @@
 'use client'
 
-import { useState } from 'react'
-import { ArrowRight, Lightbulb } from 'lucide-react'
+import { Lightbulb } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { ConcessionAreaCard, type ConcessionAreaData } from '@/components/concession-area-card'
 
-// 아래 리스트에 노출하는 후보 상한 — 초과분은 카드로 나열하지 않고
-// "지도에서 전체 보기" 버튼으로 넘긴다.
-const MAX_VISIBLE_HOODS = 3
-
-interface ResultConcessionPanelProps {
-  // 진단 메시지 한 줄 — 후보가 있든 없든 항상 보여준다.
-  message: string
-  // "서로 양보" 요약 줄의 보조 설명(예: "B +15분 · A +0.8억"). 실제 양보 폭
-  // 계산 로직이 아직 없어 지금은 일반 안내 문구를 쓴다.
-  giveDetail: string
-  // "서로 양보" 요약 줄의 배지 텍스트("폭 넓힘"/"2순위 내려놓음"/"예산 폭 넓힘").
-  // null이면 양보 없이 이미 열린 상태(사다리 0단계)라 배지 자체를 숨긴다.
-  giveTag: string | null
-  // 서로 양보(AB) 단일안으로 새로 열리는 동네 목록. 비어 있으면 "메시지 →
-  // 팁 카드 → 조율 버튼" 3단 구조로 렌더링한다 — A만/B만 개별 안은 없다.
-  // 결과 화면 캐러셀과 같은 ResultAreaCard로 그려서 카드 모양·색을 통일한다.
-  hoods: ConcessionAreaData[]
-  // 사다리 다음 단계를 미리 계산해둔 opt-in 후보(메인과 겹치는 동네는 이미
-  // 제외된 차집합) — 비어 있으면 "조금 더 양보하면" 섹션 자체를 렌더링 안 함.
-  extraHoods: ConcessionAreaData[]
-  // "+N곳" 표기용 실제 개수(extraHoods는 카드용 상위 몇 개만 담겨 있을 수 있음).
-  extraCount: number
-  // extra 섹션 펼쳤을 때 보여줄 안내 문구 — main 대비 "새로 추가된" 양보만.
-  extraGiveDetail: string
-  // 실제 후보 총 개수 — hoods는 카드용으로 상위 몇 개만 담겨 있을 수 있어
-  // "N곳" 배지·0곳 판정은 반드시 이 값을 쓴다(hoods.length로 하면 캡에 걸려
-  // 실제보다 작게 보일 수 있다).
-  totalCount: number
-  tipTitle: string
-  tipBody: string
-  onAdjust: () => void
-  onSelectHood?: (hood: ConcessionAreaData) => void
-  onViewMap?: () => void
+export interface ConcessionGiveChip {
+  role: 'A' | 'B'
+  text: string
 }
 
-// 결과 화면 "필수 조건 만족 구역 0곳" 전용 패널. 서로 양보(AB) 후보가 있는
-// 상태와 0곳 상태를 같은 컴포넌트가 데이터(hoods)만 바꿔 렌더링한다 — 부분
-// 열림 / 폭을 넓혀야 열림 / 상한까지도 0곳, 세 경우 전부 이 컴포넌트 하나로
-// 표현하며 별도 화면으로 분기하지 않는다. 헤드라인 + 서로 양보 요약 줄은
-// 상단에, CTA 버튼은 하단에 고정되고 그 사이 콘텐츠(팁 카드 또는 후보
-// 리스트)만 스크롤된다. 0곳일 땐 "서로 양보" 띠 자체를 보여줄 후보가 없어
-// 렌더링하지 않는다.
+interface ResultConcessionPanelProps {
+  // "총 N곳" — get_concession_matches의 main.total_count 그대로.
+  totalCount: number
+  // 팁 카드 우상단 배지("2순위 내려놓음"/"폭 넓힘" 등). null이면 배지를 숨긴다
+  // (사다리 0단계 — 사실상 이 패널 자체가 뜰 일이 없는 경우).
+  giveTag: string | null
+  tipTitle: string
+  tipBody: string
+  // A/B 각자 무엇을 양보했는지 — 양보한 게 없는 role은 애초에 배열에 없다.
+  giveChips: ConcessionGiveChip[]
+  onAdjust: () => void
+}
+
+const ROLE_LETTER_SRC: Record<'A' | 'B', string> = {
+  A: '/asset/priority-letter-a.png',
+  B: '/asset/priority-letter-b.png',
+}
+
+// 결과 화면 "필수 조건 만족 구역 0곳(콜드 스테이션)" 전용 패널(Figma: 교집합
+// 없을 때 화면). 예전엔 서로 양보(AB) 후보를 카드 리스트로 나열하고 "조금 더
+// 양보하면" 섹션까지 펼쳤지만, 지금은 무엇을 조율하면 열리는지 설명하는 팁
+// 카드 캐러셀 하나로 대체한다 — 실제 동네 리스트는 이 화면에서 더 이상
+// 보여주지 않는다(조율은 onAdjust로 넘어가서 한다). 캐러셀 두 번째 자리는
+// 아직 틀만 — 콘텐츠는 다음 작업에서 채운다.
 export function ResultConcessionPanel({
-  message,
-  giveDetail,
-  giveTag,
-  hoods,
   totalCount,
+  giveTag,
   tipTitle,
   tipBody,
+  giveChips,
   onAdjust,
-  onSelectHood,
-  onViewMap,
-  extraHoods,
-  extraCount,
-  extraGiveDetail,
 }: ResultConcessionPanelProps) {
-  const isZero = totalCount === 0
-  const visibleHoods = hoods.slice(0, MAX_VISIBLE_HOODS)
-  const [extraOpen, setExtraOpen] = useState(false)
+  const [tipLine1, tipLine2] = tipBody.split('\n')
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex shrink-0 flex-col gap-3 px-4 pt-6">
-        <div>
-          <p className="text-title-sb leading-[1.3] font-extrabold text-neutral-900">
-            🤝 함께 조금씩 양보하면 여기예요
-          </p>
-          <p className="mt-1 text-body-s text-neutral-500">
-            두 분 조건에서 가장 균형 잡힌 조합이에요
-          </p>
-        </div>
-
-        <p className="rounded-lg bg-pink-50 px-3.5 py-2.5 text-body-s leading-[1.5] text-pink-700">
-          {message}
+      <div className="flex shrink-0 flex-col items-center gap-0.5 p-4 text-center">
+        <p className="text-body-m font-semibold text-neutral-900">함께 조금씩 양보하면 여기예요</p>
+        <p className="text-title-sb font-bold text-neutral-900">
+          총 <span className="font-montserrat text-mont-title-l text-pink-500">{totalCount}</span>곳
         </p>
-
-        {!isZero && giveTag != null && (
-          <div className="flex items-center gap-3 rounded-r-xl border-l-4 border-accent-lavender bg-neutral-50 px-3.5 py-3">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent-lavender text-[11px] font-bold text-neutral-900">
-              AB
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="flex items-center gap-1.5 text-body-sb font-bold text-neutral-900">
-                서로 양보
-                <span className="rounded-md bg-pink-50 px-1.5 py-0.5 text-caption-m font-bold text-pink-700">
-                  {giveTag}
-                </span>
-              </p>
-              <p className="mt-0.5 truncate text-caption-l text-neutral-500">{giveDetail}</p>
-            </div>
-            <span className="shrink-0 text-body-sb font-bold text-neutral-900">{totalCount}곳</span>
-          </div>
-        )}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6">
-        {isZero ? (
-          <div className="rounded-2xl bg-white p-4 shadow-[0_10px_20px_rgba(0,0,0,0.04)]">
-            <div className="mb-2 flex items-center gap-1.5">
-              <Lightbulb className="size-4 text-pink-500" />
-              <span className="text-body-sb font-bold text-neutral-900">{tipTitle}</span>
-            </div>
-            <p className="text-body-s leading-[1.65] text-neutral-600">{tipBody}</p>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-2.5">
-            {visibleHoods.map((h) => (
-              <ConcessionAreaCard
-                key={h.code}
-                area={h}
-                onSelect={onSelectHood ? () => onSelectHood(h) : undefined}
-              />
-            ))}
-
-            {extraHoods.length > 0 && (
-              <div className="mt-1">
-                <button
-                  onClick={() => setExtraOpen((v) => !v)}
-                  className="w-full py-1 text-center text-caption-l font-semibold text-pink-500"
-                >
-                  {extraOpen ? '접기 ▲' : `조금 더 양보하면 (+${extraCount}곳) ▼`}
-                </button>
-                {extraOpen && (
-                  <div className="mt-2 flex flex-col gap-2.5">
-                    {extraGiveDetail && (
-                      <p className="px-1 text-caption-l text-neutral-500">{extraGiveDetail}</p>
-                    )}
-                    {extraHoods.map((h) => (
-                      <ConcessionAreaCard
-                        key={h.code}
-                        area={h}
-                        onSelect={onSelectHood ? () => onSelectHood(h) : undefined}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
+      <div className="flex min-h-0 flex-1 items-start gap-2 overflow-x-auto px-5 pb-2">
+        <div className="flex w-[350px] shrink-0 flex-col gap-4 rounded-2xl bg-white px-4 py-5 shadow-[0_10px_10px_rgba(0,0,0,0.04)]">
+          <div className="flex items-center justify-between gap-2">
+            <span className="flex items-center gap-1 text-[16px] font-bold tracking-[-0.42px] text-neutral-900">
+              <Lightbulb className="size-5 text-pink-500" />
+              {tipTitle}
+            </span>
+            {giveTag && (
+              <span className="shrink-0 rounded-md bg-pink-50 px-2 py-[3px] text-caption-m font-bold text-pink-700">
+                {giveTag}
+              </span>
             )}
           </div>
-        )}
+
+          <p className="text-body-s leading-[1.65] text-neutral-500">
+            {tipLine1}
+            {tipLine2 && (
+              <>
+                <br />
+                {tipLine2}
+              </>
+            )}
+          </p>
+
+          {giveChips.length > 0 && (
+            <div className="flex flex-col gap-2">
+              {giveChips.map((chip) => (
+                <span
+                  key={chip.role}
+                  className={cn(
+                    'flex w-fit items-center gap-0.5 rounded-full py-1 pr-3 pl-2',
+                    chip.role === 'A' ? 'bg-pink-200/50' : 'bg-[#c6fffe]'
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-full border-[1.4px] p-[1.4px]',
+                      chip.role === 'A' ? 'border-pink-500 bg-pink-100' : 'border-accent-teal bg-accent-teal/10'
+                    )}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={ROLE_LETTER_SRC[chip.role]} alt={chip.role} className="size-full rounded-full object-cover" />
+                  </span>
+                  <span className="text-body-sb font-medium text-neutral-900">{chip.text}</span>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 캐러셀 두 번째 자리 — 틀만, 콘텐츠는 아직 없음 */}
+        <div className="h-full min-h-[160px] w-[350px] shrink-0 rounded-2xl border-2 border-dashed border-neutral-200" />
       </div>
 
-      {/* CTA는 콘텐츠 스크롤과 무관하게 항상 하단에 고정 — 위 스크롤 영역과
-          분리된 shrink-0 블록으로 둔다. */}
-      <div className={cn('shrink-0 px-4 pt-3', isZero ? 'pb-6' : onViewMap ? 'pb-6' : 'pb-0')}>
-        {isZero ? (
-          <button
-            onClick={onAdjust}
-            className="flex w-full items-center justify-center rounded-full bg-pink-500 px-10 py-4 text-body-m font-bold text-white"
-          >
-            조건 조율하기
-          </button>
-        ) : (
-          onViewMap && (
-            <button
-              onClick={onViewMap}
-              className="flex w-full items-center justify-center gap-1.5 rounded-full bg-pink-500 px-10 py-4 text-body-m font-bold text-white"
-            >
-              지도에서 전체 보기
-              <ArrowRight className="size-4" />
-            </button>
-          )
-        )}
+      <div className="shrink-0 px-4 pt-3 pb-6">
+        <button
+          onClick={onAdjust}
+          className="flex w-full items-center justify-center rounded-full bg-pink-500 px-10 py-4 text-body-m font-bold text-white"
+        >
+          이 조건으로 바꾸고 동네 보러 가기
+        </button>
       </div>
     </div>
   )

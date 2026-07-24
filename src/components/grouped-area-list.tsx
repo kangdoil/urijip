@@ -23,7 +23,7 @@ interface Props {
   emptyMessage?: string
 }
 
-const MAX_PER_GROUP = 5
+export const MAX_PER_GROUP = 5
 
 // 동 카드 한 장. GroupedAreaList와 ResultMapSheet(지도+바텀시트)가 같이 쓴다.
 export function AreaCard({

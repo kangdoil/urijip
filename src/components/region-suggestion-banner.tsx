@@ -44,26 +44,29 @@ export function RegionSuggestionBanner({
   }
 
   return (
-    <div className={cn('bg-pink-50 px-5 py-3', className)}>
-      <p className="text-center text-[12px] leading-[1.4] font-medium tracking-[-0.04em] text-pink-400">
+    <div
+      className={cn(
+        'flex flex-col items-center justify-center gap-[6px] bg-pink-50 pt-[16px] pr-[28px] pb-[12px] pl-[28px] shadow-[0px_2px_10px_0px_rgba(0,0,0,0.04)]',
+        className
+      )}
+    >
+      <p className="w-full text-center text-body-sb font-semibold text-neutral-900">
         ※ 우리집은 현재 경기도 지역만 추천하고 있어요
-        <br />
-        추가를 원하는 지역이 있으시다면 의견을 남겨주세요
       </p>
-      <div className="mt-2 flex items-center gap-3">
+      <div className="flex w-full items-center gap-2">
         <input
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && submit()}
-          placeholder="예: 서울 외곽"
+          placeholder="추가를 원하는 지역이 있다면 의견을 남겨주세요"
           disabled={status === 'saving'}
-          className="min-w-0 flex-1 rounded-full border border-neutral-300 bg-neutral-0 px-[25px] py-[13px] text-[12px] tracking-[-0.04em] text-neutral-900 placeholder:text-neutral-500 focus:ring-2 focus:ring-pink-200 focus:outline-none disabled:opacity-50"
+          className="min-w-0 flex-1 rounded-full border border-neutral-300 bg-neutral-0 px-[25px] py-[13px] text-caption-l text-neutral-900 placeholder:text-neutral-500 focus:ring-2 focus:ring-pink-200 focus:outline-none disabled:opacity-50"
         />
         <button
           type="button"
           onClick={submit}
           disabled={status === 'saving'}
-          className="shrink-0 text-[12px] font-medium tracking-[-0.03em] text-neutral-500 underline decoration-1 underline-offset-4 disabled:opacity-50"
+          className="shrink-0 text-caption-l font-medium text-neutral-900 underline decoration-1 underline-offset-4 disabled:opacity-50"
         >
           {status === 'sent' ? '전달했어요' : status === 'error' ? '실패했어요' : '제안하기'}
         </button>

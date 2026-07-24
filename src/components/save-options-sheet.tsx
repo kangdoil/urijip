@@ -23,7 +23,7 @@ export function SaveOptionsSheet({
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent>
         <DrawerHeader>
-          <DrawerTitle className="text-body-m font-normal text-neutral-500">
+          <DrawerTitle className="text-body-m font-normal text-neutral-900">
             우리가 함께 할 수 있는 동네
           </DrawerTitle>
           <DrawerDescription className="text-title-sb font-bold text-neutral-900">
@@ -31,13 +31,13 @@ export function SaveOptionsSheet({
           </DrawerDescription>
         </DrawerHeader>
 
-        <div className="flex flex-col px-8 pb-10">
+        <div className="flex flex-col px-8 pb-4">
           <button
             onClick={() => {
               onSaveImage()
               onOpenChange(false)
             }}
-            className="flex items-center gap-4 border-b border-neutral-100 py-4"
+            className="flex items-center gap-[20px] py-[12px]"
           >
             <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-pink-50">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -50,7 +50,7 @@ export function SaveOptionsSheet({
               onSaveText()
               onOpenChange(false)
             }}
-            className="flex items-center gap-4 py-4"
+            className="flex items-center gap-[20px] py-[12px]"
           >
             <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-pink-50">
               {/* eslint-disable-next-line @next/next/no-img-element */}

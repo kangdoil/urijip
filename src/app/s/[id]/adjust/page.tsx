@@ -1,12 +1,14 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowRight, ChevronDown, ChevronUp, Compass } from 'lucide-react'
+import { ArrowRight, Compass } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { getMyParticipant, type MyParticipant } from '@/lib/get-my-participant'
 import { CONDITION_LABEL, formatEok, type Priority } from '@/lib/condition-labels'
 import { GroupedAreaList } from '@/components/grouped-area-list'
+import { AdjustAreaPreviewList } from '@/components/adjust-area-preview-list'
+import { PriorityOrderList } from '@/components/priority-order-list'
 import { useCommuteStatus } from '@/lib/use-commute-status'
 import { Slider } from '@/components/ui/slider'
 import { OnboardBackBar } from '@/components/onboard-back-bar'
@@ -75,20 +77,6 @@ function orderLabel(order: string[]) {
 // A=핑크, B=청록 — 결과 화면(ResultAreaCard, Pin 등)과 동일한 역할 컬러 코드
 function rankBadgeClass(role: 'A' | 'B') {
   return role === 'A' ? 'bg-pink-500 text-white' : 'bg-accent-teal text-white'
-}
-
-function rankBorderClass(role: 'A' | 'B') {
-  return role === 'A' ? 'border-pink-500' : 'border-accent-teal'
-}
-
-function moveOrder(setOrder: (updater: (order: string[]) => string[]) => void, index: number, delta: number) {
-  setOrder((order) => {
-    const next = [...order]
-    const target = index + delta
-    if (target < 0 || target >= next.length) return order
-    ;[next[index], next[target]] = [next[target], next[index]]
-    return next
-  })
 }
 
 // role 고유 색 토큰 — "변경 사항" 배지는 제안자 본인(role) 색을, "상대 확인
@@ -163,7 +151,11 @@ export default function AdjustPage() {
   // 뿐이라, 개별 코드 값이 아니라 순서 자체가 상태다.
   const [aOrder, setAOrder] = useState<string[]>([])
   const [bOrder, setBOrder] = useState<string[]>([])
-  const [budgetValue, setBudgetValue] = useState(0)
+  // budget_max_krw는 DB에서도 참여자별 컬럼이라(decide_proposal이 항상
+  // proposer_id 행에만 적용) A/B가 각자 자기 예산을 따로 올릴 수 있다 — 실제
+  // 매칭에 쓰이는 값은 둘 중 낮은 쪽(appliedBudget)이다.
+  const [aBudgetValue, setABudgetValue] = useState(0)
+  const [bBudgetValue, setBBudgetValue] = useState(0)
 
   // 통근·예산 조건에 맞는 후보 0건(콜드 스테이션)이었던 세션에서만 채워진다
   // — "추천 조정" 카드/하이라이트에 쓴다. get_concession_matches가 계산한
@@ -219,7 +211,8 @@ export default function AdjustPage() {
     // 순위 3개는 permutation이라 제안 payload엔 바뀔 때 항상 셋이 함께 온다.
     let aOverlayOrder = orderFromPriorities(parsed.a.priorities)
     let bOverlayOrder = orderFromPriorities(parsed.b.priorities)
-    let budgetInit = Math.min(parsed.a.budget_max_krw, parsed.b.budget_max_krw)
+    let aBudgetInit = parsed.a.budget_max_krw
+    let bBudgetInit = parsed.b.budget_max_krw
 
     if (pendingProposal) {
       const proposerIsA = pendingProposal.proposer_id === parsed.a.id
@@ -232,14 +225,16 @@ export default function AdjustPage() {
         else bOverlayOrder = proposedOrder
       }
       if ('budget_max_krw' in pendingProposal.payload) {
-        budgetInit = Number(pendingProposal.payload.budget_max_krw)
+        if (proposerIsA) aBudgetInit = Number(pendingProposal.payload.budget_max_krw)
+        else bBudgetInit = Number(pendingProposal.payload.budget_max_krw)
       }
     }
 
     setData(parsed)
     setAOrder(aOverlayOrder)
     setBOrder(bOverlayOrder)
-    setBudgetValue(budgetInit)
+    setABudgetValue(aBudgetInit)
+    setBBudgetValue(bBudgetInit)
     setLoading(false)
 
     // 원래(조율 전) 조건 기준으로 콜드 스테이션이었던 세션만 추천 조정 카드를
@@ -272,17 +267,14 @@ export default function AdjustPage() {
   const lowBudgetOriginal = data ? Math.min(data.a.budget_max_krw, data.b.budget_max_krw) : 0
   const highBudgetOriginal = data ? Math.max(data.a.budget_max_krw, data.b.budget_max_krw) : 0
   const budgetHasConflict = data ? data.a.budget_max_krw !== data.b.budget_max_krw : false
-  // 예산 슬라이더는 min이 항상 lowBudgetOriginal이라 "올리는" 것만 가능하다.
-  // 내가 이미 더 높은 예산 쪽이면 내 슬라이더를 올려도 적용 예산(최소값)엔
-  // 아무 영향이 없는데, 예전엔 슬라이더는 누구나 움직일 수 있고 미리보기
-  // 구역 수(passing)도 그 값을 그대로 반영해서 — 실제로는 반영되지 않는
-  // 변경인데 마치 반영되는 것처럼 보였다(제안 시 myDiff가 iAmLowerBudget일
-  // 때만 payload에 담아서, 조율 화면 미리보기 개수와 승인 후 결과 화면 개수가
-  // 달라지는 버그의 원인). 낮은 예산 쪽만 슬라이더를 움직일 수 있게 막는다.
-  const iAmLowerBudget =
-    data && me ? (me.role === 'A' ? data.a.budget_max_krw : data.b.budget_max_krw) === lowBudgetOriginal : false
-  // 두 사람 예산 중 더 높은 쪽보다도 3억 더 위까지 탐색해볼 수 있게 여유를 둔다
-  // (예산이 같을 때도 슬라이더로 상한을 올려서 후보를 넓혀볼 수 있어야 함).
+  // 실제 매칭에 쓰이는 적용 예산 — 항상 둘 중 낮은 쪽. A/B 모두 자기 슬라이더를
+  // 올릴 수 있지만, 상대보다 이미 높은 쪽을 더 올려도 이 값(따라서 passing)엔
+  // 영향이 없다 — 그게 정상이다(가구 예산 제약은 항상 더 빠듯한 쪽 기준).
+  const appliedBudget = Math.min(aBudgetValue, bBudgetValue)
+  // 각자 슬라이더의 min은 자기 원래 예산으로 고정한다("올리는" 것만 허용) —
+  // 낮추면 다시 원래 계산과 어긋나고, 넓히는 협상 도구라는 의도에도 안 맞는다.
+  // max는 두 사람 중 더 높은 예산보다도 3억 더 위까지 여유를 둔다(예산이
+  // 같을 때도 상한을 올려 후보를 넓혀볼 수 있어야 함).
   const budgetSliderMax = highBudgetOriginal + 300_000_000
 
   // "추천 조정" 카드 — 예산과 필수조건 두 종류를 같은 패턴(카드 → 강조된
@@ -311,7 +303,8 @@ export default function AdjustPage() {
 
   function applyRecommendation() {
     if (!recommendation) return
-    setBudgetValue((v) => Math.min(v + recommendation.amount, budgetSliderMax))
+    const setBudget = recommendation.role === 'A' ? setABudgetValue : setBBudgetValue
+    setBudget((v) => Math.min(v + recommendation.amount, budgetSliderMax))
     setHighlightTarget('budget')
     setRecommendationApplied(true)
     requestAnimationFrame(() => {
@@ -323,7 +316,7 @@ export default function AdjustPage() {
   const passing = useMemo(() => {
     if (!data) return []
     return data.candidates
-      .filter((c) => c.avg_price_krw != null && c.avg_price_krw <= budgetValue)
+      .filter((c) => c.avg_price_krw != null && c.avg_price_krw <= appliedBudget)
       .filter((c) => priorityHardOk(aOrder, c.satisfied) && priorityHardOk(bOrder, c.satisfied))
       .map((c) => {
         const score = CODES.reduce((sum, code) => {
@@ -333,7 +326,7 @@ export default function AdjustPage() {
         return { ...c, score }
       })
       .sort((x, y) => y.score - x.score || x.a_minutes + x.b_minutes - (y.a_minutes + y.b_minutes))
-  }, [data, aOrder, bOrder, budgetValue])
+  }, [data, aOrder, bOrder, appliedBudget])
 
   const iAmDeciding = pending && !isProposer
 
@@ -341,7 +334,7 @@ export default function AdjustPage() {
     if (!me || !data) return {}
     const myOrder = me.role === 'A' ? aOrder : bOrder
     const myOriginal = me.role === 'A' ? data.a : data.b
-    const iAmLowerBudget = myOriginal.budget_max_krw === lowBudgetOriginal
+    const myBudgetValue = me.role === 'A' ? aBudgetValue : bBudgetValue
 
     const payload: Record<string, string | number> = {}
     const originalOrder = orderFromPriorities(myOriginal.priorities)
@@ -350,8 +343,8 @@ export default function AdjustPage() {
         payload[code] = i + 1
       })
     }
-    if (iAmLowerBudget && budgetValue !== myOriginal.budget_max_krw) {
-      payload.budget_max_krw = budgetValue
+    if (myBudgetValue !== myOriginal.budget_max_krw) {
+      payload.budget_max_krw = myBudgetValue
     }
     return payload
   }
@@ -388,7 +381,7 @@ export default function AdjustPage() {
     if (!me || !data) return
     const myOrder = me.role === 'A' ? aOrder : bOrder
     const myOriginal = me.role === 'A' ? data.a : data.b
-    const iAmLowerBudget = myOriginal.budget_max_krw === lowBudgetOriginal
+    const myBudgetValue = me.role === 'A' ? aBudgetValue : bBudgetValue
 
     const originalOrder = orderFromPriorities(myOriginal.priorities)
     if (myOrder.join(',') !== originalOrder.join(',')) {
@@ -403,10 +396,10 @@ export default function AdjustPage() {
       if (condError) throw condError
     }
 
-    if (iAmLowerBudget && budgetValue !== myOriginal.budget_max_krw) {
+    if (myBudgetValue !== myOriginal.budget_max_krw) {
       const { error: budgetError } = await supabase
         .from('participants')
-        .update({ budget_max_krw: budgetValue })
+        .update({ budget_max_krw: myBudgetValue })
         .eq('id', me.id)
       if (budgetError) throw budgetError
     }
@@ -543,7 +536,7 @@ export default function AdjustPage() {
 
     const beforeBudget = Math.min(data.a.budget_max_krw, data.b.budget_max_krw)
     const sigunguCountBefore = countMatches(data.candidates, beforeBudget, aOrder, bOrder)
-    const sigunguCountAfter = countMatches(data.candidates, budgetValue, aOrder, bOrder)
+    const sigunguCountAfter = countMatches(data.candidates, appliedBudget, aOrder, bOrder)
     // "총 N곳" 배지 전용 — "N개 시군구에 걸쳐 있어요" 문구는 시군구 수 그대로 쓴다.
     const displayCountBefore = sigunguCountBefore * RECOMMENDED_PER_SIGUNGU
     const displayCountAfter = sigunguCountAfter * RECOMMENDED_PER_SIGUNGU
@@ -616,10 +609,10 @@ export default function AdjustPage() {
               <div className="rounded-[40px] border border-neutral-100 bg-white px-5 py-5 shadow-[0_10px_20px_rgba(0,0,0,0.04)]">
                 <div className="mb-3 flex items-center justify-between">
                   <span className="text-title-sb font-bold text-neutral-900">예산 상한</span>
-                  <span className="text-title-sb font-bold text-pink-500">{formatEok(budgetValue)}</span>
+                  <span className="text-title-sb font-bold text-pink-500">{formatEok(appliedBudget)}</span>
                 </div>
                 <Slider
-                  value={[budgetValue]}
+                  value={[appliedBudget]}
                   min={lowBudgetOriginal}
                   max={budgetSliderMax}
                   step={10_000_000}
@@ -676,38 +669,23 @@ export default function AdjustPage() {
 
   return (
     <main className="flex flex-1 justify-center bg-neutral-50">
-      <div className="w-full max-w-sm pb-32">
-        <div className="rounded-b-[60px] bg-neutral-100 px-4 pb-8">
-          <div className="sticky top-0 z-10 -mx-4 bg-neutral-100 px-4">
-            <OnboardBackBar onBack={() => router.push(`/s/${sessionId}/result`)} />
-          </div>
+      {/* 상단 네비게이션 — 스크롤과 무관하게 화면 상단에 고정 */}
+      <div className="fixed inset-x-0 top-0 z-30 bg-neutral-50">
+        <div className="mx-auto w-full max-w-sm px-4">
+          <OnboardBackBar onBack={() => router.push(`/s/${sessionId}/result`)} />
+        </div>
+      </div>
 
-          <div className="mt-2 mb-8 flex flex-col items-center gap-2 px-2 text-center">
-            <p className="text-body-s font-medium text-neutral-400">함께 조율하기</p>
-            <h1 className="text-[24px] leading-[1.4] font-semibold tracking-[-0.03em] text-neutral-900">
-              조건을 움직이면
-              <br />
-              구역이 바로 바뀌어요
-            </h1>
-          </div>
-
-          {/* A/B 컬러 범례 — 카드마다 반복하지 않고 여기서 한 번만 안내.
-              칩 순서는 항상 A=왼쪽/B=오른쪽 고정이라, B가 볼 땐 범례 문구도
-              "상대·내"로 뒤집어야 순서와 말이 맞는다. */}
-          <div className="mb-4 flex items-center justify-between px-2">
-            <span className="flex size-8 items-center justify-center rounded-full bg-pink-500 text-body-sb font-bold text-white">
-              A
-            </span>
-            <span className="text-caption-l text-neutral-400">
-              {me.role === 'B' ? '상대 조건 · 내 조건' : '내 조건 · 상대 조건'}
-            </span>
-            <span className="flex size-8 items-center justify-center rounded-full bg-accent-teal text-body-sb font-bold text-white">
-              B
-            </span>
-          </div>
+      <div className="w-full max-w-sm pt-[54px] pb-32">
+        <div className="flex flex-col gap-6 rounded-b-[60px] bg-neutral-50 px-4 pb-8">
+          <h1 className="px-2 text-center text-[24px] leading-[1.4] font-semibold tracking-[-0.03em] text-neutral-900">
+            내 조건을 조율하고
+            <br />
+            변동된 추천 동네를 제안해요
+          </h1>
 
           {recommendation && !recommendationApplied && (
-            <div className="mb-4 flex flex-col gap-4 rounded-[40px] border-2 border-pink-500 bg-white px-6 py-6">
+            <div className="flex flex-col gap-4 rounded-[40px] border-2 border-pink-500 bg-white px-6 py-6">
               <p className="flex items-center gap-1.5 text-body-m font-bold text-pink-500">
                 <Compass className="size-5" />
                 추천 조정
@@ -732,57 +710,31 @@ export default function AdjustPage() {
 
           <div className="flex flex-col gap-3">
             <div className="rounded-[40px] border border-neutral-100 bg-white px-5 py-5 shadow-[0_10px_20px_rgba(0,0,0,0.04)]">
-              <p className="mb-1 text-center text-title-sb font-bold text-neutral-900">우선순위</p>
-              <p className="mb-3 text-center text-caption-l text-neutral-400">
-                위로 올릴수록 결과에 더 크게 반영돼요
-              </p>
-              {/* 상단 A/B 범례(A=왼쪽 고정, B=오른쪽 고정)와 순서를 맞춘다 — "내
-                  조건"이 항상 왼쪽에 오면 B가 볼 때 범례와 어긋나 보인다. */}
+              <p className="mb-3 text-center text-title-sb font-bold text-neutral-900">우선순위 조정</p>
+              {/* A=왼쪽/B=오른쪽 고정. 그립(⠿)을 눌러 끌면 순서가 바뀌고,
+                  본인 role만 조작 가능하다(상대 쪽은 반투명 열람 전용). */}
               <div className="grid grid-cols-2 gap-3">
-                {([['A', aOrder, setAOrder] as const, ['B', bOrder, setBOrder] as const]).map(
-                  ([role, order, setOrder]) => (
-                    <div key={role} className={cn('flex flex-col gap-1.5', me.role !== role && 'opacity-30')}>
-                      {order.map((code, i) => (
-                        <div
-                          key={code}
-                          className={cn(
-                            'flex items-center gap-1.5 rounded-2xl border-2 bg-white px-3 py-2',
-                            rankBorderClass(role)
-                          )}
-                        >
-                          <span className={cn('flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold', rankBadgeClass(role))}>
-                            {i + 1}
-                          </span>
-                          <span className="min-w-0 flex-1 truncate text-caption-l font-bold text-neutral-900">
-                            {CONDITION_LABEL[code]}
-                          </span>
-                          {me.role === role && (
-                            <div className="flex shrink-0 flex-col">
-                              <button
-                                type="button"
-                                onClick={() => moveOrder(setOrder, i, -1)}
-                                disabled={i === 0}
-                                aria-label={`${CONDITION_LABEL[code]} 순위 올리기`}
-                                className="text-neutral-400 disabled:opacity-20"
-                              >
-                                <ChevronUp className="size-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => moveOrder(setOrder, i, 1)}
-                                disabled={i === order.length - 1}
-                                aria-label={`${CONDITION_LABEL[code]} 순위 내리기`}
-                                className="text-neutral-400 disabled:opacity-20"
-                              >
-                                <ChevronDown className="size-3.5" />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )
-                )}
+                {(
+                  [
+                    ['A', aOrder, setAOrder, '/asset/priority-letter-a.png'] as const,
+                    ['B', bOrder, setBOrder, '/asset/priority-letter-b.png'] as const,
+                  ]
+                ).map(([role, order, setOrder, letterSrc]) => (
+                  <div key={role} className="flex flex-col items-center gap-1.5">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={letterSrc}
+                      alt={role}
+                      className={cn('h-11 w-auto', me.role !== role && 'opacity-50')}
+                    />
+                    <PriorityOrderList
+                      role={role}
+                      order={order}
+                      onReorder={setOrder}
+                      interactive={me.role === role}
+                    />
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -793,60 +745,97 @@ export default function AdjustPage() {
                 highlightTarget === 'budget' && 'border-pink-500 ring-4 ring-pink-200'
               )}
             >
-              <div className="mb-3 flex items-center justify-between">
-                <span className="text-title-sb font-bold text-neutral-900">예산 상한</span>
+              <div className="flex items-center justify-between">
+                <span className="text-title-sb font-bold text-neutral-900">예산 상한 조정</span>
                 <span className="text-title-sb font-bold text-pink-500">
-                  {formatEok(budgetValue)}
+                  {formatEok(appliedBudget)}
                 </span>
               </div>
-              <p className="mb-3 text-caption-l text-neutral-400">
-                {budgetHasConflict
-                  ? '예산 상한이 서로 달라요 · 낮은 쪽 기준으로 시작해요'
-                  : '두 분 예산이 같아요'}
-                {iAmLowerBudget
-                  ? ' · 상한을 더 올려서 후보를 넓혀볼 수도 있어요'
-                  : ' · 더 낮은 예산 쪽만 상한을 조정할 수 있어요'}
+              <p className="mt-1 text-caption-l text-neutral-400">
+                {budgetHasConflict ? '예산 상한이 서로 달라요 · ' : '두 분 예산이 같아요 · '}
+                둘 중 더 낮은 예산이 기준이 돼요
               </p>
-              <Slider
-                value={[budgetValue]}
-                onValueChange={iAmLowerBudget ? ([v]) => setBudgetValue(v) : undefined}
-                // disabled={!iAmLowerBudget}
-                min={lowBudgetOriginal}
-                max={budgetSliderMax}
-                step={10_000_000}
-              />
-              <div className="mt-2 flex justify-between text-body-sb font-semibold text-neutral-900">
-                <span>{formatEok(lowBudgetOriginal)}</span>
-                <span>{formatEok(budgetSliderMax)}</span>
+
+              {/* A/B 각자 자기 예산만 조정할 수 있다(우선순위 카드와 동일한
+                  패턴 — 상대 쪽은 반투명 열람 전용). 슬라이더 min은 자기
+                  원래 예산으로 고정해 "올리는" 방향으로만 넓힐 수 있다. */}
+              <div className="mt-4 flex flex-col gap-4">
+                {(
+                  [
+                    ['A', aBudgetValue, setABudgetValue, data.a.budget_max_krw] as const,
+                    ['B', bBudgetValue, setBBudgetValue, data.b.budget_max_krw] as const,
+                  ]
+                ).map(([role, value, setValue, original]) => {
+                  const isMe = me.role === role
+                  return (
+                    <div key={role} className={cn('flex flex-col gap-2', !isMe && 'opacity-50')}>
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={cn(
+                            'flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white',
+                            role === 'A' ? 'bg-pink-500' : 'bg-accent-teal'
+                          )}
+                        >
+                          {role}
+                        </span>
+                        <span className="text-caption-l font-semibold text-neutral-900">
+                          {isMe ? '내 예산' : '상대 예산'}
+                        </span>
+                        <span className="ml-auto text-body-sb font-bold text-neutral-900">
+                          {formatEok(value)}
+                        </span>
+                      </div>
+                      <Slider
+                        value={[value]}
+                        onValueChange={isMe ? ([v]) => setValue(v) : undefined}
+                        min={original}
+                        max={budgetSliderMax}
+                        step={10_000_000}
+                      />
+                    </div>
+                  )
+                })}
               </div>
+
+              <div className="mt-4 h-px w-full bg-neutral-100" />
+              <p className="mt-3 text-center text-caption-l leading-[1.4] text-neutral-500">
+                각자 예산 상한을 올리면 후보를 넓혀볼 수 있어요
+              </p>
             </div>
           </div>
         </div>
 
-        <div className="flex flex-col items-center gap-1.5 py-8">
-          <p className="text-body-m text-neutral-500">함께 살 수 있는 구역</p>
-          <p className="flex items-center gap-2 text-title-sb font-bold text-neutral-900">
-            <span className="rounded-full bg-neutral-900 px-4 py-2 font-montserrat text-mont-title-m text-white">
-              {new Set(passing.map((p) => p.sigungu)).size}
-            </span>
-            개 시군구에 걸쳐 있어요
-          </p>
-        </div>
+        <div className="flex flex-col gap-4 rounded-t-[40px] bg-neutral-100 px-5 py-6">
+          <div className="flex flex-col items-center gap-2">
+            <p className="flex items-center gap-1 text-body-m font-semibold text-neutral-900">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/asset/icon/house.svg" alt="" className="size-6" />
+              우리가 함께 할 수 있는 동네 미리보기
+            </p>
+            {passing.length > 0 ? (
+              <p className="text-center text-title-sb font-bold text-neutral-900">
+                총 <span className="font-montserrat text-mont-title-l text-pink-500">{passing.length}</span>곳
+              </p>
+            ) : (
+              <p className="text-center text-title-sb font-bold text-neutral-900">함께 할 수 있는 곳이 없어요</p>
+            )}
+          </div>
 
-        <div className="rounded-t-[60px] bg-neutral-100 px-4 pt-8 pb-6">
-          <GroupedAreaList areas={passing} />
+          {passing.length > 0 && <AdjustAreaPreviewList areas={passing} emptyMessage="이 조건을 만족하는 동네가 아직 없어요" />}
         </div>
 
         {error && <p className="mt-3 px-4 text-center text-sm text-red-600">{error}</p>}
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-md bg-white px-4 py-5">
+      {/* 하단 제안 버튼 — 스크롤과 무관하게 화면 하단에 고정, 조율할 때마다
+          passing이 다시 계산되며 곳 수가 실시간으로 바뀐다 */}
+      <div className="fixed inset-x-0 bottom-0 z-20 flex justify-center bg-gradient-to-t from-white from-[40%] to-transparent pt-10 pb-6">
         <button
           onClick={suggest}
           disabled={submitting}
-          className="w-full rounded-full bg-pink-500 py-4 text-body-m font-bold text-white disabled:opacity-50"
+          className="mx-4 w-full max-w-[358px] rounded-full bg-pink-500 py-[15px] text-body-m font-bold text-white shadow-[0_10px_20px_rgba(255,77,139,0.25)] disabled:opacity-50"
         >
-          제안하기
+          {passing.length > 0 ? `총 ${passing.length}곳 제안하고 동네 보러 가기` : '상대방에 조율 제안하기'}
         </button>
       </div>
     </main>
