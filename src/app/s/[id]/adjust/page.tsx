@@ -35,6 +35,7 @@ interface Candidate {
 interface ParticipantAdjust {
   id: string
   budget_max_krw: number
+  commute_max_min: number
   priorities: Record<string, Priority>
 }
 
@@ -90,9 +91,17 @@ function roleTokens(role: 'A' | 'B') {
 
 // 시군구 개수만 필요한 가벼운 버전 — "총 8개 시군구 → 총 10개 시군구" 비교용.
 // 예산 상한 + 순위 하드필터(1·2순위)를 함께 반영한다 — passing과 동일한 필터 규칙.
-function countMatches(candidates: Candidate[], budget: number, aOrder: string[], bOrder: string[]) {
+function countMatches(
+  candidates: Candidate[],
+  budget: number,
+  aCommute: number,
+  bCommute: number,
+  aOrder: string[],
+  bOrder: string[]
+) {
   const passing = candidates
     .filter((c) => c.avg_price_krw != null && c.avg_price_krw <= budget)
+    .filter((c) => c.a_minutes <= aCommute && c.b_minutes <= bCommute)
     .filter((c) => priorityHardOk(aOrder, c.satisfied) && priorityHardOk(bOrder, c.satisfied))
   return new Set(passing.map((c) => c.sigungu)).size
 }
@@ -109,6 +118,16 @@ function buildChanges(payload: Record<string, string | number>, original: Partic
       label: '예산 상한',
       oldValue: formatEok(original.budget_max_krw),
       newValue: formatEok(Number(payload.budget_max_krw)),
+      isSkip: false,
+    })
+  }
+
+  if ('commute_max_min' in payload) {
+    changes.push({
+      key: 'commute_max_min',
+      label: '통근 상한',
+      oldValue: `${original.commute_max_min}분`,
+      newValue: `${Number(payload.commute_max_min)}분`,
       isSkip: false,
     })
   }
@@ -156,6 +175,8 @@ export default function AdjustPage() {
   // 매칭에 쓰이는 값은 둘 중 낮은 쪽(appliedBudget)이다.
   const [aBudgetValue, setABudgetValue] = useState(0)
   const [bBudgetValue, setBBudgetValue] = useState(0)
+  const [aCommuteValue, setACommuteValue] = useState(0)
+  const [bCommuteValue, setBCommuteValue] = useState(0)
 
   // 통근·예산 조건에 맞는 후보 0건(콜드 스테이션)이었던 세션에서만 채워진다
   // — "추천 조정" 카드/하이라이트에 쓴다. get_concession_matches가 계산한
@@ -166,6 +187,7 @@ export default function AdjustPage() {
   // 'budget' | null — 추천을 적용한 직후, 예산 카드에 잠깐 강조 링을 준다.
   const [highlightTarget, setHighlightTarget] = useState<string | null>(null)
   const budgetCardRef = useRef<HTMLDivElement>(null)
+  const commuteCardRef = useRef<HTMLDivElement>(null)
 
   const { ready: commuteReady } = useCommuteStatus(sessionId)
 
@@ -213,6 +235,8 @@ export default function AdjustPage() {
     let bOverlayOrder = orderFromPriorities(parsed.b.priorities)
     let aBudgetInit = parsed.a.budget_max_krw
     let bBudgetInit = parsed.b.budget_max_krw
+    let aCommuteInit = parsed.a.commute_max_min
+    let bCommuteInit = parsed.b.commute_max_min
 
     if (pendingProposal) {
       const proposerIsA = pendingProposal.proposer_id === parsed.a.id
@@ -228,6 +252,10 @@ export default function AdjustPage() {
         if (proposerIsA) aBudgetInit = Number(pendingProposal.payload.budget_max_krw)
         else bBudgetInit = Number(pendingProposal.payload.budget_max_krw)
       }
+      if ('commute_max_min' in pendingProposal.payload) {
+        if (proposerIsA) aCommuteInit = Number(pendingProposal.payload.commute_max_min)
+        else bCommuteInit = Number(pendingProposal.payload.commute_max_min)
+      }
     }
 
     setData(parsed)
@@ -235,6 +263,8 @@ export default function AdjustPage() {
     setBOrder(bOverlayOrder)
     setABudgetValue(aBudgetInit)
     setBBudgetValue(bBudgetInit)
+    setACommuteValue(aCommuteInit)
+    setBCommuteValue(bCommuteInit)
     setLoading(false)
 
     // 원래(조율 전) 조건 기준으로 콜드 스테이션이었던 세션만 추천 조정 카드를
@@ -244,6 +274,8 @@ export default function AdjustPage() {
       countMatches(
         parsed.candidates,
         originalLowBudget,
+        parsed.a.commute_max_min,
+        parsed.b.commute_max_min,
         orderFromPriorities(parsed.a.priorities),
         orderFromPriorities(parsed.b.priorities)
       ) === 0
@@ -277,6 +309,13 @@ export default function AdjustPage() {
   // 같을 때도 상한을 올려 후보를 넓혀볼 수 있어야 함).
   const budgetSliderMax = highBudgetOriginal + 300_000_000
 
+  const highCommuteOriginal = data ? Math.max(data.a.commute_max_min, data.b.commute_max_min) : 0
+  const commuteHasConflict = data ? data.a.commute_max_min !== data.b.commute_max_min : false
+  // 통근은 인당 값이라(예산처럼 "더 낮은 쪽" 공유 기준이 없음) appliedCommute
+  // 같은 단일 파생값을 만들지 않는다 — passing 필터가 각자 값으로 따로 비교한다.
+  // 슬라이더 max는 DB 체크 제약(commute_max_min between 10 and 120)을 넘지 않게 캡한다.
+  const commuteSliderMax = Math.min(highCommuteOriginal + 30, 120)
+
   // "추천 조정" 카드 — 예산과 필수조건 두 종류를 같은 패턴(카드 → 강조된
   // 항목으로 스크롤+링 하이라이트)으로 보여준다. 한 세션엔 병목이 하나뿐이라
   // 항상 둘 중 하나만(또는 아무것도) 뜬다.
@@ -295,20 +334,33 @@ export default function AdjustPage() {
     return { kind: 'budget' as const, role: lowerRole, amount: side.budget_widen_krw, areaCount: concession.main.total_count }
   })()
 
-  // 순위(area_size/build_year/infra)는 더 이상 하드 필터가 아니라서 "넓힐"
-  // 수도, 낮춰서 후보를 열 수도 없다 — 남는 병목은 항상 통근·예산뿐이라
-  // budgetRecommendation 하나로 충분하다(통근 조정 UI는 이 화면에 없어서
-  // 통근이 병목이면 카드 자체가 안 뜬다).
-  const recommendation = budgetRecommendation
+  // 통근은 인당 값이라 "더 낮은 쪽" 비교 없이, 병목인 본인 role에게만 보여준다.
+  const commuteRecommendation = (() => {
+    if (!concession || !data || !me) return null
+    if (concession.main.total_count === 0) return null
+    const side = me.role === 'A' ? concession.main.give.a : concession.main.give.b
+    if (side.commute_widen_min === 0) return null
+    return { kind: 'commute' as const, role: me.role, amount: side.commute_widen_min, areaCount: concession.main.total_count }
+  })()
+
+  // 한 세션의 병목은 예산 또는 통근 중 하나뿐이라(사다리가 a_target/b_target을
+  // 각각 하나로만 정함) 두 추천이 동시에 존재하는 경우는 없다.
+  const recommendation = budgetRecommendation ?? commuteRecommendation
 
   function applyRecommendation() {
     if (!recommendation) return
-    const setBudget = recommendation.role === 'A' ? setABudgetValue : setBBudgetValue
-    setBudget((v) => Math.min(v + recommendation.amount, budgetSliderMax))
-    setHighlightTarget('budget')
+    if (recommendation.kind === 'budget') {
+      const setBudget = recommendation.role === 'A' ? setABudgetValue : setBBudgetValue
+      setBudget((v) => Math.min(v + recommendation.amount, budgetSliderMax))
+    } else {
+      const setCommute = recommendation.role === 'A' ? setACommuteValue : setBCommuteValue
+      setCommute((v) => Math.min(v + recommendation.amount, commuteSliderMax))
+    }
+    setHighlightTarget(recommendation.kind)
     setRecommendationApplied(true)
     requestAnimationFrame(() => {
-      budgetCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      const ref = recommendation.kind === 'budget' ? budgetCardRef : commuteCardRef
+      ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     })
     setTimeout(() => setHighlightTarget(null), 2500)
   }
@@ -317,6 +369,7 @@ export default function AdjustPage() {
     if (!data) return []
     return data.candidates
       .filter((c) => c.avg_price_krw != null && c.avg_price_krw <= appliedBudget)
+      .filter((c) => c.a_minutes <= aCommuteValue && c.b_minutes <= bCommuteValue)
       .filter((c) => priorityHardOk(aOrder, c.satisfied) && priorityHardOk(bOrder, c.satisfied))
       .map((c) => {
         const score = CODES.reduce((sum, code) => {
@@ -326,7 +379,7 @@ export default function AdjustPage() {
         return { ...c, score }
       })
       .sort((x, y) => y.score - x.score || x.a_minutes + x.b_minutes - (y.a_minutes + y.b_minutes))
-  }, [data, aOrder, bOrder, appliedBudget])
+  }, [data, aOrder, bOrder, appliedBudget, aCommuteValue, bCommuteValue])
 
   const iAmDeciding = pending && !isProposer
 
@@ -335,6 +388,7 @@ export default function AdjustPage() {
     const myOrder = me.role === 'A' ? aOrder : bOrder
     const myOriginal = me.role === 'A' ? data.a : data.b
     const myBudgetValue = me.role === 'A' ? aBudgetValue : bBudgetValue
+    const myCommuteValue = me.role === 'A' ? aCommuteValue : bCommuteValue
 
     const payload: Record<string, string | number> = {}
     const originalOrder = orderFromPriorities(myOriginal.priorities)
@@ -345,6 +399,9 @@ export default function AdjustPage() {
     }
     if (myBudgetValue !== myOriginal.budget_max_krw) {
       payload.budget_max_krw = myBudgetValue
+    }
+    if (myCommuteValue !== myOriginal.commute_max_min) {
+      payload.commute_max_min = myCommuteValue
     }
     return payload
   }
@@ -382,6 +439,7 @@ export default function AdjustPage() {
     const myOrder = me.role === 'A' ? aOrder : bOrder
     const myOriginal = me.role === 'A' ? data.a : data.b
     const myBudgetValue = me.role === 'A' ? aBudgetValue : bBudgetValue
+    const myCommuteValue = me.role === 'A' ? aCommuteValue : bCommuteValue
 
     const originalOrder = orderFromPriorities(myOriginal.priorities)
     if (myOrder.join(',') !== originalOrder.join(',')) {
@@ -402,6 +460,14 @@ export default function AdjustPage() {
         .update({ budget_max_krw: myBudgetValue })
         .eq('id', me.id)
       if (budgetError) throw budgetError
+    }
+
+    if (myCommuteValue !== myOriginal.commute_max_min) {
+      const { error: commuteError } = await supabase
+        .from('participants')
+        .update({ commute_max_min: myCommuteValue })
+        .eq('id', me.id)
+      if (commuteError) throw commuteError
     }
   }
 
@@ -535,8 +601,12 @@ export default function AdjustPage() {
     const changes = buildChanges(pending.payload, proposerOriginal)
 
     const beforeBudget = Math.min(data.a.budget_max_krw, data.b.budget_max_krw)
-    const sigunguCountBefore = countMatches(data.candidates, beforeBudget, aOrder, bOrder)
-    const sigunguCountAfter = countMatches(data.candidates, appliedBudget, aOrder, bOrder)
+    const sigunguCountBefore = countMatches(
+      data.candidates, beforeBudget, data.a.commute_max_min, data.b.commute_max_min, aOrder, bOrder
+    )
+    const sigunguCountAfter = countMatches(
+      data.candidates, appliedBudget, aCommuteValue, bCommuteValue, aOrder, bOrder
+    )
     // "총 N곳" 배지 전용 — "N개 시군구에 걸쳐 있어요" 문구는 시군구 수 그대로 쓴다.
     const displayCountBefore = sigunguCountBefore * RECOMMENDED_PER_SIGUNGU
     const displayCountAfter = sigunguCountAfter * RECOMMENDED_PER_SIGUNGU
@@ -691,12 +761,18 @@ export default function AdjustPage() {
                 추천 조정
               </p>
               <p className="text-body-m leading-[1.6] text-neutral-900">
-                <span className="font-bold">{recommendation.role}의 예산 상한</span>이 낮아 후보가
-                없었어요. 아래{' '}
+                <span className="font-bold">
+                  {recommendation.role}의 {recommendation.kind === 'budget' ? '예산 상한' : '통근 상한'}
+                </span>
+                이 {recommendation.kind === 'budget' ? '낮아' : '좁아'} 후보가 없었어요. 아래{' '}
                 <span className="font-bold text-accent-teal">강조된 항목</span>처럼{' '}
-                <span className="font-bold">{formatEok(recommendation.amount)}</span> 올리면{' '}
-                <span className="font-bold text-pink-500">{recommendation.areaCount}곳</span>이
-                열려요.
+                <span className="font-bold">
+                  {recommendation.kind === 'budget'
+                    ? formatEok(recommendation.amount)
+                    : `${recommendation.amount}분`}
+                </span>{' '}
+                {recommendation.kind === 'budget' ? '올리면' : '넓히면'}{' '}
+                <span className="font-bold text-pink-500">{recommendation.areaCount}곳</span>이 열려요.
               </p>
               <button
                 type="button"
@@ -802,6 +878,61 @@ export default function AdjustPage() {
                 각자 예산 상한을 올리면 후보를 넓혀볼 수 있어요
               </p>
             </div>
+
+            <div
+              ref={commuteCardRef}
+              className={cn(
+                'rounded-[40px] border border-neutral-100 bg-white px-5 py-5 shadow-[0_10px_20px_rgba(0,0,0,0.04)] transition-all',
+                highlightTarget === 'commute' && 'border-pink-500 ring-4 ring-pink-200'
+              )}
+            >
+              <span className="text-title-sb font-bold text-neutral-900">통근 상한 조정</span>
+              <p className="mt-1 text-caption-l text-neutral-400">
+                {commuteHasConflict ? '통근 상한이 서로 달라요 · ' : '통근 상한이 같아요 · '}
+                각자 상한 안에서만 후보에 반영돼요
+              </p>
+
+              <div className="mt-4 flex flex-col gap-4">
+                {(
+                  [
+                    ['A', aCommuteValue, setACommuteValue, data.a.commute_max_min] as const,
+                    ['B', bCommuteValue, setBCommuteValue, data.b.commute_max_min] as const,
+                  ]
+                ).map(([role, value, setValue, original]) => {
+                  const isMe = me.role === role
+                  return (
+                    <div key={role} className={cn('flex flex-col gap-2', !isMe && 'opacity-50')}>
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={cn(
+                            'flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white',
+                            role === 'A' ? 'bg-pink-500' : 'bg-accent-teal'
+                          )}
+                        >
+                          {role}
+                        </span>
+                        <span className="text-caption-l font-semibold text-neutral-900">
+                          {isMe ? '내 통근 상한' : '상대 통근 상한'}
+                        </span>
+                        <span className="ml-auto text-body-sb font-bold text-neutral-900">{value}분</span>
+                      </div>
+                      <Slider
+                        value={[value]}
+                        onValueChange={isMe ? ([v]) => setValue(v) : undefined}
+                        min={original}
+                        max={commuteSliderMax}
+                        step={5}
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+
+              <div className="mt-4 h-px w-full bg-neutral-100" />
+              <p className="mt-3 text-center text-caption-l leading-[1.4] text-neutral-500">
+                각자 통근 상한을 올리면 후보를 넓혀볼 수 있어요
+              </p>
+            </div>
           </div>
         </div>
 
@@ -835,7 +966,7 @@ export default function AdjustPage() {
           disabled={submitting}
           className="mx-4 w-full max-w-[358px] rounded-full bg-pink-500 py-[15px] text-body-m font-bold text-white shadow-[0_10px_20px_rgba(255,77,139,0.25)] disabled:opacity-50"
         >
-          {passing.length > 0 ? `총 ${passing.length}곳 제안하고 동네 보러 가기` : '상대방에 조율 제안하기'}
+          {`총 ${passing.length}곳 제안하고 동네 보러 가기`}
         </button>
       </div>
     </main>
