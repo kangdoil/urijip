@@ -122,11 +122,11 @@ end $$;
 -- ===== 3) _concession_ladder_step (원 정의: 20260725000000_concession_priority_safety_net.sql) =====
 create or replace function public._concession_ladder_step(
   sid uuid,
-  a_target text,
+  a_target text,        -- 'commute' | 'budget' | null(양보 불필요)
   b_target text,
   widen_min int,
   widen_budget bigint,
-  min_priority_a int,
+  min_priority_a int,    -- 2=아무것도 안 풂, 1=2순위 해제, 0=전부 해제
   min_priority_b int
 ) returns jsonb language plpgsql stable as $$
 declare
@@ -236,6 +236,7 @@ begin
   select * into a_p from public.participants where session_id = sid and role = 'A';
   select * into b_p from public.participants where session_id = sid and role = 'B';
 
+  -- A·B 중 누구든 1·2순위로 고른 조건만 후보(최대 3개: area_size/build_year/infra)
   select coalesce(array_agg(distinct pc.condition_code), '{}') into candidate_codes
   from public.participant_conditions pc
   where pc.participant_id in (a_p.id, b_p.id) and pc.priority in (1, 2);
@@ -281,6 +282,9 @@ begin
     impact := impact || jsonb_build_object('condition_code', code, 'total_count', cnt);
   end loop;
 
+  -- ===== benefit: relieved_code가 있을 때만, 그 조건을 뺀 나머지 2개 구조
+  -- 조건 + 예산 여유를 같은 eligible set(위 루프에서 relieved_code로 이미
+  -- 계산한 것과 동일한 집합) 기준으로 집계한다. =====
   if relieved_code is not null then
     select array_agg(t.code order by t.ord) into remaining_codes
     from unnest(array['area_size', 'build_year', 'infra']) with ordinality as t(code, ord)
