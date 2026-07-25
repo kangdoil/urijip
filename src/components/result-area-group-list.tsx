@@ -15,6 +15,9 @@ interface ResultAreaGroupListProps {
   onGroupFocusChange: (sigungu: string | null) => void
   registerCardRef: (code: string, el: HTMLDivElement | null) => void
   emptyLabel: string
+  // 리스트가 맨 위에 있는지 알려준다 — 부모(ResultMapSheet)가 필터 영역을
+  // 스크롤 중엔 숨기고 맨 위로 돌아왔을 때만 다시 보여주는 데 쓴다.
+  onAtTopChange?: (atTop: boolean) => void
 }
 
 // 결과 화면 바텀시트의 시군구별 세로 리스트. 리스트 자체를 스크롤 컨테이너로
@@ -34,6 +37,7 @@ export function ResultAreaGroupList({
   onGroupFocusChange,
   registerCardRef,
   emptyLabel,
+  onAtTopChange,
 }: ResultAreaGroupListProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const groupRefs = useRef<Record<string, HTMLDivElement | null>>({})
@@ -49,6 +53,18 @@ export function ResultAreaGroupList({
   useEffect(() => {
     lastFocusedRef.current = focusedSigungu
   }, [focusedSigungu])
+
+  // atTop 판정은 그룹 개수와 무관하게(단일 그룹이라도 카드가 많으면 스크롤됨)
+  // 항상 감시한다 — 위 스크롤스파이 이펙트와는 별개 관심사라 분리했다.
+  useEffect(() => {
+    const root = scrollRef.current
+    if (!root || !onAtTopChange) return
+
+    onAtTopChange(root.scrollTop <= 0)
+    const handleScroll = () => onAtTopChange(root.scrollTop <= 0)
+    root.addEventListener('scroll', handleScroll, { passive: true })
+    return () => root.removeEventListener('scroll', handleScroll)
+  }, [onAtTopChange])
 
   useEffect(() => {
     // 그룹이 하나뿐이면 비교 대상이 없다 — 옵저버 없이 그 그룹을 바로 포커스한다.

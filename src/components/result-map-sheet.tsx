@@ -64,14 +64,16 @@ const PIN_FOCUS_LEVEL = 3
 const MAX_PER_GROUP = 5
 
 // 바텀시트 3단 스냅(Figma 기준, 844px 프레임 대비 비율):
-// 접힘(161px) / 중간(399px) / 전체(뷰포트 풀). vaul의 오프셋 공식은
+// 접힘(161px) / 중간(480px) / 전체(뷰포트 풀). vaul의 오프셋 공식은
 // `containerHeight - snapPoint*containerHeight`이고 containerHeight는
 // window.innerHeight를 쓴다 — Drawer.Content 박스 자체 높이가 뷰포트와
 // 같아야(h-dvh) SNAP_FULL(offset=0)이 실제 전체화면이 되고, 세 스냅이
 // 같은 박스 안에서 위치만 바뀌므로 중간/전체가 같은 콘텐츠를 공유하며
 // 리스트 스크롤 영역만 커진다.
+// 중간 스냅에서 리스트가 너무 조금 보인다는 피드백으로 399px(0.47)에서
+// 480px(0.57)로 올렸다(844px 프레임 기준 비율 유지).
 const SNAP_COLLAPSED = 0.19
-const SNAP_MID = 0.47
+const SNAP_MID = 0.57
 const SNAP_FULL = 1
 
 interface PinData {
@@ -302,6 +304,10 @@ export function ResultMapSheet({
   // 잘리는 문제가 있어 "구역 필터" 시트는 제거하고 체크박스 하나로 정리했다.
   // 디폴트는 꺼짐(선택된 동네만 노출) — 체크하면 제외된 동네도 같이 보여준다.
   const [includeExcluded, setIncludeExcluded] = useState(false)
+
+  // 리스트를 스크롤하면 필터 영역을 접어 카드가 보이는 공간을 넓히고, 맨
+  // 위로 돌아오면 다시 펼친다(ResultAreaGroupList의 onAtTopChange가 알려줌).
+  const [filterVisible, setFilterVisible] = useState(true)
 
   // 매칭 성공 분기만 3단 스냅(접힘/중간/전체)을 쓴다 — fallback·solo는 그 콘텐츠에
   // 맞춘 자연 높이(접힘/전체 2단)를 그대로 유지한다(범위 밖).
@@ -729,12 +735,21 @@ export function ResultMapSheet({
                     </button>
 
                     {groups.length > 0 && (
-                      <FilterChipRow
-                        label={sigunguTriggerLabel(selectedSigungus)}
-                        onOpenSigunguSheet={() => setSigunguSheetOpen(true)}
-                        includeExcluded={includeExcluded}
-                        onToggleIncludeExcluded={() => setIncludeExcluded((v) => !v)}
-                      />
+                      <div
+                        className={cn(
+                          'grid shrink-0 overflow-hidden transition-[grid-template-rows,opacity] duration-200 ease-out',
+                          filterVisible ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+                        )}
+                      >
+                        <div className="min-h-0">
+                          <FilterChipRow
+                            label={sigunguTriggerLabel(selectedSigungus)}
+                            onOpenSigunguSheet={() => setSigunguSheetOpen(true)}
+                            includeExcluded={includeExcluded}
+                            onToggleIncludeExcluded={() => setIncludeExcluded((v) => !v)}
+                          />
+                        </div>
+                      </div>
                     )}
 
                     <div className="min-h-0 flex-1">
@@ -750,6 +765,7 @@ export function ResultMapSheet({
                         registerCardRef={(code, el) => {
                           cardRefs.current[code] = el
                         }}
+                        onAtTopChange={setFilterVisible}
                         emptyLabel="이 조건을 만족하는 구역이 없어요"
                       />
                     </div>
