@@ -89,59 +89,7 @@ EOF
 **Interfaces:**
 - Produces: `summarize(trades: TradeItem[])`가 반환하는 객체에 `build_year_ok: boolean` 필드 추가(기존 `avg_price_krw`/`built_year_avg`/`size_59_ok`는 그대로).
 
-- [ ] **Step 1: 상수 추가**
-
-`scripts/refresh-trade-stats.ts:32-34`(현재 `const TRADE_MONTHS = 6`, `const SIZE_THRESHOLD_M2 = 59`, `const REQUEST_DELAY_MS = 200`) 바로 아래에 추가:
-
-```ts
-const TRADE_MONTHS = 6
-const SIZE_THRESHOLD_M2 = 59
-const REQUEST_DELAY_MS = 200
-// 신축 판정 재정의(docs/superpowers/specs/2026-07-25-build-year-ratio-threshold-design.md):
-// "평균 건축년도"가 아니라 size_59_ok와 같은 비율 방식 — 최근 RECENT_YEARS년
-// 이내 준공 거래 비중이 이 임계값 이상이면 신축 조건 충족으로 본다.
-const RECENT_YEARS = 10
-const BUILD_YEAR_RECENT_RATIO_THRESHOLD = 0.3
-```
-
-- [ ] **Step 2: `summarize()`에 `build_year_ok` 계산 추가, export**
-
-`scripts/refresh-trade-stats.ts:118-128`을 다음으로 교체(함수 시그니처에 `export` 추가 — Step 4의 검증 스크립트가 import해서 쓴다):
-
-```ts
-export function summarize(trades: TradeItem[]) {
-  const priceManwonSum = trades.reduce((sum, t) => sum + Number(t.dealAmount.replace(/,/g, '')), 0)
-  const buildYearSum = trades.reduce((sum, t) => sum + t.buildYear, 0)
-  const largeCount = trades.filter((t) => t.excluUseAr >= SIZE_THRESHOLD_M2).length
-  const recentCount = trades.filter((t) => t.buildYear >= new Date().getFullYear() - RECENT_YEARS).length
-
-  return {
-    avg_price_krw: Math.round((priceManwonSum / trades.length) * 10000),
-    built_year_avg: Math.round(buildYearSum / trades.length),
-    size_59_ok: largeCount / trades.length >= 0.5,
-    build_year_ok: recentCount / trades.length >= BUILD_YEAR_RECENT_RATIO_THRESHOLD,
-  }
-}
-```
-
-- [ ] **Step 3: row 타입에 필드 추가**
-
-`scripts/refresh-trade-stats.ts:184-190`을 다음으로 교체:
-
-```ts
-  const rows: {
-    area_code: string
-    avg_price_krw: number
-    built_year_avg: number
-    size_59_ok: boolean
-    build_year_ok: boolean
-    refreshed_at: string
-  }[] = []
-```
-
-(`rows.push({ area_code: area.code, ...summarize(trades), refreshed_at: ... })` 부분은 스프레드로 이미 `build_year_ok`를 포함하게 되므로 수정 불필요 — `scripts/refresh-trade-stats.ts:207-211` 그대로 둔다.)
-
-- [ ] **Step 4: 순수 함수 검증 스크립트 작성**
+- [ ] **Step 1: 순수 함수 검증 스크립트를 먼저 작성(TDD — 아직 아무것도 수정 안 한 상태)**
 
 `.scratch_verify_summarize.mjs`(임시 파일, 프로젝트 루트):
 
@@ -173,11 +121,64 @@ for (const c of cases) {
 console.log(allPass ? '\n전부 PASS' : '\nFAIL 있음')
 ```
 
-- [ ] **Step 5: 실행해서 실패 확인(수정 전 코드 대상 — 아직 `build_year_ok` 없으므로 실패해야 정상)**
+- [ ] **Step 2: 실행해서 실패 확인**
 
-Step 1~3을 적용하기 **전**이라면 이 스크립트는 `summarize is not a function`(export 안 됐으므로) 또는 `build_year_ok: undefined`로 실패한다. Step 1~3을 이미 적용했다면 이 순서 확인은 건너뛰고 바로 Step 6으로.
+Run: `npx tsx .scratch_verify_summarize.mjs`
+Expected: 에러(`summarize`가 아직 export 안 됐으므로 `summarize is not a function` 또는 undefined 관련 에러) — 실패해야 정상.
 
-- [ ] **Step 6: 실행해서 통과 확인**
+- [ ] **Step 3: 상수 추가**
+
+`scripts/refresh-trade-stats.ts:32-34`(현재 `const TRADE_MONTHS = 6`, `const SIZE_THRESHOLD_M2 = 59`, `const REQUEST_DELAY_MS = 200`) 바로 아래에 추가:
+
+```ts
+const TRADE_MONTHS = 6
+const SIZE_THRESHOLD_M2 = 59
+const REQUEST_DELAY_MS = 200
+// 신축 판정 재정의(docs/superpowers/specs/2026-07-25-build-year-ratio-threshold-design.md):
+// "평균 건축년도"가 아니라 size_59_ok와 같은 비율 방식 — 최근 RECENT_YEARS년
+// 이내 준공 거래 비중이 이 임계값 이상이면 신축 조건 충족으로 본다.
+const RECENT_YEARS = 10
+const BUILD_YEAR_RECENT_RATIO_THRESHOLD = 0.3
+```
+
+- [ ] **Step 4: `summarize()`에 `build_year_ok` 계산 추가, export**
+
+`scripts/refresh-trade-stats.ts:118-128`을 다음으로 교체(함수 시그니처에 `export` 추가 — Step 1의 검증 스크립트가 import해서 쓴다):
+
+```ts
+export function summarize(trades: TradeItem[]) {
+  const priceManwonSum = trades.reduce((sum, t) => sum + Number(t.dealAmount.replace(/,/g, '')), 0)
+  const buildYearSum = trades.reduce((sum, t) => sum + t.buildYear, 0)
+  const largeCount = trades.filter((t) => t.excluUseAr >= SIZE_THRESHOLD_M2).length
+  const recentCount = trades.filter((t) => t.buildYear >= new Date().getFullYear() - RECENT_YEARS).length
+
+  return {
+    avg_price_krw: Math.round((priceManwonSum / trades.length) * 10000),
+    built_year_avg: Math.round(buildYearSum / trades.length),
+    size_59_ok: largeCount / trades.length >= 0.5,
+    build_year_ok: recentCount / trades.length >= BUILD_YEAR_RECENT_RATIO_THRESHOLD,
+  }
+}
+```
+
+- [ ] **Step 5: row 타입에 필드 추가**
+
+`scripts/refresh-trade-stats.ts:184-190`을 다음으로 교체:
+
+```ts
+  const rows: {
+    area_code: string
+    avg_price_krw: number
+    built_year_avg: number
+    size_59_ok: boolean
+    build_year_ok: boolean
+    refreshed_at: string
+  }[] = []
+```
+
+(`rows.push({ area_code: area.code, ...summarize(trades), refreshed_at: ... })` 부분은 스프레드로 이미 `build_year_ok`를 포함하게 되므로 수정 불필요 — `scripts/refresh-trade-stats.ts:207-211` 그대로 둔다.)
+
+- [ ] **Step 6: 다시 실행해서 통과 확인**
 
 Run: `npx tsx .scratch_verify_summarize.mjs`
 Expected: 4개 케이스 전부 `PASS`, 마지막 줄 `전부 PASS`.
