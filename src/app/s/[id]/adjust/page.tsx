@@ -303,12 +303,17 @@ export default function AdjustPage() {
   // 같을 때도 상한을 올려 후보를 넓혀볼 수 있어야 함).
   const budgetSliderMax = highBudgetOriginal + 300_000_000
 
-  const highCommuteOriginal = data ? Math.max(data.a.commute_max_min, data.b.commute_max_min) : 0
   const commuteHasConflict = data ? data.a.commute_max_min !== data.b.commute_max_min : false
   // 통근은 인당 값이라(예산처럼 "더 낮은 쪽" 공유 기준이 없음) appliedCommute
   // 같은 단일 파생값을 만들지 않는다 — passing 필터가 각자 값으로 따로 비교한다.
-  // 슬라이더 max는 DB 체크 제약(commute_max_min between 10 and 120)을 넘지 않게 캡한다.
-  const commuteSliderMax = Math.min(highCommuteOriginal + 30, 120)
+  // 슬라이더 max도 예산(공유 상한)과 달리 인당으로 계산한다 — _adjust_candidates가
+  // 서버에서 각자 원래 상한 + 30분까지만 후보를 내려주므로, 상대의 원래값을
+  // 기준으로 공유 상한을 잡으면 원래 상한이 더 낮은 사람 쪽 슬라이더가 서버가
+  // 보내주지 않은 구간까지 움직여서 "슬라이더는 움직이는데 후보는 안 느는" 죽은
+  // 구간이 생긴다(실측으로 발견). DB 체크 제약(10~120)도 넘지 않게 캡한다.
+  function commuteSliderMaxFor(original: number) {
+    return Math.min(original + 30, 120)
+  }
 
   // "추천 조정" 카드 — 예산과 필수조건 두 종류를 같은 패턴(카드 → 강조된
   // 항목으로 스크롤+링 하이라이트)으로 보여준다. 한 세션엔 병목이 하나뿐이라
@@ -348,7 +353,8 @@ export default function AdjustPage() {
       setBudget((v) => Math.min(v + recommendation.amount, budgetSliderMax))
     } else {
       const setCommute = recommendation.role === 'A' ? setACommuteValue : setBCommuteValue
-      setCommute((v) => Math.min(v + recommendation.amount, commuteSliderMax))
+      const myOriginal = (recommendation.role === 'A' ? data?.a.commute_max_min : data?.b.commute_max_min) ?? 0
+      setCommute((v) => Math.min(v + recommendation.amount, commuteSliderMaxFor(myOriginal)))
     }
     setHighlightTarget(recommendation.kind)
     setRecommendationApplied(true)
@@ -880,7 +886,7 @@ export default function AdjustPage() {
                         value={[value]}
                         onValueChange={isMe ? ([v]) => setValue(v) : undefined}
                         min={original}
-                        max={commuteSliderMax}
+                        max={commuteSliderMaxFor(original)}
                         step={5}
                       />
                     </div>
