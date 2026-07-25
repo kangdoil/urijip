@@ -102,14 +102,14 @@ export function buildConcessionCopy(result: ConcessionMatchResult) {
 
   if (main.ladder_step == null) {
     return {
-      tipTitle: '이렇게 조율해봤어요',
+      tipTitle: '이렇게 조율해보세요',
       tipBody: '조건이나 우선순위를 조정하면 맞는 동네가 나올 수 있어요.',
       giveChips,
     }
   }
 
   return {
-    tipTitle: '이렇게 조율해봤어요',
+    tipTitle: '이렇게 조율해보세요',
     tipBody: `조건에 맞는 동네를 찾지 못했어요\n${STEP_MESSAGE[main.ladder_step]}`,
     giveChips,
   }

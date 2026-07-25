@@ -30,7 +30,7 @@ const ROLE_LETTER_SRC: Record<'A' | 'B', string> = {
 function StatsComparisonCard({ rows, benefit }: StatsComparisonProps) {
   const maxCount = Math.max(...rows.map((r) => r.count), 1)
   return (
-    <div className="flex h-full w-full shrink-0 flex-col gap-4 rounded-2xl bg-white px-5 py-6 shadow-[0_10px_10px_rgba(0,0,0,0.04)]">
+    <div className="flex h-full w-full shrink-0 flex-col gap-4 rounded-2xl bg-white px-5 py-6">
       <div className="flex flex-col gap-2">
         <span className="flex items-center gap-1 text-[16px] font-bold tracking-[-0.42px] text-neutral-900">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -119,7 +119,7 @@ export function ResultConcessionPanel({
           style={{ transform: `translateX(-${page * 100}%)` }}
         >
           <div className="h-full w-full shrink-0">
-            <div className="flex h-full flex-col gap-8 rounded-2xl bg-white px-5 py-6 shadow-[0_10px_10px_rgba(0,0,0,0.04)]">
+            <div className="flex h-full flex-col gap-8 rounded-2xl bg-white px-5 py-6">
               <div className="flex flex-col gap-2">
                 <span className="flex items-center gap-1 text-[16px] font-bold tracking-[-0.42px] text-neutral-900">
                   {/* eslint-disable-next-line @next/next/no-img-element */}

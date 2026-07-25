@@ -1103,7 +1103,7 @@ const concessionStats = concession
 ```tsx
 <ResultConcessionPanel
   totalCount={concession?.main.total_count ?? 0}
-  tipTitle={concessionCopy?.tipTitle ?? '이렇게 조율해봤어요'}
+  tipTitle={concessionCopy?.tipTitle ?? '이렇게 조율해보세요'}
   tipBody={concessionCopy?.tipBody ?? ''}
   giveChips={concessionCopy?.giveChips ?? []}
   stats={concessionStats}

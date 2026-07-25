@@ -230,22 +230,31 @@ function ActionButtonsFooter({
 function ConcessionApplyFooter({
   applying,
   onApply,
+  onAdjust,
   className,
 }: {
   applying: boolean
   onApply: () => void
+  onAdjust: () => void
   className?: string
 }) {
   return (
     <div className={cn('flex flex-col items-center', className)}>
       <div className="h-6 w-full bg-gradient-to-t from-white to-white/0" />
-      <div className="flex w-full flex-col items-center gap-3 bg-white px-5 py-[10px]">
+      <div className="flex w-full flex-col items-center bg-white px-5 py-[10px]">
         <button
           onClick={onApply}
           disabled={applying}
           className="flex w-full items-center justify-center rounded-full bg-pink-500 px-10 py-4 text-body-m font-bold text-white disabled:opacity-50"
         >
           {applying ? '적용하는 중...' : '이 조건으로 바꾸고 동네 보러 가기'}
+        </button>
+        <button
+          type="button"
+          onClick={onAdjust}
+          className="pt-4 text-body-s font-medium text-neutral-400 underline"
+        >
+          직접 조율하기
         </button>
       </div>
     </div>
@@ -723,7 +732,7 @@ export function ResultMapSheet({
               max-h만 안전장치로 둔 자연 높이를 유지한다(범위 밖 — 그대로). */}
           <Drawer.Content
             className={cn(
-              'fixed inset-x-0 bottom-0 z-10 mx-auto flex w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-white shadow-[0_-8px_32px_rgba(0,0,0,0.1)] outline-none',
+              'fixed inset-x-0 bottom-0 z-10 mx-auto flex w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-neutral-50 shadow-[0_-8px_32px_rgba(0,0,0,0.1)] outline-none',
               isFallback || solo ? 'max-h-[92dvh]' : 'h-dvh'
             )}
           >
@@ -765,7 +774,7 @@ export function ResultMapSheet({
                     <div className="flex h-[70dvh] flex-col pt-3">
                       <ResultConcessionPanel
                         totalCount={concession?.main.total_count ?? 0}
-                        tipTitle={concessionCopy?.tipTitle ?? '이렇게 조율해봤어요'}
+                        tipTitle={concessionCopy?.tipTitle ?? '이렇게 조율해보세요'}
                         tipBody={concessionCopy?.tipBody ?? ''}
                         giveChips={concessionCopy?.giveChips ?? []}
                         stats={concessionStats}
@@ -785,7 +794,7 @@ export function ResultMapSheet({
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src="/asset/icon/message-fill.svg" alt="" className="size-5 shrink-0" />
                         <span className="truncate text-[14px] font-medium tracking-[-0.35px] text-neutral-900">
-                          왜 이 동네들이 추천됐을까요?
+                          왜 이 동네들을 추천했을까?
                         </span>
                       </span>
                       <ChevronRight className="size-5 shrink-0 text-neutral-400" />
@@ -847,6 +856,7 @@ export function ResultMapSheet({
           className="fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-md"
           applying={applyingConcession}
           onApply={onApplyConcession}
+          onAdjust={onRetry}
         />
       )}
 

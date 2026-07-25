@@ -105,7 +105,7 @@ export function PriorityOrderList({ role, order, onReorder, interactive }: Prior
   }
 
   return (
-    <div ref={containerRef} className={cn('flex flex-col gap-1.5', !interactive && 'opacity-50')}>
+    <div ref={containerRef} className={cn('flex w-full flex-col gap-1.5', !interactive && 'opacity-50')}>
       {order.map((code, i) => {
         const isDragging = code === dragCode
         return (
