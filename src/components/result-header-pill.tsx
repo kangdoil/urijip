@@ -18,7 +18,7 @@ export function ResultHeaderPill({
   partnerConfirmed?: boolean
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-white bg-neutral-50/50 px-5 py-3 shadow-[0_10px_40px_rgba(0,0,0,0.04)] backdrop-blur-[10px]">
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-white bg-neutral-50/50 px-5 py-[10px] shadow-[0_10px_40px_rgba(0,0,0,0.04)] backdrop-blur-[10px]">
       <div className="flex min-w-0 items-center gap-2">
         <p className="flex shrink-0 items-center gap-1 text-lg font-semibold tracking-[-0.03em] text-neutral-900">
           {/* eslint-disable-next-line @next/next/no-img-element */}

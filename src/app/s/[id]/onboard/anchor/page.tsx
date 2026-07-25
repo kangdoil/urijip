@@ -161,7 +161,7 @@ export default function AnchorStepPage() {
               자주 가는 곳이 어디예요?
             </h1>
             <p className="text-base leading-[1.4] tracking-[-0.015em] text-neutral-500">
-              여기서 가까운 순서로 구역을 찾아드려요
+              여기서 가까운 순서로 동네를 찾아드려요
             </p>
           </div>
 

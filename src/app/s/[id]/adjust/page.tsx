@@ -679,9 +679,9 @@ export default function AdjustPage() {
       <div className="w-full max-w-sm pt-[54px] pb-32">
         <div className="flex flex-col gap-6 rounded-b-[60px] bg-neutral-50 px-4 pb-8">
           <h1 className="px-2 text-center text-[24px] leading-[1.4] font-semibold tracking-[-0.03em] text-neutral-900">
-            내 조건을 조율하고
+            내 조건을 조율해
             <br />
-            변동된 추천 동네를 제안해요
+            상대에게 동네를 제안해요
           </h1>
 
           {recommendation && !recommendationApplied && (

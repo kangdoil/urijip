@@ -2,12 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Drawer } from 'vaul'
-import { Check, ChevronDown, ChevronRight, CirclePlus } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight } from 'lucide-react'
 import { Map, CustomOverlayMap, useKakaoLoader } from 'react-kakao-maps-sdk'
 import { createClient } from '@/lib/supabase/client'
 import { ensureRealtimeAuth } from '@/lib/supabase/realtime-auth'
 import { groupBySigungu } from '@/lib/group-by-sigungu'
-import { CONDITION_LABEL } from '@/lib/condition-labels'
 import { cn } from '@/lib/utils'
 import { ResultHeaderPill } from '@/components/result-header-pill'
 import { ResultAreaCard, type ResultAreaData } from '@/components/result-area-card'
@@ -140,7 +139,7 @@ function FilterChipRow({
   onToggleIncludeExcluded: () => void
 }) {
   return (
-    <div className="flex w-full items-center gap-1.5 px-4 pt-2 pb-1">
+    <div className="flex w-full items-center justify-between gap-1.5 px-4 pt-0 pb-3">
       <button
         onClick={onOpenSigunguSheet}
         className="flex shrink-0 items-center gap-1 rounded-full bg-neutral-900 px-[12px] py-[6px] text-[12px] font-medium tracking-[-0.3px] text-white"
@@ -152,7 +151,7 @@ function FilterChipRow({
         type="button"
         onClick={onToggleIncludeExcluded}
         aria-pressed={includeExcluded}
-        className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full pl-4 py-2 text-[12px] font-medium tracking-[-0.3px] text-neutral-500"
+        className="flex shrink-0 items-center gap-1.5 rounded-full pl-4 py-2 text-[12px] font-medium tracking-[-0.3px] text-neutral-500"
       >
         <span
           className={cn(
@@ -193,7 +192,7 @@ function ActionButtonsFooter({
   return (
     <div className={cn('flex flex-col items-center', className)}>
       <div className="h-6 w-full bg-gradient-to-t from-white to-white/0" />
-      <div className="flex w-full flex-col items-center gap-3 bg-white px-4 pb-4">
+      <div className="flex w-full flex-col items-center justify-between gap-3 bg-white px-5 py-[10px]">
         {solo ? (
           <button
             onClick={onBackToWaiting}
@@ -589,12 +588,6 @@ export function ResultMapSheet({
   const title = solo ? '먼저 둘러보기' : '추천 동네'
   const subtitle = !solo && isFallback ? '통근·예산 조건에 맞는 구역이 없어요' : undefined
 
-  const priorityTopLabel = (codes: string[]) =>
-    codes[0] ? (CONDITION_LABEL[codes[0]] ?? codes[0]) : null
-  const aTop = priorityTopLabel(priorities.a)
-  const bTop = priorityTopLabel(priorities.b)
-  const prioritySummary = [aTop && `A ${aTop}`, bTop && `B ${bTop}`].filter(Boolean).join(' · ') || '없음'
-
   const isCollapsed = snap === SNAP_COLLAPSED
 
   // 시군구별 상위 MAX_PER_GROUP개로 캡한 전체 목록 — 저장·안내 문구 모두 이
@@ -718,7 +711,23 @@ export function ResultMapSheet({
                   )
                 ) : (
                   <>
-                    {/* Figma: 필터 영역이 위, 그 아래 우선순위 요약 프레임이 온다. */}
+                    {/* Figma: 힌트 메시지가 위, 그 아래 필터 영역이 온다 — "왜 이
+                        동네들이 추천됐을까요?"는 우선순위 근거 시트(ConditionSummarySheet)를
+                        여는 트리거로, 예전 "우선순위 : ..." 요약 버튼을 대체한다. */}
+                    <button
+                      onClick={() => setConditionSheetOpen(true)}
+                      className="flex w-full shrink-0 items-center justify-between px-5 py-4"
+                    >
+                      <span className="flex min-w-0 items-center gap-1">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src="/asset/icon/message-fill.svg" alt="" className="size-5 shrink-0" />
+                        <span className="truncate text-[14px] font-medium tracking-[-0.35px] text-neutral-900">
+                          왜 이 동네들이 추천됐을까요?
+                        </span>
+                      </span>
+                      <ChevronRight className="size-5 shrink-0 text-neutral-400" />
+                    </button>
+
                     {groups.length > 0 && (
                       <FilterChipRow
                         label={sigunguTriggerLabel(selectedSigungus)}
@@ -727,21 +736,6 @@ export function ResultMapSheet({
                         onToggleIncludeExcluded={() => setIncludeExcluded((v) => !v)}
                       />
                     )}
-
-                    <button
-                      onClick={() => setConditionSheetOpen(true)}
-                      className="flex w-full shrink-0 items-center justify-between gap-2 border-b border-neutral-100 px-4 pb-3"
-                    >
-                      <span className="flex min-w-0 items-center gap-2">
-                        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-pink-50">
-                          <CirclePlus className="size-4 text-pink-500" />
-                        </span>
-                        <span className="truncate text-body-sb font-semibold text-pink-500">
-                          우선순위 : {prioritySummary} / {budgetLabel}
-                        </span>
-                      </span>
-                      <ChevronRight className="size-6 shrink-0 text-neutral-400" />
-                    </button>
 
                     <div className="min-h-0 flex-1">
                       <ResultAreaGroupList

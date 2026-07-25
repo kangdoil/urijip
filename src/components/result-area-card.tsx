@@ -93,7 +93,7 @@ export function ResultAreaCard({
             )}
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5">
         {satisfiedCodes.length > 0 && (
           <div className="flex shrink-0 items-center gap-1">
             {satisfiedCodes.map((code) => (
@@ -112,7 +112,7 @@ export function ResultAreaCard({
           </span>
         )}
         {(satisfiedCodes.length > 0 || showSigungu) && (
-          <span className="h-3 w-px shrink-0 bg-neutral-300" />
+          <span className="h-3 w-px shrink-0 bg-neutral-100" />
         )}
         <span className="flex shrink-0 items-center gap-1 text-[12px] font-semibold text-pink-500">
           <CarIcon className="size-3.5" />
