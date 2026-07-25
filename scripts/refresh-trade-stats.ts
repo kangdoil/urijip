@@ -33,6 +33,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const TRADE_MONTHS = 6
 const SIZE_THRESHOLD_M2 = 59
 const REQUEST_DELAY_MS = 200
+// 신축 판정 재정의(docs/superpowers/specs/2026-07-25-build-year-ratio-threshold-design.md):
+// "평균 건축년도"가 아니라 size_59_ok와 같은 비율 방식 — 최근 RECENT_YEARS년
+// 이내 준공 거래 비중이 이 임계값 이상이면 신축 조건 충족으로 본다.
+const RECENT_YEARS = 10
+const BUILD_YEAR_RECENT_RATIO_THRESHOLD = 0.3
 
 interface TradeItem {
   umdNm: string
@@ -115,15 +120,17 @@ function toLegalDongName(dongName: string): string {
   return dongName.replace(/\d+동$/, '동')
 }
 
-function summarize(trades: TradeItem[]) {
+export function summarize(trades: TradeItem[]) {
   const priceManwonSum = trades.reduce((sum, t) => sum + Number(t.dealAmount.replace(/,/g, '')), 0)
   const buildYearSum = trades.reduce((sum, t) => sum + t.buildYear, 0)
   const largeCount = trades.filter((t) => t.excluUseAr >= SIZE_THRESHOLD_M2).length
+  const recentCount = trades.filter((t) => t.buildYear >= new Date().getFullYear() - RECENT_YEARS).length
 
   return {
     avg_price_krw: Math.round((priceManwonSum / trades.length) * 10000),
     built_year_avg: Math.round(buildYearSum / trades.length),
     size_59_ok: largeCount / trades.length >= 0.5,
+    build_year_ok: recentCount / trades.length >= BUILD_YEAR_RECENT_RATIO_THRESHOLD,
   }
 }
 
@@ -186,6 +193,7 @@ async function main() {
     avg_price_krw: number
     built_year_avg: number
     size_59_ok: boolean
+    build_year_ok: boolean
     refreshed_at: string
   }[] = []
   let fallbackCount = 0
