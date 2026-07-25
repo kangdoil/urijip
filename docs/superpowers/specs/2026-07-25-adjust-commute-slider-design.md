@@ -103,9 +103,45 @@ const recommendation = budgetRecommendation ?? commuteRecommendation
 
 **주의**: 예산과 통근 병목이 동시에 있는 세션은 없다는 기존 가정(주석: "한 세션엔 병목이 하나뿐이라 항상 둘 중 하나만(또는 아무것도) 뜬다")은 그대로 유지한다 — 사다리는 각 단계에서 a_target/b_target 중 하나만 'budget' 또는 'commute'로 정하므로 이 가정은 여전히 유효하다.
 
+## 추가 변경 — CTA 문구 통일 & 결정 화면(3) 레이아웃 교체
+
+`adjust-propose-mockup.jsx`(첨부, EditScreen/ReceiveScreen 두 모드)를 참고한다. 색상·폰트 크기 등 인라인 스타일 값은 그대로 쓰지 않고, 이 프로젝트의 기존 Tailwind 토큰/컴포넌트로 재구성한다(레이아웃 구조만 그대로 따른다).
+
+### 화면 (1) 편집 화면 — CTA 문구 통일
+
+`page.tsx:838`의 조건부 문구(`passing.length > 0 ? ... : '상대방에 조율 제안하기'`)를 없애고, 항상 mockup의 `ctaEdit`와 같은 형태로 통일한다:
+
+```tsx
+{`총 ${passing.length}곳 제안하고 동네 보러 가기`}
+```
+
+`passing.length === 0`이어도 "총 0곳 제안하고 동네 보러 가기"로 그대로 둔다(버튼 자체는 여전히 활성 — 0곳이어도 제안은 보낼 수 있다는 기존 동작 유지, 문구만 통일).
+
+### 화면 (3) 결정 화면 — mockup `ReceiveScreen` 레이아웃으로 교체
+
+지금 화면 (3)(`page.tsx:531-668`)은 우선순위 그리드(A/B 카드 나열) + 비활성 예산 슬라이더 + `GroupedAreaList`를 보여준다. 이걸 mockup의 `ReceiveScreen` 구조로 교체한다 — **변경된 항목만 diff로 보여주고, 그 아래 결과 미리보기 + 수락/거절 버튼**:
+
+**1) 변경 사항 배너** (mockup `proposalBanner`) — `buildChanges()`가 이미 만드는 `{key, label, oldValue, newValue}[]`를 그대로 쓰되, `commute_max_min` 케이스를 추가하고 각 행에 프로젝트 기존 아이콘을 붙인다:
+
+| key | 아이콘 | 비고 |
+|---|---|---|
+| `priorities` | lucide `ArrowUpDown` | 순열 변경이라 특정 조건 아이콘이 안 맞음 |
+| `budget_max_krw` | `/asset/icon/money.svg` (온보딩 예산 페이지와 동일 자산) | 델타 칩(`+0.5억`류)은 이번 범위에서 생략 — `buildChanges`가 델타를 안 만들어서 새로 계산해야 하는데 mockup 장식 요소라 필수 아님 |
+| `commute_max_min` | `CarIcon`(`@/components/icons/car-icon`, 이미 통근시간 표시에 씀) | 신규 추가 |
+
+각 행: 라벨(`text-caption-l text-neutral-500`) + 취소선 처리된 old 값(`text-neutral-300 line-through`) + 화살표(`ArrowRight` size-4) + 강조된 new 값(제안자 role 색 배지 — 기존 `roleTokens().badgeBg/badgeText` 그대로 재사용, 이미 화면 (1)/(3)에서 쓰던 패턴).
+
+마지막에 mockup `diffRowResult`에 해당하는 강조 행 — "함께 살 수 있는 동네" 배지, `bg-pink-50` 배경(프로젝트에 이미 있는 강조색, mockup의 커스텀 그린은 쓰지 않음), `house.svg` 아이콘(화면 (1) 미리보기 헤더와 동일 자산), `총 {sigunguCountBefore * RECOMMENDED_PER_SIGUNGU}곳 → 총 {sigunguCountAfter * RECOMMENDED_PER_SIGUNGU}곳`.
+
+**2) 결과 미리보기** (mockup `previewBlock`) — 새 컴포넌트를 만들지 않고 화면 (1)이 이미 쓰는 `AdjustAreaPreviewList`(`@/components/adjust-area-preview-list`)를 그대로 재사용한다 — 시군구당 카드 한 장 + 동 행 + "N곳 더보기" 패턴이 mockup의 hoodCard 반복 구조와 정확히 같다. `GroupedAreaList` import/사용은 이 화면에서 제거.
+
+**3) 액션 버튼** — 기존 `decide(false)`/`decide(true)` 로직은 그대로 두고 라벨만 mockup에 맞춘다: "No" → "다시 조율하기", "Yesss!" → "이 조건 수락하기". 스타일(외곽선/채움 핑크 pill 버튼)은 화면 (1) 이하 기존 버튼 컨벤션 그대로 유지.
+
+우선순위 그리드(양쪽 A/B 카드 나열)와 비활성 예산 슬라이더 블록은 삭제한다 — diff 배너가 이미 "무엇이 바뀌었는지"를 보여주므로 중복이다.
+
 ## 영향 범위
 
 - `supabase/migrations/20260725020000_adjust_commute_slider.sql` (신규)
-- `src/app/s/[id]/adjust/page.tsx`: 상태/파생값/화면 (1)·(3) JSX/추천 배너 로직 확장
+- `src/app/s/[id]/adjust/page.tsx`: 상태/파생값/추천 배너 로직 확장, 화면 (1) CTA 문구 통일, 화면 (3) 레이아웃을 diff 배너 + `AdjustAreaPreviewList` + 액션 버튼으로 교체(`GroupedAreaList` import 제거, `CarIcon`/`ArrowUpDown` import 추가)
 
 `get_matches`, `get_fallback_matches`, `get_conflict_report`, `_session_candidates`(기존)는 변경하지 않는다. 결과 화면(`result-map-sheet.tsx` 등)도 이번 범위 밖.
