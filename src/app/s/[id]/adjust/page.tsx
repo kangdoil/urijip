@@ -63,12 +63,11 @@ function priorityWeight(order: string[], code: string) {
   return idx === -1 ? 0 : 3 - idx // 1위=3점, 2위=2점, 3위=1점
 }
 
-// get_matches의 _priority_hard_ok(SQL)와 동일한 규칙 — 1·2순위 조건이 전부
-// 충족돼야 통과. relievePriority2는 이 페이지에서는 항상 기본값(false)으로만
-// 쓴다(라이브 프리뷰는 완화 사다리를 반영하지 않음).
-function priorityHardOk(order: string[], satisfied: Record<string, boolean>, relievePriority2 = false) {
-  const threshold = relievePriority2 ? 1 : 2
-  return order.slice(0, threshold).every((code) => satisfied[code])
+// get_matches의 _priority_hard_ok(SQL, 20260725030000 수정 후)와 동일한 규칙 —
+// 1순위 조건만 하드필터. 2순위는 더 이상 탈락 사유가 아니라 정렬 가중치로만
+// 반영된다(priorityWeight).
+function priorityHardOk(order: string[], satisfied: Record<string, boolean>) {
+  return order.slice(0, 1).every((code) => satisfied[code])
 }
 
 function orderLabel(order: string[]) {
@@ -85,7 +84,7 @@ function roleTokens(role: 'A' | 'B') {
 }
 
 // 시군구 개수만 필요한 가벼운 버전 — "총 8개 시군구 → 총 10개 시군구" 비교용.
-// 예산 상한 + 순위 하드필터(1·2순위)를 함께 반영한다 — passing과 동일한 필터 규칙.
+// 예산 상한 + 순위 하드필터(1순위만)를 함께 반영한다 — passing과 동일한 필터 규칙.
 function countMatches(
   candidates: Candidate[],
   budget: number,

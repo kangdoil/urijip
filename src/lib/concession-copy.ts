@@ -3,10 +3,8 @@ import { CONDITION_LABEL, formatEok } from '@/lib/condition-labels'
 export interface ConcessionGiveSide {
   commute_widen_min: number
   budget_widen_krw: number
-  relieved_condition: string | null
-  // true면 특정 조건 하나가 아니라 우선순위 하드필터 전체(1·2순위 모두)를
-  // 풀었다는 뜻 — 사다리 마지막 안전망 단계에서만 켜진다. relieved_condition은
-  // 이때 항상 null(둘 중 하나만 의미 있음).
+  // true면 우선순위 하드필터 전체(1순위까지 포함해 전부)를 풀었다는 뜻 —
+  // 사다리 마지막 안전망 단계에서만 켜진다.
   relieved_all: boolean
 }
 
@@ -40,7 +38,7 @@ export interface ConcessionBenefit {
 }
 
 export interface ConcessionLadderResult {
-  ladder_step: 0 | 1 | 2 | 3 | 4 | 5 | null
+  ladder_step: 0 | 1 | 2 | 3 | 4 | null
   give: { a: ConcessionGiveSide; b: ConcessionGiveSide }
   areas: ConcessionArea[]
   total_count: number
@@ -66,8 +64,6 @@ function giveChipText(side: ConcessionGiveSide): string | null {
   const parts: string[] = []
   if (side.relieved_all) {
     parts.push('우선순위 전체')
-  } else if (side.relieved_condition) {
-    parts.push(CONDITION_LABEL[side.relieved_condition] ?? side.relieved_condition)
   }
   if (side.commute_widen_min > 0) parts.push(`통근 +${side.commute_widen_min}분`)
   if (side.budget_widen_krw > 0) parts.push(`예산 +${formatEok(side.budget_widen_krw)}`)
@@ -78,12 +74,11 @@ function giveChipText(side: ConcessionGiveSide): string | null {
 const STEP_MESSAGE: Record<number, string> = {
   0: '두 분 조건이 거의 맞았어요',
   1: '출퇴근 폭을 조금 넓혀 찾아봤어요',
-  2: '두 분의 2순위 조건을 잠시 내려놓고 찾아봤어요',
-  3: '출퇴근 조건이 가장 멀었어요. 그만큼 폭을 넓혀 찾아봤어요',
-  4: '예산 범위를 조금 넓혀 찾아봤어요',
-  // 2순위까지 내려놔도 안 열려서(주로 1순위 조건 자체가 드문 경우) 순위
+  2: '출퇴근 조건이 가장 멀었어요. 그만큼 폭을 넓혀 찾아봤어요',
+  3: '예산 범위를 조금 넓혀 찾아봤어요',
+  // 예산까지 넓혀도 안 열려서(주로 1순위 조건 자체가 드문 경우) 순위
   // 하드필터를 전부 풀고 통근·예산 위주로 찾은 마지막 안전망 단계.
-  5: '우선순위 조건은 참고만 하고 통근·예산 위주로 찾아봤어요',
+  4: '우선순위 조건은 참고만 하고 통근·예산 위주로 찾아봤어요',
 }
 
 // get_concession_matches 응답을 ResultConcessionPanel이 바로 쓸 수 있는
@@ -146,22 +141,21 @@ function withEulReul(word: string): string {
 }
 
 // StatsComparisonCard(조건별 완화 시 열리는 구역 수 막대차트) props로 변환.
-// 행은 열리는 구역 수 내림차순 — 시스템이 자동 선택한 조건(highlighted)이
-// 꼭 1등은 아니다(다른 조건이 더 많이 열릴 수도 있다는 걸 보여주는 게 의도).
+// 행은 열리는 구역 수 내림차순.
+//
+// highlighted: 사다리에 "이 조건 하나를 완화했다"고 짚어주는 단계가 더 이상
+// 없어(20260725040000 — 2순위 해제 rung 삭제) 항상 false다. main.benefit이
+// 특정 조건을 가리킬 때만 다시 의미가 생길 수 있는데, benefit도 같은 이유로
+// 지금은 항상 null이라 실질적으로 미사용 필드다 — 컴포넌트 타입 호환을 위해
+// 필드 자체는 남겨뒀다.
 export function buildStatsComparisonProps(main: ConcessionLadderResult): StatsComparisonProps {
-  const relievedCodes = new Set(
-    [main.give.a.relieved_condition, main.give.b.relieved_condition].filter(
-      (c): c is string => c != null
-    )
-  )
-
   const rows = [...main.condition_impact]
     .sort((a, b) => b.total_count - a.total_count)
     .map((row) => ({
       code: row.condition_code,
       label: CONDITION_LABEL[row.condition_code] ?? row.condition_code,
       count: row.total_count,
-      highlighted: relievedCodes.has(row.condition_code),
+      highlighted: false,
     }))
 
   const benefit = main.benefit
