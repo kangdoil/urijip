@@ -1,12 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowRight, Compass } from 'lucide-react'
+import { ArrowRight, ArrowUpDown, Compass } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { getMyParticipant, type MyParticipant } from '@/lib/get-my-participant'
 import { CONDITION_LABEL, formatEok, type Priority } from '@/lib/condition-labels'
-import { GroupedAreaList } from '@/components/grouped-area-list'
+import { CarIcon } from '@/components/icons/car-icon'
 import { AdjustAreaPreviewList } from '@/components/adjust-area-preview-list'
 import { PriorityOrderList } from '@/components/priority-order-list'
 import { useCommuteStatus } from '@/lib/use-commute-status'
@@ -73,11 +73,6 @@ function priorityHardOk(order: string[], satisfied: Record<string, boolean>, rel
 
 function orderLabel(order: string[]) {
   return order.map((code) => CONDITION_LABEL[code] ?? code).join(' · ')
-}
-
-// A=핑크, B=청록 — 결과 화면(ResultAreaCard, Pin 등)과 동일한 역할 컬러 코드
-function rankBadgeClass(role: 'A' | 'B') {
-  return role === 'A' ? 'bg-pink-500 text-white' : 'bg-accent-teal text-white'
 }
 
 // role 고유 색 토큰 — "변경 사항" 배지는 제안자 본인(role) 색을, "상대 확인
@@ -296,7 +291,6 @@ export default function AdjustPage() {
   // ProposalSnackbar(전역 realtime 구독)가 담당한다 — 이 페이지에 있을 때도,
   // 다른 페이지에 있을 때도 동일하게 동작하도록 한 곳으로 모았다.
 
-  const lowBudgetOriginal = data ? Math.min(data.a.budget_max_krw, data.b.budget_max_krw) : 0
   const highBudgetOriginal = data ? Math.max(data.a.budget_max_krw, data.b.budget_max_krw) : 0
   const budgetHasConflict = data ? data.a.budget_max_krw !== data.b.budget_max_krw : false
   // 실제 매칭에 쓰이는 적용 예산 — 항상 둘 중 낮은 쪽. A/B 모두 자기 슬라이더를
@@ -626,7 +620,15 @@ export default function AdjustPage() {
             <div className="flex flex-col gap-3 rounded-2xl border border-neutral-900 bg-neutral-900/80 p-6 shadow-[0_0_16px_rgba(15,23,42,0.12),0_8px_24px_rgba(15,23,42,0.03)] backdrop-blur-md">
               {changes.map((change) => (
                 <div key={change.key} className="flex items-center justify-between">
-                  <span className="w-16 text-body-sb font-semibold text-white">{change.label}</span>
+                  <span className="flex w-24 shrink-0 items-center gap-1.5 text-body-sb font-semibold text-white">
+                    {change.key === 'budget_max_krw' && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src="/asset/icon/money.svg" alt="" className="size-4" />
+                    )}
+                    {change.key === 'commute_max_min' && <CarIcon className="size-4 text-white" />}
+                    {change.key === 'priorities' && <ArrowUpDown className="size-4 text-white" />}
+                    {change.label}
+                  </span>
                   <div className="flex items-center gap-3">
                     <span className="text-body-sb font-medium text-white">{change.oldValue}</span>
                     <ArrowRight className="size-4 text-neutral-400" />
@@ -642,57 +644,15 @@ export default function AdjustPage() {
                 </div>
               ))}
               <div className="h-px w-full bg-white/10" />
-              <div className={cn('flex items-center justify-center gap-3 text-[15px] font-medium', badgeColors.badgeText)}>
+              <div
+                className={cn(
+                  'flex items-center justify-center gap-3 rounded-xl bg-white/10 px-3 py-2 text-[15px] font-medium',
+                  badgeColors.badgeText
+                )}
+              >
                 <span>총 {displayCountBefore}곳</span>
                 <ArrowRight className="size-4" />
                 <span>총 {displayCountAfter}곳</span>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-3">
-              <div className="rounded-[40px] border border-neutral-100 bg-white px-5 py-5 shadow-[0_10px_20px_rgba(0,0,0,0.04)]">
-                <p className="mb-3 text-center text-title-sb font-bold text-neutral-900">우선순위</p>
-                <div className="grid grid-cols-2 gap-3">
-                  {[aOrder, bOrder].map((order, i) => (
-                    <div key={i} className="flex flex-col gap-1.5">
-                      {order.map((code, rank) => (
-                        <div
-                          key={code}
-                          className={cn(
-                            'flex items-center gap-2 rounded-full border-2 bg-white px-4 py-2.5',
-                            i === 0 ? 'border-pink-500' : 'border-accent-teal'
-                          )}
-                        >
-                          <span className={cn('flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold', rankBadgeClass(i === 0 ? 'A' : 'B'))}>
-                            {rank + 1}
-                          </span>
-                          <span className="truncate text-body-sb font-bold text-neutral-900">
-                            {CONDITION_LABEL[code]}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="rounded-[40px] border border-neutral-100 bg-white px-5 py-5 shadow-[0_10px_20px_rgba(0,0,0,0.04)]">
-                <div className="mb-3 flex items-center justify-between">
-                  <span className="text-title-sb font-bold text-neutral-900">예산 상한</span>
-                  <span className="text-title-sb font-bold text-pink-500">{formatEok(appliedBudget)}</span>
-                </div>
-                <Slider
-                  value={[appliedBudget]}
-                  min={lowBudgetOriginal}
-                  max={budgetSliderMax}
-                  step={10_000_000}
-                  // disabled
-                  className="data-disabled:opacity-100"
-                />
-                <div className="mt-2 flex justify-between text-body-sb font-semibold text-neutral-900">
-                  <span>{formatEok(lowBudgetOriginal)}</span>
-                  <span>{formatEok(budgetSliderMax)}</span>
-                </div>
               </div>
             </div>
 
@@ -706,7 +666,7 @@ export default function AdjustPage() {
                   개 시군구에 걸쳐 있어요
                 </p>
               </div>
-              <GroupedAreaList areas={passing} />
+              <AdjustAreaPreviewList areas={passing} emptyMessage="이 조건을 만족하는 동네가 아직 없어요" />
             </div>
           </div>
 
@@ -719,14 +679,14 @@ export default function AdjustPage() {
             disabled={submitting}
             className="flex flex-1 items-center justify-center rounded-full border-2 border-pink-500 px-10 py-5 font-montserrat text-mont-title-m font-bold text-pink-500 disabled:opacity-50"
           >
-            No
+            다시 조율하기
           </button>
           <button
             onClick={() => decide(true)}
             disabled={submitting}
             className="flex flex-1 items-center justify-center rounded-full bg-pink-500 px-10 py-5 font-montserrat text-mont-title-m font-bold text-white disabled:opacity-50"
           >
-            Yesss!
+            이 조건 수락하기
           </button>
         </div>
 
