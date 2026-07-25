@@ -1,0 +1,5 @@
+- generic [active] [ref=f16e1]:
+  - button "Open Next.js Dev Tools" [ref=f16e7] [cursor=pointer]
+  - alert [ref=f16e11]
+  - main [ref=f16e12]:
+    - paragraph [ref=f16e13]: 결과를 불러오는 중...

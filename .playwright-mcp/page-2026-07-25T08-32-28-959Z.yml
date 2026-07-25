@@ -1,0 +1,14 @@
+- generic [active] [ref=f21e1]:
+  - main [ref=f21e2]:
+    - generic [ref=f21e3]:
+      - generic [ref=f21e4]:
+        - img "우리집" [ref=f21e5]
+        - paragraph [ref=f21e6]: 둘이서 주거 조건을 조율해함께 살 구역을 찾아요
+      - generic [ref=f21e7]:
+        - generic [ref=f21e8]: 닉네임
+        - textbox "닉네임" [ref=f21e9]:
+          - /placeholder: 닉네임을 입력해주세요.
+          - text: 통근검증2A
+      - button "Start! (with A)" [ref=f21e10]
+  - button "Open Next.js Dev Tools" [ref=f21e16] [cursor=pointer]
+  - alert [ref=f21e20]
