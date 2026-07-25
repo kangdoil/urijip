@@ -511,29 +511,59 @@ export function ResultMapSheet({
         .filter((p): p is PinData => p != null)
     : activeAreas.map((a) => toPin(a, 'neutral')).filter((p): p is PinData => p != null)
 
+  // 그냥 setCenter(target)만 쓰면 좌표가 지도 컨테이너 정중앙에 오는데, 그
+  // 정중앙은 중간/전체 스냅에서 바텀시트가 덮는 영역과 겹쳐 화면엔 안
+  // 보인다(실측 확인). sheetFraction(시트가 덮는 화면 비율, 0~1)만큼 대상
+  // 좌표를 위로 밀어 올려, 시트 위 빈 공간의 세로 중앙에 오도록 중심을 다시
+  // 잡는다 — containerPointFromCoords/coordsFromContainerPoint(지도 엘리먼트
+  // 좌상단 기준 픽셀 좌표)로 화면 픽셀 단위에서 계산해 위경도 부호 방향에
+  // 기대지 않는다.
+  function centerMapOnTarget(kakaoMap: kakao.maps.Map, lat: number, lng: number, sheetFraction: number) {
+    const target = new kakao.maps.LatLng(lat, lng)
+    kakaoMap.setCenter(target)
+    if (sheetFraction <= 0) return
+    const node = kakaoMap.getNode()
+    const width = node.clientWidth
+    const height = node.clientHeight
+    const desiredY = (height * (1 - sheetFraction)) / 2
+    const projection = kakaoMap.getProjection()
+    kakaoMap.setCenter(
+      projection.coordsFromContainerPoint(new kakao.maps.Point(width / 2, height - desiredY))
+    )
+  }
+
   // 핀을 클릭하거나(호갱노노처럼) 바텀시트에서 카드를 선택했을 때 지도를
-  // 그 좌표로 확대·이동한다.
-  function focusPin(lat: number, lng: number) {
+  // 그 좌표로 확대·이동한다. sheetFraction은 이 포커스 이후 실제로 보이게 될
+  // 시트 비율 — 호출부가 (곧 반영될) 스냅 값을 넘겨준다.
+  function focusPin(lat: number, lng: number, sheetFraction: number) {
     const kakaoMap = mapRef.current
     if (!kakaoMap) return
     kakaoMap.setLevel(PIN_FOCUS_LEVEL)
-    kakaoMap.setCenter(new kakao.maps.LatLng(lat, lng))
+    centerMapOnTarget(kakaoMap, lat, lng, sheetFraction)
   }
 
   // 리스트 스크롤로 포커스된 시군구를 따라가는 약한 이동 — 줌 레벨은 바꾸지
   // 않는다. 스크롤할 때마다 확대까지 하면 산만하고, 사용자가 직접 축소해둔
   // 지도를 자꾸 되돌리게 되므로 pan만 한다(명시적 클릭 시엔 focusPin으로 줌인).
-  function panPin(lat: number, lng: number) {
+  function panPin(lat: number, lng: number, sheetFraction: number) {
     const kakaoMap = mapRef.current
     if (!kakaoMap) return
-    kakaoMap.setCenter(new kakao.maps.LatLng(lat, lng))
+    centerMapOnTarget(kakaoMap, lat, lng, sheetFraction)
   }
 
   // 지도 핀을 클릭하면 그 좌표로 확대하는 것과 동시에, 시트가 접혀있으면
-  // 펼치고 바텀시트 안 해당 카드로 스크롤해 정보를 보여준다.
+  // 펼치고 바텀시트 안 해당 카드로 스크롤 + 선택 표시(카드 클릭과 동일하게
+  // 핑크 테두리 활성화)해 정보를 보여준다.
   function focusArea(code: string, lat: number, lng: number) {
-    focusPin(lat, lng)
-    setSnap((prev) => (prev === SNAP_COLLAPSED ? SNAP_MID : prev))
+    const nextSnap = snap === SNAP_COLLAPSED ? SNAP_MID : typeof snap === 'number' ? snap : SNAP_MID
+    focusPin(lat, lng, nextSnap)
+    setSnap(nextSnap)
+    setSelectedAreaCode(code)
+    // 아래 scrollIntoView가 리스트를 움직여 스크롤스파이(handleGroupFocusChange)를
+    // 건드리면, 방금 focusPin으로 잡은 중심을 다른 시군구 대표 좌표로 되돌려버릴
+    // 수 있다(카드 클릭 때와 동일한 경합 — handleCardSelect 참고) — 짧게 억제한다.
+    // eslint-disable-next-line react-hooks/purity
+    suppressPanUntilRef.current = Date.now() + 600
     requestAnimationFrame(() => {
       cardRefs.current[code]?.scrollIntoView({
         behavior: 'smooth',
@@ -561,7 +591,7 @@ export function ResultMapSheet({
     const rep = visibleGroups
       .find((g) => g.sigungu === sigungu)
       ?.list.find((a) => a.lat != null && a.lng != null)
-    if (rep) panPin(rep.lat!, rep.lng!)
+    if (rep) panPin(rep.lat!, rep.lng!, typeof snap === 'number' ? snap : 0)
   }
 
   // 카드를 직접 클릭했을 때 — 테두리 강조 + 지도 줌인(기존 focusPin 그대로).
@@ -570,7 +600,9 @@ export function ResultMapSheet({
     // 클릭 이벤트 핸들러에서만 호출된다 — 렌더 중 실행되지 않으므로 안전하다.
     // eslint-disable-next-line react-hooks/purity
     suppressPanUntilRef.current = Date.now() + 600
-    if (area.lat != null && area.lng != null) focusPin(area.lat, area.lng)
+    if (area.lat != null && area.lng != null) {
+      focusPin(area.lat, area.lng, typeof snap === 'number' ? snap : 0)
+    }
   }
 
   useEffect(() => {
