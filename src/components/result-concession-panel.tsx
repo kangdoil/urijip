@@ -18,8 +18,6 @@ interface ResultConcessionPanelProps {
   // A/B 각자 무엇을 양보했는지 — 양보한 게 없는 role은 애초에 배열에 없다.
   giveChips: ConcessionGiveChip[]
   stats: StatsComparisonProps
-  applying: boolean
-  onApply: () => void
 }
 
 const ROLE_LETTER_SRC: Record<'A' | 'B', string> = {
@@ -92,16 +90,15 @@ function StatsComparisonCard({ rows, benefit }: StatsComparisonProps) {
 // 결과 화면 "필수 조건 만족 구역 0곳(콜드 스테이션)" 전용 패널(Figma: 교집합
 // 없을 때 화면). 스와이프 페이저 카드 2장 — ① 실제 계산된 추천 조율안(우리
 // 데이터), ② 양보별로 열리는 동네 비교 그래프(실 데이터, StatsComparisonCard).
-// 하단 버튼은 apply_concession RPC로 ①의 추천안을 실제 조건에 반영한 뒤
-// 결과 화면을 새로고침한다(제안/수락 절차 없이 즉시 적용 — 요청사항).
+// 적용 버튼은 vaul Drawer.Content의 transform이 fixed/absolute 자손의
+// containing block이 되는 문제 때문에 이 패널 밖(result-map-sheet.tsx)에서
+// 뷰포트 기준 fixed로 별도 렌더링한다 — ActionButtonsFooter와 동일한 이유.
 export function ResultConcessionPanel({
   totalCount,
   tipTitle,
   tipBody,
   giveChips,
   stats,
-  applying,
-  onApply,
 }: ResultConcessionPanelProps) {
   const [tipLine1, tipLine2] = tipBody.split('\n')
   const [page, setPage] = useState(0)
@@ -141,14 +138,11 @@ export function ResultConcessionPanel({
               </div>
 
               {giveChips.length > 0 && (
-                <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-2">
                   {giveChips.map((chip) => (
                     <span
                       key={chip.role}
-                      className={cn(
-                        'flex w-full items-center gap-1 rounded-xl px-5 py-2',
-                        chip.role === 'A' ? 'bg-pink-200/50' : 'bg-[#c6fffe]'
-                      )}
+                      className="flex w-full items-center gap-1 rounded-xl bg-neutral-50 px-5 py-2"
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={ROLE_LETTER_SRC[chip.role]} alt={chip.role} className="size-8 shrink-0" />
@@ -198,15 +192,6 @@ export function ResultConcessionPanel({
         </div>
       )}
 
-      <div className="shrink-0 px-4 pt-3 pb-6">
-        <button
-          onClick={onApply}
-          disabled={applying}
-          className="flex w-full items-center justify-center rounded-full bg-pink-500 px-10 py-4 text-body-m font-bold text-white disabled:opacity-50"
-        >
-          {applying ? '적용하는 중...' : '이 조건으로 바꾸고 동네 보러 가기'}
-        </button>
-      </div>
     </div>
   )
 }

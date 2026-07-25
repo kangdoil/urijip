@@ -225,6 +225,33 @@ function ActionButtonsFooter({
   )
 }
 
+// ResultConcessionPanel(완화 사다리 카드)의 적용 버튼 — ActionButtonsFooter와
+// 같은 이유로 Drawer.Content 밖, 뷰포트 기준 fixed로 별도 렌더링한다.
+function ConcessionApplyFooter({
+  applying,
+  onApply,
+  className,
+}: {
+  applying: boolean
+  onApply: () => void
+  className?: string
+}) {
+  return (
+    <div className={cn('flex flex-col items-center', className)}>
+      <div className="h-6 w-full bg-gradient-to-t from-white to-white/0" />
+      <div className="flex w-full flex-col items-center gap-3 bg-white px-5 py-[10px]">
+        <button
+          onClick={onApply}
+          disabled={applying}
+          className="flex w-full items-center justify-center rounded-full bg-pink-500 px-10 py-4 text-body-m font-bold text-white disabled:opacity-50"
+        >
+          {applying ? '적용하는 중...' : '이 조건으로 바꾸고 동네 보러 가기'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // 결과 화면 지도+바텀시트. 매칭 성공 시엔 시군구 다중 선택 + 선택/제외 필터로
 // 카드를 걸러 보여준다(핀 탭 → 리스트 스크롤 연동은 v1 범위 밖 — TODO).
 // 매칭 0건(폴백)일 땐 서로 양보(AB) 단일안 하나만 ResultConcessionPanel로 보여준다
@@ -696,7 +723,7 @@ export function ResultMapSheet({
               max-h만 안전장치로 둔 자연 높이를 유지한다(범위 밖 — 그대로). */}
           <Drawer.Content
             className={cn(
-              'fixed inset-x-0 bottom-0 z-10 mx-auto flex w-full max-w-md flex-col overflow-hidden rounded-t-3xl border border-pink-100 bg-white shadow-[0_-8px_32px_rgba(0,0,0,0.1)] outline-none',
+              'fixed inset-x-0 bottom-0 z-10 mx-auto flex w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-white shadow-[0_-8px_32px_rgba(0,0,0,0.1)] outline-none',
               isFallback || solo ? 'max-h-[92dvh]' : 'h-dvh'
             )}
           >
@@ -742,8 +769,6 @@ export function ResultMapSheet({
                         tipBody={concessionCopy?.tipBody ?? ''}
                         giveChips={concessionCopy?.giveChips ?? []}
                         stats={concessionStats}
-                        applying={applyingConcession}
-                        onApply={onApplyConcession}
                       />
                     </div>
                   )
@@ -817,6 +842,14 @@ export function ResultMapSheet({
           버려서 중간 스냅에서는 화면 밖으로 밀려난다. 그래서 접힘 상태와 동일하게
           Drawer.Content 밖, 뷰포트 기준 fixed로 따로 띄운다(중간/전체 스냅
           공통 — 어느 스냅이든 시트의 시각적 바닥은 항상 화면 맨 아래와 일치한다). */}
+      {isFallback && !solo && !isCollapsed && (
+        <ConcessionApplyFooter
+          className="fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-md"
+          applying={applyingConcession}
+          onApply={onApplyConcession}
+        />
+      )}
+
       {!isFallback && !isCollapsed && (
         <ActionButtonsFooter
           className="fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-md"
@@ -830,7 +863,7 @@ export function ResultMapSheet({
       )}
 
             {!isFallback && isCollapsed && (
-      <div className="fixed inset-x-0 bottom-0 z-20 mx-auto flex w-full max-w-md flex-col items-center bg-white rounded-t-3xl border-2 border-pink-100">
+      <div className="fixed inset-x-0 bottom-0 z-20 mx-auto flex w-full max-w-md flex-col items-center bg-white rounded-t-3xl">
         {/* Drawer.Content의 핸들은 접힌 스냅에서 이 fixed 블록에 가려 안 보이므로,
             접혔을 때 다시 펼 수 있도록 여기에도 탭/드래그 가능한 핸들을 따로 둔다. */}
 
