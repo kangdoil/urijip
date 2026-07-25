@@ -677,14 +677,14 @@ export default function AdjustPage() {
           <button
             onClick={() => decide(false)}
             disabled={submitting}
-            className="flex flex-1 items-center justify-center rounded-full border-2 border-pink-500 px-10 py-5 font-montserrat text-mont-title-m font-bold text-pink-500 disabled:opacity-50"
+            className="flex flex-1 items-center justify-center rounded-full border-2 border-pink-500 px-4 py-4 text-body-m font-bold whitespace-nowrap text-pink-500 disabled:opacity-50"
           >
             다시 조율하기
           </button>
           <button
             onClick={() => decide(true)}
             disabled={submitting}
-            className="flex flex-1 items-center justify-center rounded-full bg-pink-500 px-10 py-5 font-montserrat text-mont-title-m font-bold text-white disabled:opacity-50"
+            className="flex flex-1 items-center justify-center rounded-full bg-pink-500 px-4 py-4 text-body-m font-bold whitespace-nowrap text-white disabled:opacity-50"
           >
             이 조건 수락하기
           </button>
