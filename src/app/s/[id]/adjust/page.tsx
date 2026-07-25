@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowRight, ArrowUpDown, Compass } from 'lucide-react'
+import { ArrowRight, ArrowUpDown, Compass, Home } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { getMyParticipant, type MyParticipant } from '@/lib/get-my-participant'
@@ -79,8 +79,26 @@ function orderLabel(order: string[]) {
 // 서로 다른 role의 색을 참조한다 (Figma: 제안 시 화면_A/_B).
 function roleTokens(role: 'A' | 'B') {
   return role === 'A'
-    ? { statusBg: 'bg-pink-100', statusDot: 'bg-pink-500', statusText: 'text-pink-500', badgeBg: 'bg-pink-50', badgeText: 'text-pink-500' }
-    : { statusBg: 'bg-accent-teal/20', statusDot: 'bg-accent-teal', statusText: 'text-accent-teal', badgeBg: 'bg-accent-teal/20', badgeText: 'text-accent-teal' }
+    ? {
+        statusBg: 'bg-pink-100',
+        statusDot: 'bg-pink-500',
+        statusText: 'text-pink-500',
+        badgeBg: 'bg-pink-50',
+        badgeText: 'text-pink-500',
+        avatarBg: 'bg-pink-500',
+        cardBorder: 'border-pink-200',
+        cardGlow: 'shadow-[0_10px_24px_rgba(255,77,139,0.14)]',
+      }
+    : {
+        statusBg: 'bg-accent-teal/20',
+        statusDot: 'bg-accent-teal',
+        statusText: 'text-accent-teal',
+        badgeBg: 'bg-accent-teal/20',
+        badgeText: 'text-accent-teal',
+        avatarBg: 'bg-accent-teal',
+        cardBorder: 'border-accent-teal/40',
+        cardGlow: 'shadow-[0_10px_24px_rgba(62,218,216,0.16)]',
+      }
 }
 
 // 시군구 개수만 필요한 가벼운 버전 — "총 8개 시군구 → 총 10개 시군구" 비교용.
@@ -103,25 +121,51 @@ function countMatches(
 // payload의 조건 3개 키(area_size/build_year/infra)는 순위가 바뀔 때 항상
 // 셋이 함께 온다(순열이라 하나만 따로 바꿀 수 없음) — "우선순위" 항목 하나로
 // 묶어서 보여준다.
+// 완화(증가) 폭을 "+0.5억"/"+10분" 형태로 보여주기 위한 부호 있는 델타 —
+// 예산·통근 상한은 항상 완화 방향(증가)으로만 제안되므로 부호는 사실상 "+"만
+// 나오지만, 방어적으로 감소도 표시할 수 있게 둔다.
+function formatEokDelta(deltaKrw: number) {
+  const sign = deltaKrw > 0 ? '+' : '-'
+  return `${sign}${(Math.abs(deltaKrw) / 100_000_000).toFixed(1)}억`
+}
+
+function formatMinDelta(deltaMin: number) {
+  const sign = deltaMin > 0 ? '+' : '-'
+  return `${sign}${Math.abs(deltaMin)}분`
+}
+
 function buildChanges(payload: Record<string, string | number>, original: ParticipantAdjust) {
-  const changes: { key: string; label: string; oldValue: string; newValue: string; isSkip: boolean }[] = []
+  const changes: {
+    key: string
+    label: string
+    oldValue: string
+    newValue: string
+    deltaLabel: string | null
+    isSkip: boolean
+  }[] = []
 
   if ('budget_max_krw' in payload) {
+    const newKrw = Number(payload.budget_max_krw)
+    const deltaKrw = newKrw - original.budget_max_krw
     changes.push({
       key: 'budget_max_krw',
       label: '예산 상한',
       oldValue: formatEok(original.budget_max_krw),
-      newValue: formatEok(Number(payload.budget_max_krw)),
+      newValue: formatEok(newKrw),
+      deltaLabel: deltaKrw !== 0 ? formatEokDelta(deltaKrw) : null,
       isSkip: false,
     })
   }
 
   if ('commute_max_min' in payload) {
+    const newMin = Number(payload.commute_max_min)
+    const deltaMin = newMin - original.commute_max_min
     changes.push({
       key: 'commute_max_min',
       label: '통근 상한',
       oldValue: `${original.commute_max_min}분`,
-      newValue: `${Number(payload.commute_max_min)}분`,
+      newValue: `${newMin}분`,
+      deltaLabel: deltaMin !== 0 ? formatMinDelta(deltaMin) : null,
       isSkip: false,
     })
   }
@@ -136,6 +180,7 @@ function buildChanges(payload: Record<string, string | number>, original: Partic
       label: '우선순위',
       oldValue: orderLabel(orderFromPriorities(original.priorities)),
       newValue: orderLabel(newOrder),
+      deltaLabel: null,
       isSkip: false,
     })
   }
@@ -617,60 +662,76 @@ export default function AdjustPage() {
             <OnboardBackBar onBack={() => router.push(`/s/${sessionId}/result`)} />
           </div>
 
-          <div className="flex flex-col gap-10 px-4 pt-2">
-            <h1 className="text-center text-[24px] leading-8 font-semibold tracking-[-0.03em] text-neutral-900">
-              상대방이 제안했어요
-            </h1>
+          <div className="flex flex-col gap-4 px-4 pt-2">
+            <div
+              className={cn(
+                'flex flex-col gap-5 rounded-2xl border bg-white p-6',
+                badgeColors.cardBorder,
+                badgeColors.cardGlow
+              )}
+            >
+              <div className="flex items-center gap-2.5">
+                <span
+                  className={cn(
+                    'flex size-8 shrink-0 items-center justify-center rounded-full text-body-sb font-bold text-white',
+                    badgeColors.avatarBg
+                  )}
+                >
+                  {proposerRole}
+                </span>
+                <h1 className="text-body-m font-bold text-neutral-900">
+                  상대방이 이렇게 조율을 제안했어요
+                </h1>
+              </div>
 
-            <div className="flex flex-col gap-3 rounded-2xl border border-neutral-900 bg-neutral-900/80 p-6 shadow-[0_0_16px_rgba(15,23,42,0.12),0_8px_24px_rgba(15,23,42,0.03)] backdrop-blur-md">
-              {changes.map((change) => (
-                <div key={change.key} className="flex items-center justify-between">
-                  <span className="flex w-24 shrink-0 items-center gap-1.5 text-body-sb font-semibold text-white">
-                    {change.key === 'budget_max_krw' && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src="/asset/icon/money.svg" alt="" className="size-4" />
-                    )}
-                    {change.key === 'commute_max_min' && <CarIcon className="size-4 text-white" />}
-                    {change.key === 'priorities' && <ArrowUpDown className="size-4 text-white" />}
-                    {change.label}
-                  </span>
-                  <div className="flex items-center gap-3">
-                    <span className="text-body-sb font-medium text-white">{change.oldValue}</span>
-                    <ArrowRight className="size-4 text-neutral-400" />
-                    <span
-                      className={cn(
-                        'rounded-full px-3 py-1.5 text-body-sb font-bold',
-                        change.isSkip ? 'bg-white/10 text-white' : `${badgeColors.badgeBg} ${badgeColors.badgeText}`
+              <div className="flex flex-col gap-4">
+                {changes.map((change) => (
+                  <div key={change.key} className="flex items-center justify-between gap-2">
+                    <span className="flex w-24 shrink-0 items-center gap-1.5 text-body-sb font-semibold text-neutral-400">
+                      {change.key === 'budget_max_krw' && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src="/asset/icon/money.svg" alt="" className="size-4" />
                       )}
-                    >
-                      {change.newValue}
+                      {change.key === 'commute_max_min' && <CarIcon className="size-4 text-neutral-400" />}
+                      {change.key === 'priorities' && <ArrowUpDown className="size-4 text-neutral-400" />}
+                      {change.key === 'priorities' ? `${proposerRole}의 우선순위` : change.label}
                     </span>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="truncate text-body-sb font-medium text-neutral-300 line-through">
+                        {change.oldValue}
+                      </span>
+                      <ArrowRight className="size-4 shrink-0 text-neutral-300" />
+                      <span className="shrink-0 text-body-m font-bold text-neutral-900">{change.newValue}</span>
+                      {change.deltaLabel && (
+                        <span className="shrink-0 text-body-sb font-bold text-emerald-500">
+                          {change.deltaLabel}
+                        </span>
+                      )}
+                    </div>
                   </div>
+                ))}
+              </div>
+
+              <div className="flex items-center justify-between rounded-xl bg-emerald-50 px-4 py-3">
+                <span className="flex items-center gap-1.5 text-body-sb font-semibold text-emerald-700">
+                  <Home className="size-4" />
+                  함께 살 수 있는 동네
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-body-sb font-medium text-emerald-300 line-through">
+                    {displayCountBefore}곳
+                  </span>
+                  <ArrowRight className="size-4 text-emerald-400" />
+                  <span className="text-body-m font-bold text-emerald-600">{displayCountAfter}곳</span>
                 </div>
-              ))}
-              <div className="h-px w-full bg-white/10" />
-              <div
-                className={cn(
-                  'flex items-center justify-center gap-3 rounded-xl bg-white/10 px-3 py-2 text-[15px] font-medium',
-                  badgeColors.badgeText
-                )}
-              >
-                <span>총 {displayCountBefore}곳</span>
-                <ArrowRight className="size-4" />
-                <span>총 {displayCountAfter}곳</span>
               </div>
             </div>
 
-            <div className="rounded-t-[60px] bg-neutral-100 px-4 pt-8 pb-2 -mx-4">
-              <div className="mb-6 flex flex-col items-center gap-1.5">
-                <p className="text-body-m text-neutral-500">우리가 함께 할 수 있는 동네</p>
-                <p className="flex items-center gap-2 text-title-sb font-bold text-neutral-900">
-                  <span className="rounded-full bg-neutral-900 px-4 py-2 font-montserrat text-mont-title-m text-white">
-                    {sigunguCountAfter}
-                  </span>
-                  개 시군구에 걸쳐 있어요
-                </p>
-              </div>
+            <div className="flex flex-col gap-5 rounded-2xl bg-white p-6 shadow-[0_10px_24px_rgba(0,0,0,0.04)]">
+              <p className="flex items-center justify-center gap-1.5 text-center text-body-m font-bold text-neutral-900">
+                <Home className="size-4" />
+                이 조건으로 열리는 동네예요
+              </p>
               <AdjustAreaPreviewList areas={passing} emptyMessage="이 조건을 만족하는 동네가 아직 없어요" />
             </div>
           </div>

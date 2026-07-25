@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Lightbulb } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { StatsComparisonProps } from '@/lib/concession-copy'
 
@@ -35,7 +35,8 @@ function StatsComparisonCard({ rows, benefit }: StatsComparisonProps) {
     <div className="flex h-full w-full shrink-0 flex-col gap-4 rounded-2xl bg-white px-5 py-6 shadow-[0_10px_10px_rgba(0,0,0,0.04)]">
       <div className="flex flex-col gap-2">
         <span className="flex items-center gap-1 text-[16px] font-bold tracking-[-0.42px] text-neutral-900">
-          <Lightbulb className="size-5 text-pink-500" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/asset/icon/idea.svg" alt="" className="size-5" />
           함께 양보로 열리는 동네예요
         </span>
         <p className="text-body-s leading-[1.4] text-neutral-500">
@@ -115,7 +116,7 @@ export function ResultConcessionPanel({
         </p>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-hidden px-5 pb-2">
+      <div className="overflow-hidden px-5 pb-2">
         <div
           className="flex h-full transition-transform duration-300 ease-out"
           style={{ transform: `translateX(-${page * 100}%)` }}
@@ -124,7 +125,8 @@ export function ResultConcessionPanel({
             <div className="flex h-full flex-col gap-8 rounded-2xl bg-white px-5 py-6 shadow-[0_10px_10px_rgba(0,0,0,0.04)]">
               <div className="flex flex-col gap-2">
                 <span className="flex items-center gap-1 text-[16px] font-bold tracking-[-0.42px] text-neutral-900">
-                  <Lightbulb className="size-5 text-pink-500" />
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/asset/icon/idea.svg" alt="" className="size-5" />
                   {tipTitle}
                 </span>
                 <p className="text-body-s leading-[1.4] text-neutral-500">
@@ -157,6 +159,17 @@ export function ResultConcessionPanel({
                   ))}
                 </div>
               )}
+
+              <div className="flex flex-col gap-3">
+                <div className="h-px w-full bg-neutral-100" />
+                <div className="flex items-center justify-center gap-2 text-body-s">
+                  <span className="text-neutral-400">조율 전 0곳</span>
+                  <ArrowRight className="size-4 text-neutral-300" />
+                  <span className="font-semibold text-neutral-900">
+                    조율 후 <span className="text-pink-500">{totalCount}</span>곳
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 
