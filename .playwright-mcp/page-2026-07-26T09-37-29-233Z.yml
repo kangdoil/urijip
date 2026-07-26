@@ -1,0 +1,28 @@
+- generic [active] [ref=e1]:
+  - button "Open Next.js Dev Tools" [ref=e16] [cursor=pointer]
+  - alert [ref=e20]
+  - main [ref=e160]:
+    - generic [ref=e161]:
+      - paragraph [ref=e162]: ※ 우리집은 현재 경기도 지역만 추천하고 있어요
+      - generic [ref=e163]:
+        - textbox "추가를 원하는 지역이 있다면 의견을 남겨주세요" [ref=e164]
+        - button "제안하기" [ref=e165]
+    - generic [ref=e166]:
+      - heading "상대방에게 초대를 보냈어요" [level=1] [ref=e167]
+      - paragraph [ref=e168]: 상대방이 참여해야 결과를 볼 수 있어요
+    - generic [ref=e169]:
+      - generic [ref=e170]:
+        - generic [ref=e171]:
+          - img "A" [ref=e174]
+          - generic [ref=e178]: 스크롤A
+        - generic [ref=e181]:
+          - img "B" [ref=e184]
+          - generic [ref=e185]: "?"
+      - paragraph [ref=e187]: 상대방이 접속하고 이름을 입력하면상대방 쪽에도 불이 들어와요
+    - link "먼저 혼자 둘러보기" [ref=e188] [cursor=pointer]:
+      - /url: /s/c40d769d-1181-44b2-87c8-4e34d405779a/result?solo=1
+    - generic [ref=e190]:
+      - generic [ref=e191]:
+        - generic [ref=e192]: http://localhost:3000/j/95778c
+        - button "초대 링크 복사" [ref=e193]
+      - button "Share" [ref=e197]

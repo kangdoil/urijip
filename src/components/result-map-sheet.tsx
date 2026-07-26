@@ -772,7 +772,7 @@ export function ResultMapSheet({
                     </div>
                   ) : (
                     // 결과 화면(펼쳐진 캐러셀+지도)과 비슷한 비중으로 시트를 채우기
-                    // 위해 내용 높이를 따라가는 대신 고정 높이를 준다 — MustConditionSheet의
+                    // 위해 내용 높이를 따라가는 대신 고정 높이를 준다 — ConditionSummarySheet의
                     // "거의 풀페이지" 패턴과 동일한 의도.
                     <div className="flex h-[70dvh] flex-col pt-3">
                       <ResultConcessionPanel

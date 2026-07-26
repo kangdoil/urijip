@@ -1,0 +1,504 @@
+- generic [ref=f4e1]:
+  - button "Open Next.js Dev Tools" [ref=f4e20] [cursor=pointer]
+  - alert [ref=f4e24]: 우리집 동네 찾기
+  - main [ref=f4e205]:
+    - generic [ref=f4e206]:
+      - generic [ref=f4e208]:
+        - generic [ref=f4e209]:
+          - button [ref=f4e213]:
+            - generic [ref=f4e214]: 광남1동
+          - button [ref=f4e217]:
+            - generic [ref=f4e218]: 광남2동
+          - button [ref=f4e221]:
+            - generic [ref=f4e222]: 오포1동
+        - generic [ref=f4e224]:
+          - generic [ref=f4e225]: 1km
+          - link [ref=f4e229] [cursor=pointer]:
+            - /url: http://map.kakao.com/
+      - generic [ref=f4e232]:
+        - generic [ref=f4e233]:
+          - paragraph [ref=f4e234]:
+            - generic [ref=f4e235]: 추천 동네
+          - generic [ref=f4e236]: 총 15곳
+        - generic [ref=f4e237]: 상대 미확정
+      - generic [ref=f4e243]:
+        - button [ref=f4e244]: 조율하기
+        - button [ref=f4e245]: 저장하기
+      - generic:
+        - generic:
+          - generic:
+            - paragraph: 우리가 함께 할 수 있는 동네
+            - paragraph: 총 15곳
+          - generic:
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 광남1동
+                  - generic: 4.6억
+              - generic:
+                - generic:
+                  - generic: 인프라 충족
+                  - generic: 평형 충족
+                  - generic: 년식 충족
+                - generic: 27분
+                - generic: 17분
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 광남2동
+                  - generic: 4.6억
+              - generic:
+                - generic:
+                  - generic: 인프라 충족
+                  - generic: 평형 충족
+                  - generic: 년식 충족
+                - generic: 31분
+                - generic: 21분
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 쌍령동
+                  - generic: 4.0억
+              - generic:
+                - generic:
+                  - generic: 인프라 충족
+                  - generic: 평형 충족
+                  - generic: 년식 충족
+                - generic: 32분
+                - generic: 22분
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 신현동
+                  - generic: 6.3억
+              - generic:
+                - generic:
+                  - generic: 인프라 충족
+                  - generic: 평형 충족
+                  - generic: 년식 충족
+                - generic: 36분
+                - generic: 19분
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 오포1동
+                  - generic: 4.6억
+              - generic:
+                - generic:
+                  - generic: 인프라 충족
+                  - generic: 평형 충족
+                  - generic: 년식 충족
+                - generic: 32분
+                - generic: 24분
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 고천동
+                  - generic: 7.6억
+              - generic:
+                - generic:
+                  - generic: 인프라 충족
+                  - generic: 평형 충족
+                  - generic: 년식 충족
+                - generic: 35분
+                - generic: 21분
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 동탄1동
+                  - generic: 8.0억
+              - generic:
+                - generic:
+                  - generic: 인프라 충족
+                  - generic: 평형 충족
+                  - generic: 년식 충족
+                - generic: 33분
+                - generic: 24분
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 구갈동
+                  - generic: 7.8억
+              - generic:
+                - generic:
+                  - generic: 인프라 충족
+                  - generic: 평형 충족
+                  - generic: 년식 충족
+                - generic: 34분
+                - generic: 25분
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 동탄5동
+                  - generic: 8.0억
+              - generic:
+                - generic:
+                  - generic: 인프라 충족
+                  - generic: 평형 충족
+                  - generic: 년식 충족
+                - generic: 34분
+                - generic: 26분
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 동탄3동
+                  - generic: 8.0억
+              - generic:
+                - generic:
+                  - generic: 인프라 충족
+                  - generic: 평형 충족
+                  - generic: 년식 충족
+                - generic: 36분
+                - generic: 27분
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 호매실동
+                  - generic: 4.9억
+              - generic:
+                - generic:
+                  - generic: 인프라 충족
+                  - generic: 평형 충족
+                  - generic: 년식 충족
+                - generic: 38분
+                - generic: 26분
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 동탄6동
+                  - generic: 8.0억
+              - generic:
+                - generic:
+                  - generic: 인프라 충족
+                  - generic: 평형 충족
+                  - generic: 년식 충족
+                - generic: 37분
+                - generic: 29분
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 망포1동
+                  - generic: 7.6억
+              - generic:
+                - generic:
+                  - generic: 인프라 충족
+                  - generic: 평형 충족
+                  - generic: 년식 충족
+                - generic: 37분
+                - generic: 29분
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 동탄2동
+                  - generic: 8.0억
+              - generic:
+                - generic:
+                  - generic: 인프라 충족
+                  - generic: 평형 충족
+                  - generic: 년식 충족
+                - generic: 38분
+                - generic: 30분
+            - generic:
+              - generic:
+                - generic:
+                  - generic: 망포2동
+                  - generic: 7.6억
+              - generic:
+                - generic:
+                  - generic: 인프라 충족
+                  - generic: 평형 충족
+                  - generic: 년식 충족
+                - generic: 39분
+                - generic: 31분
+    - generic [ref=f4e569]:
+      - generic [ref=f4e570]:
+        - paragraph [ref=f4e571]: 이 결과가 도움이 됐나요?
+        - button [ref=f4e572]: ✕
+      - generic [ref=f4e573]:
+        - button [ref=f4e574]: 👍
+        - button [ref=f4e575]: 👎
+  - dialog:
+    - button
+    - generic:
+      - button [active]:
+        - generic: 왜 이 동네들을 추천했을까요?
+      - generic:
+        - generic:
+          - generic:
+            - button: 경기 광주시 외 5
+            - button: 제외된 동네 포함
+      - generic:
+        - generic:
+          - generic:
+            - paragraph: 경기 광주시
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: 광남1동
+                      - generic: 4.6억
+                    - button: 제외하기
+                  - generic:
+                    - generic:
+                      - generic: 인프라 충족
+                      - generic: 평형 충족
+                      - generic: 년식 충족
+                    - generic: 27분
+                    - generic: 17분
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: 광남2동
+                      - generic: 4.6억
+                    - button: 제외하기
+                  - generic:
+                    - generic:
+                      - generic: 인프라 충족
+                      - generic: 평형 충족
+                      - generic: 년식 충족
+                    - generic: 31분
+                    - generic: 21분
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: 쌍령동
+                      - generic: 4.0억
+                    - button: 제외하기
+                  - generic:
+                    - generic:
+                      - generic: 인프라 충족
+                      - generic: 평형 충족
+                      - generic: 년식 충족
+                    - generic: 32분
+                    - generic: 22분
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: 신현동
+                      - generic: 6.3억
+                    - button: 제외하기
+                  - generic:
+                    - generic:
+                      - generic: 인프라 충족
+                      - generic: 평형 충족
+                      - generic: 년식 충족
+                    - generic: 36분
+                    - generic: 19분
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: 오포1동
+                      - generic: 4.6억
+                    - button: 제외하기
+                  - generic:
+                    - generic:
+                      - generic: 인프라 충족
+                      - generic: 평형 충족
+                      - generic: 년식 충족
+                    - generic: 32분
+                    - generic: 24분
+          - generic:
+            - paragraph: 경기 의왕시
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: 고천동
+                      - generic: 7.6억
+                    - button: 제외하기
+                  - generic:
+                    - generic:
+                      - generic: 인프라 충족
+                      - generic: 평형 충족
+                      - generic: 년식 충족
+                    - generic: 35분
+                    - generic: 21분
+          - generic:
+            - paragraph: 경기 화성시 동탄구
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: 동탄1동
+                      - generic: 8.0억
+                    - button: 제외하기
+                  - generic:
+                    - generic:
+                      - generic: 인프라 충족
+                      - generic: 평형 충족
+                      - generic: 년식 충족
+                    - generic: 33분
+                    - generic: 24분
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: 동탄5동
+                      - generic: 8.0억
+                    - button: 제외하기
+                  - generic:
+                    - generic:
+                      - generic: 인프라 충족
+                      - generic: 평형 충족
+                      - generic: 년식 충족
+                    - generic: 34분
+                    - generic: 26분
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: 동탄3동
+                      - generic: 8.0억
+                    - button: 제외하기
+                  - generic:
+                    - generic:
+                      - generic: 인프라 충족
+                      - generic: 평형 충족
+                      - generic: 년식 충족
+                    - generic: 36분
+                    - generic: 27분
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: 동탄6동
+                      - generic: 8.0억
+                    - button: 제외하기
+                  - generic:
+                    - generic:
+                      - generic: 인프라 충족
+                      - generic: 평형 충족
+                      - generic: 년식 충족
+                    - generic: 37분
+                    - generic: 29분
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: 동탄2동
+                      - generic: 8.0억
+                    - button: 제외하기
+                  - generic:
+                    - generic:
+                      - generic: 인프라 충족
+                      - generic: 평형 충족
+                      - generic: 년식 충족
+                    - generic: 38분
+                    - generic: 30분
+          - generic:
+            - paragraph: 경기 용인시 기흥구
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: 구갈동
+                      - generic: 7.8억
+                    - button: 제외하기
+                  - generic:
+                    - generic:
+                      - generic: 인프라 충족
+                      - generic: 평형 충족
+                      - generic: 년식 충족
+                    - generic: 34분
+                    - generic: 25분
+          - generic:
+            - paragraph: 경기 수원시 권선구
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: 호매실동
+                      - generic: 4.9억
+                    - button: 제외하기
+                  - generic:
+                    - generic:
+                      - generic: 인프라 충족
+                      - generic: 평형 충족
+                      - generic: 년식 충족
+                    - generic: 38분
+                    - generic: 26분
+          - generic:
+            - paragraph: 경기 수원시 영통구
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: 망포1동
+                      - generic: 7.6억
+                    - button: 제외하기
+                  - generic:
+                    - generic:
+                      - generic: 인프라 충족
+                      - generic: 평형 충족
+                      - generic: 년식 충족
+                    - generic: 37분
+                    - generic: 29분
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic: 망포2동
+                      - generic: 7.6억
+                    - button: 제외하기
+                  - generic:
+                    - generic:
+                      - generic: 인프라 충족
+                      - generic: 평형 충족
+                      - generic: 년식 충족
+                    - generic: 39분
+                    - generic: 31분
+  - dialog [ref=f4e577]:
+    - generic [ref=f4e579]:
+      - heading "두 분의 조건" [level=2] [ref=f4e580]
+      - paragraph [ref=f4e581]: A 1순위 년식 · B 1순위 년식 · 예산 8.0억 이하
+    - generic [ref=f4e582]:
+      - generic [ref=f4e583]:
+        - generic [ref=f4e584]:
+          - paragraph [ref=f4e585]: 스크롤A같음 (A)
+          - generic [ref=f4e586]:
+            - generic [ref=f4e587]:
+              - term [ref=f4e588]: 예산
+              - definition [ref=f4e589]: 8.0억
+            - generic [ref=f4e590]:
+              - term [ref=f4e591]: 통근 상한
+              - definition [ref=f4e592]: 40분
+            - generic [ref=f4e593]:
+              - term [ref=f4e594]: 평형
+              - definition [ref=f4e595]: 2순위
+            - generic [ref=f4e596]:
+              - term [ref=f4e597]: 년식
+              - definition [ref=f4e598]: 1순위
+            - generic [ref=f4e599]:
+              - term [ref=f4e600]: 인프라
+              - definition [ref=f4e601]: 3순위
+        - generic [ref=f4e602]:
+          - paragraph [ref=f4e603]: 스크롤B같음 (B)
+          - generic [ref=f4e604]:
+            - generic [ref=f4e605]:
+              - term [ref=f4e606]: 예산
+              - definition [ref=f4e607]: 8.0억
+            - generic [ref=f4e608]:
+              - term [ref=f4e609]: 통근 상한
+              - definition [ref=f4e610]: 40분
+            - generic [ref=f4e611]:
+              - term [ref=f4e612]: 평형
+              - definition [ref=f4e613]: 2순위
+            - generic [ref=f4e614]:
+              - term [ref=f4e615]: 년식
+              - definition [ref=f4e616]: 1순위
+            - generic [ref=f4e617]:
+              - term [ref=f4e618]: 인프라
+              - definition [ref=f4e619]: 3순위
+      - generic [ref=f4e620]:
+        - paragraph [ref=f4e621]: 이렇게 추천했어요
+        - paragraph [ref=f4e622]: 두 분 모두 1순위로 고른 조건(년식)은 반드시 만족하는 동네만 추렸어요. 나머지 조건은 두 분 순위를 반영해 더 잘 맞는 동네부터, 예산 8.0억 이하인 구역 15곳을 통근시간 합이 짧은 순으로 보여드려요.

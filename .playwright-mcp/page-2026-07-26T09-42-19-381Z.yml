@@ -1,0 +1,24 @@
+- generic [active] [ref=f2e1]:
+  - button "Open Next.js Dev Tools" [ref=f2e20] [cursor=pointer]
+  - alert [ref=f2e24]: 우리집 동네 찾기
+  - main [ref=f2e164]:
+    - generic [ref=f2e165]:
+      - paragraph [ref=f2e166]: ※ 우리집은 현재 경기도 지역만 추천하고 있어요
+      - generic [ref=f2e167]:
+        - textbox "추가를 원하는 지역이 있다면 의견을 남겨주세요" [ref=f2e168]
+        - button "제안하기" [ref=f2e169]
+    - generic [ref=f2e170]:
+      - heading "상대방이 참여했어요" [level=1] [ref=f2e171]
+      - paragraph [ref=f2e172]: 조건 입력을 완료하면 알려드릴게요
+    - generic [ref=f2e173]:
+      - generic [ref=f2e174]:
+        - generic [ref=f2e175]:
+          - img "A" [ref=f2e178]
+          - generic [ref=f2e182]: 스크롤A
+        - generic [ref=f2e185]:
+          - img "B" [ref=f2e188]
+          - generic [ref=f2e189]: 스크롤B다름
+      - paragraph [ref=f2e191]: 내 조건은 상대방이 입력을마치지 전까지 공개되지 않아요
+    - link "먼저 혼자 둘러보기" [ref=f2e192] [cursor=pointer]:
+      - /url: /s/c40d769d-1181-44b2-87c8-4e34d405779a/result?solo=1
+    - button "새로고침" [ref=f2e194]
