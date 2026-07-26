@@ -387,14 +387,14 @@ export default function ResultPage() {
       const supabase = createClient()
       const { error: applyError } = await supabase.rpc('apply_concession', { sid: sessionId })
       if (applyError) throw applyError
-      
+      if (myRole && concession?.main.ladder_step != null) {
         console.log("ladder_recommendation_clicked")
         track(
           'ladder_recommendation_clicked',
           { session_id: sessionId, role: myRole },
           { ladder_step: concession.main.ladder_step, candidate_count_after: concession.main.total_count }
         )
-    
+      }
       window.location.href = `/s/${sessionId}/result?notice=concession`
     } catch (e) {
       setActionError(e instanceof Error ? e.message : '조건 반영에 실패했어요')
