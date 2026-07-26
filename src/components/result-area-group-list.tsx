@@ -15,6 +15,8 @@ interface ResultAreaGroupListProps {
   onGroupFocusChange: (sigungu: string | null) => void
   registerCardRef: (code: string, el: HTMLDivElement | null) => void
   emptyLabel: string
+  // 조율 직후 새로 추가된 동네 코드 — 해당 카드에만 New 뱃지를 표시한다.
+  newAreaCodes?: Set<string>
   // 리스트가 맨 위에 있는지 알려준다 — 부모(ResultMapSheet)가 필터 영역을
   // 스크롤 중엔 숨기고 맨 위로 돌아왔을 때만 다시 보여주는 데 쓴다.
   onAtTopChange?: (atTop: boolean) => void
@@ -38,6 +40,7 @@ export function ResultAreaGroupList({
   registerCardRef,
   emptyLabel,
   onAtTopChange,
+  newAreaCodes,
 }: ResultAreaGroupListProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const groupRefs = useRef<Record<string, HTMLDivElement | null>>({})
@@ -156,6 +159,7 @@ export function ResultAreaGroupList({
                   selected={area.code === selectedAreaCode}
                   showSigungu={false}
                   fullWidth
+                  isNew={newAreaCodes?.has(area.code) ?? false}
                   onSelect={
                     area.lat != null && area.lng != null ? () => onCardSelect(area) : undefined
                   }

@@ -112,9 +112,13 @@ export function PriorityOrderList({ role, order, onReorder, interactive }: Prior
           <div
             key={code}
             data-priority-item
-            style={isDragging ? { transform: `translateY(${dragOffset}px)`, zIndex: 10 } : undefined}
+            onPointerDown={interactive ? (e) => handlePointerDown(e, code) : undefined}
+            style={{
+              touchAction: 'none',
+              ...(isDragging ? { transform: `translateY(${dragOffset}px)`, zIndex: 10 } : null),
+            }}
             className={cn(
-              'flex items-center gap-1.5 rounded-full border bg-white px-[13px] py-[9px] transition-shadow',
+              'flex items-center gap-1.5 rounded-full border bg-white px-[13px] py-[9px] transition-shadow select-none',
               borderClass(role),
               isDragging && 'shadow-lg'
             )}
@@ -134,11 +138,9 @@ export function PriorityOrderList({ role, order, onReorder, interactive }: Prior
               <div
                 role="button"
                 tabIndex={0}
-                onPointerDown={(e) => handlePointerDown(e, code)}
                 onKeyDown={(e) => handleKeyDown(e, code, i)}
                 aria-label={`${CONDITION_LABEL[code]} 순서 변경`}
-                className="shrink-0 touch-none rounded px-1 text-neutral-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-300 active:text-neutral-400"
-                style={{ touchAction: 'none' }}
+                className="shrink-0 rounded p-2 text-neutral-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-300 active:text-neutral-400"
               >
                 <GripIcon className="size-3" />
               </div>

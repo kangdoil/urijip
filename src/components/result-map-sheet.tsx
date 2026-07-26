@@ -54,6 +54,8 @@ interface ResultMapSheetProps {
   // 상대가 없어 의미가 없으므로 액션바를 "대기 화면으로 돌아가기" 하나로 바꾼다.
   solo?: boolean
   onBackToWaiting?: () => void
+  // 조율 직후 새로 추가된 동네 코드 — 해당 카드에만 New 뱃지를 표시한다.
+  newAreaCodes?: Set<string>
 }
 
 // 지원 지역 전체(경기 동남부~서북부)를 아우르는 서울 중심 근사 좌표 — 핀이 하나도 없을 때만 쓰는 기본 좌표.
@@ -65,6 +67,20 @@ const PIN_FOCUS_LEVEL = 3
 // 시군구별로 보여줄 상위 동네 상한 — grouped-area-list.tsx의 MAX_PER_GROUP과
 // 동일한 기준(5)을 결과 화면 카드 리스트에도 그대로 적용한다.
 const MAX_PER_GROUP = 5
+
+// 바텀시트/액션바는 지도 위에 얹힌 별개 레이어지만, 카카오맵 SDK가 window/document에
+// 전역으로 붙이는 터치·휠 리스너는 좌표 기반이라 시트 위에서 일어난 터치도 지도
+// 제스처로 오인된다(실측: 리스트를 스와이프하면 지도가 같이 팬/줌됨). 이벤트가 그
+// 상위 리스너까지 버블링되지 못하도록 시트 쪽에서 전파를 끊는다 — vaul의 Drawer.Content는
+// 이 핸들러를 자기 내부 로직과 합성해서 호출하므로(rest.onPointerDown 먼저 호출) 여기서
+// stopPropagation을 걸어도 드래그 리사이즈 기능은 그대로 동작한다.
+const stopMapPropagation = {
+  onPointerDown: (e: React.PointerEvent) => e.stopPropagation(),
+  onPointerMove: (e: React.PointerEvent) => e.stopPropagation(),
+  onTouchStart: (e: React.TouchEvent) => e.stopPropagation(),
+  onTouchMove: (e: React.TouchEvent) => e.stopPropagation(),
+  onWheel: (e: React.WheelEvent) => e.stopPropagation(),
+}
 
 // 바텀시트 3단 스냅(Figma 기준, 844px 프레임 대비 비율):
 // 접힘(161px) / 중간(480px) / 전체(뷰포트 풀). vaul의 오프셋 공식은
@@ -195,7 +211,7 @@ function ActionButtonsFooter({
   // 버튼 자체는 배경이 불투명해 그라디언트 위에 있어도 상관없다 — 그라디언트
   // (페이드)는 버튼 위 여백에만 짧게 주고, 버튼은 불투명한 흰 배경 블록에 둔다.
   return (
-    <div className={cn('flex flex-col items-center', className)}>
+    <div className={cn('flex flex-col items-center', className)} {...stopMapPropagation}>
       <div className="h-6 w-full bg-gradient-to-t from-white to-white/0" />
       <div className="flex w-full flex-col items-center justify-between gap-3 bg-white px-5 py-[10px]">
         {solo ? (
@@ -242,7 +258,7 @@ function ConcessionApplyFooter({
   className?: string
 }) {
   return (
-    <div className={cn('flex flex-col items-center', className)}>
+    <div className={cn('flex flex-col items-center', className)} {...stopMapPropagation}>
       <div className="h-6 w-full bg-gradient-to-t from-white to-white/0" />
       <div className="flex w-full flex-col items-center bg-white px-5 py-[10px]">
         <button
@@ -292,6 +308,7 @@ export function ResultMapSheet({
   exportRef,
   solo = false,
   onBackToWaiting,
+  newAreaCodes,
 }: ResultMapSheetProps) {
   // react-kakao-maps-sdk 기본값이 프로토콜 상대경로("//dapi.kakao.com/...")라
   // 로컬 개발 서버(http://localhost:3000)에서는 http로 풀려서 브라우저 ORB에
@@ -368,11 +385,16 @@ export function ResultMapSheet({
   // 드래그가 인식하지 못한다 — 위로 스와이프하면 직접 스냅을 올려준다.
   const collapsedDragStartY = useRef<number | null>(null)
 
-  // 스크롤로 포커스된 시군구(핑크 60% 배경 틴트)와 클릭으로 선택된 카드(핑크
-  // 테두리)는 서로 독립적인 두 상태다 — ResultAreaGroupList의 스크롤스파이와
-  // 카드 클릭이 각각 갱신한다.
+  // 지도에 실제로 보이는 동네의 구(핑크 60% 배경 틴트)와 클릭으로 선택된
+  // 카드(핑크 테두리)는 서로 독립적인 두 상태다 — focusedSigungu는 지도 idle
+  // 이벤트(handleMapIdle)가 "지금 보이는 핀들 중 가장 많은 구"로 정하고,
+  // 카드 클릭은 selectedAreaCode만 갱신한다.
   const [focusedSigungu, setFocusedSigungu] = useState<string | null>(null)
   const [selectedAreaCode, setSelectedAreaCode] = useState<string | null>(null)
+  // handleMapIdle이 idle 이벤트 시점의 최신 pins를 읽기 위한 ref — addListener는
+  // onCreate에서 한 번만 등록되므로 클로저로 pins를 직접 캡처하면 그 시점 값에
+  // 고정돼버린다(이후 필터·제외로 바뀐 pins를 못 봄).
+  const pinsRef = useRef<PinData[]>([])
 
   function handleCollapsedHandlePointerDown(e: React.PointerEvent<HTMLButtonElement>) {
     collapsedDragStartY.current = e.clientY
@@ -550,6 +572,10 @@ export function ResultMapSheet({
         .filter((p): p is PinData => p != null)
     : activeAreas.map((a) => toPin(a, 'neutral')).filter((p): p is PinData => p != null)
 
+  useEffect(() => {
+    pinsRef.current = pins
+  }, [pins])
+
   // 그냥 setCenter(target)만 쓰면 좌표가 지도 컨테이너 정중앙에 오는데, 그
   // 정중앙은 중간/전체 스냅에서 바텀시트가 덮는 영역과 겹쳐 화면엔 안
   // 보인다(실측 확인). sheetFraction(시트가 덮는 화면 비율, 0~1)만큼 대상
@@ -590,11 +616,14 @@ export function ResultMapSheet({
     centerMapOnTarget(kakaoMap, lat, lng, sheetFraction)
   }
 
-  // 지도 핀을 클릭하면 그 좌표로 확대하는 것과 동시에, 시트가 접혀있으면
-  // 펼치고 바텀시트 안 해당 카드로 스크롤 + 선택 표시(카드 클릭과 동일하게
-  // 핑크 테두리 활성화)해 정보를 보여준다.
+  // 지도 핀을 클릭하면 그 좌표로 확대하는 것과 동시에, 시트를 항상 중간
+  // 스냅으로 맞춘다(요구사항: 접힘/전체 어느 상태였든 좌표 클릭 시엔 풀페이지도
+  // 접힘도 아닌 중간 높이로) — 바텀시트 안 해당 카드로 스크롤 + 선택 표시(카드
+  // 클릭과 동일하게 핑크 테두리 활성화)해 정보를 보여준다. fallback·solo는
+  // 애초에 중간 스냅이 없는(SNAP_COLLAPSED/SNAP_FULL 2단) 레이아웃이라 그대로
+  // 전체화면을 유지한다.
   function focusArea(code: string, lat: number, lng: number) {
-    const nextSnap = snap === SNAP_COLLAPSED ? SNAP_MID : typeof snap === 'number' ? snap : SNAP_MID
+    const nextSnap = isFallback || solo ? SNAP_FULL : SNAP_MID
     focusPin(lat, lng, nextSnap)
     setSnap(nextSnap)
     setSelectedAreaCode(code)
@@ -604,10 +633,16 @@ export function ResultMapSheet({
     // eslint-disable-next-line react-hooks/purity
     suppressPanUntilRef.current = Date.now() + 600
     requestAnimationFrame(() => {
+      // block: 'nearest'는 카드의 bounding rect가 스크롤 컨테이너의 clientHeight
+      // 안에만 들어오면 "이미 보인다"고 판단해 스크롤을 멈춘다 — 그런데 하단
+      // 액션바(조율하기/저장하기)는 그 컨테이너 위에 별도로 얹힌 fixed 레이어라
+      // clientHeight 계산엔 안 잡히고, 카드가 그 뒤에 가려진 채로 "보임" 처리돼
+      // 스크롤이 일어나지 않는 경우가 실측 확인됐다(리스트 하단 근처 카드일수록
+      // 재현됨). 'center'로 바꿔 액션바 뒤에 가려지지 않게 확실히 밀어 올린다.
       cardRefs.current[code]?.scrollIntoView({
         behavior: 'smooth',
         inline: 'center',
-        block: 'nearest',
+        block: 'center',
       })
     })
   }
@@ -620,9 +655,11 @@ export function ResultMapSheet({
   const suppressPanUntilRef = useRef(0)
 
   // ResultAreaGroupList의 스크롤스파이가 통지하는 "현재 화면 중간에 걸린
-  // 시군구" — 배경 틴트 + 지도 pan(줌 유지).
+  // 시군구" — 지도만 그쪽으로 pan한다(줌 유지). 배경 틴트(focusedSigungu)는
+  // 더 이상 여기서 정하지 않는다 — 지도에 실제로 보이는 핀 기준으로만 정해야
+  // 하므로(요구사항: 지도에 보이는 동네의 구만 하이라이트), 그 판단은 pan이
+  // 끝난 뒤 지도 자체의 idle 이벤트(handleMapIdle)가 맡는다.
   function handleGroupFocusChange(sigungu: string | null) {
-    setFocusedSigungu(sigungu)
     // 이벤트 콜백(스크롤스파이 통지)에서만 호출되는 함수라 렌더 중 실행되지
     // 않는다 — Date.now()는 여기선 순수성 문제가 없다.
     // eslint-disable-next-line react-hooks/purity
@@ -631,6 +668,31 @@ export function ResultMapSheet({
       .find((g) => g.sigungu === sigungu)
       ?.list.find((a) => a.lat != null && a.lng != null)
     if (rep) panPin(rep.lat!, rep.lng!, typeof snap === 'number' ? snap : 0)
+  }
+
+  // 지도 이동/줌이 멎을 때마다(pin 클릭으로 확대했든, 리스트 스크롤로 pan
+  // 됐든, 사용자가 직접 드래그·핀치했든 전부 포함) 지금 뷰포트(bounds) 안에
+  // 실제로 보이는 핀들을 세어, 가장 많은 구를 하이라이트로 정한다 — "지도에
+  // 다른 구의 동네가 보이면 그 구만 하이라이트"가 정확히 이 로직이다.
+  function handleMapIdle() {
+    const kakaoMap = mapRef.current
+    if (!kakaoMap) return
+    const bounds = kakaoMap.getBounds()
+    const visible = pinsRef.current.filter((p) => bounds.contain(new kakao.maps.LatLng(p.lat, p.lng)))
+    if (visible.length === 0) return
+    // 이 파일은 react-kakao-maps-sdk의 Map 컴포넌트를 이미 import해서 전역 Map
+    // 클래스 이름이 가려지므로(파일 상단 주석 참고) Record로 대체한다.
+    const counts: Record<string, number> = {}
+    for (const p of visible) counts[p.sigungu] = (counts[p.sigungu] ?? 0) + 1
+    let best: string | null = null
+    let bestCount = 0
+    for (const sigungu of Object.keys(counts)) {
+      if (counts[sigungu] > bestCount) {
+        bestCount = counts[sigungu]
+        best = sigungu
+      }
+    }
+    setFocusedSigungu(best)
   }
 
   // 카드를 직접 클릭했을 때 — 테두리 강조 + 지도 줌인(기존 focusPin 그대로).
@@ -696,6 +758,7 @@ export function ResultMapSheet({
             level={7}
             onCreate={(map) => {
               mapRef.current = map
+              kakao.maps.event.addListener(map, 'idle', handleMapIdle)
             }}
           >
             {pins.map((p) => (
@@ -738,6 +801,7 @@ export function ResultMapSheet({
               'fixed inset-x-0 bottom-0 z-10 mx-auto flex w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-neutral-50 shadow-[0_-8px_32px_rgba(0,0,0,0.1)] outline-none',
               isFallback || solo ? 'max-h-[92dvh]' : 'h-dvh'
             )}
+            {...stopMapPropagation}
           >
             <button className="h-7 shrink-0">
               <div className="mx-auto mt-3 h-1 w-10 shrink-0 rounded-full bg-neutral-300" />
@@ -836,6 +900,7 @@ export function ResultMapSheet({
                         }}
                         onAtTopChange={setFilterVisible}
                         emptyLabel="이 조건을 만족하는 구역이 없어요"
+                        newAreaCodes={newAreaCodes}
                       />
                     </div>
                   </>
@@ -876,7 +941,10 @@ export function ResultMapSheet({
       )}
 
             {!isFallback && isCollapsed && (
-      <div className="fixed inset-x-0 bottom-0 z-20 mx-auto flex w-full max-w-md flex-col items-center bg-white rounded-t-3xl">
+      <div
+        className="fixed inset-x-0 bottom-0 z-20 mx-auto flex w-full max-w-md flex-col items-center bg-white rounded-t-3xl"
+        {...stopMapPropagation}
+      >
         {/* Drawer.Content의 핸들은 접힌 스냅에서 이 fixed 블록에 가려 안 보이므로,
             접혔을 때 다시 펼 수 있도록 여기에도 탭/드래그 가능한 핸들을 따로 둔다. */}
 

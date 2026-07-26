@@ -479,6 +479,26 @@ export default function AdjustPage() {
   const displayCountBefore = sigunguCountBefore * RECOMMENDED_PER_SIGUNGU
   const displayCountAfter = sigunguCountAfter * RECOMMENDED_PER_SIGUNGU
 
+  // sigunguCountBefore와 같은 "조율 전" 기준(원래 예산·통근·순위)으로 실제
+  // 통과 코드 목록까지 뽑아, passing(조율 후 미리보기)과 대조해 새로 생긴
+  // 동네를 판정한다 — New 뱃지 + 미리보기 최상단 정렬용.
+  const beforeCodes = useMemo(() => {
+    if (!data) return new Set<string>()
+    const beforeBudget = Math.min(data.a.budget_max_krw, data.b.budget_max_krw)
+    const beforeAOrder = orderFromPriorities(data.a.priorities)
+    const beforeBOrder = orderFromPriorities(data.b.priorities)
+    const beforePassing = data.candidates
+      .filter((c) => c.avg_price_krw != null && c.avg_price_krw <= beforeBudget)
+      .filter((c) => c.a_minutes <= data.a.commute_max_min && c.b_minutes <= data.b.commute_max_min)
+      .filter((c) => priorityHardOk(beforeAOrder, c.satisfied) && priorityHardOk(beforeBOrder, c.satisfied))
+    return new Set(beforePassing.map((c) => c.code))
+  }, [data])
+
+  const newAreaCodes = useMemo(
+    () => new Set(passing.filter((c) => !beforeCodes.has(c.code)).map((c) => c.code)),
+    [passing, beforeCodes]
+  )
+
   // adjust_viewed는 화면 진입당 1회만 — data/me가 처음 채워진 시점의
   // passing.length를 "진입 시점의 곳 수"로 기록한다.
   const adjustViewedFired = useRef(false)
@@ -859,7 +879,11 @@ export default function AdjustPage() {
                 )}
               </div>
               {passing.length > 0 && (
-                <AdjustAreaPreviewList areas={passing} emptyMessage="이 조건을 만족하는 동네가 아직 없어요" />
+                <AdjustAreaPreviewList
+                  areas={passing}
+                  newAreaCodes={newAreaCodes}
+                  emptyMessage="이 조건을 만족하는 동네가 아직 없어요"
+                />
               )}
             </div>
           </div>
@@ -1106,7 +1130,13 @@ export default function AdjustPage() {
             )}
           </div>
 
-          {passing.length > 0 && <AdjustAreaPreviewList areas={passing} emptyMessage="이 조건을 만족하는 동네가 아직 없어요" />}
+          {passing.length > 0 && (
+            <AdjustAreaPreviewList
+              areas={passing}
+              newAreaCodes={newAreaCodes}
+              emptyMessage="이 조건을 만족하는 동네가 아직 없어요"
+            />
+          )}
         </div>
 
         {error && <p className="mt-3 px-4 text-center text-sm text-red-600">{error}</p>}

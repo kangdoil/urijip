@@ -1,5 +1,5 @@
 import { CarIcon } from '@/components/icons/car-icon'
-import { CONDITION_LABEL, formatEok } from '@/lib/condition-labels'
+import { formatEok } from '@/lib/condition-labels'
 import { cn } from '@/lib/utils'
 
 export interface ResultAreaData {
@@ -27,6 +27,7 @@ export function ResultAreaCard({
   fullWidth = false,
   selected = false,
   showSigungu = true,
+  isNew = false,
 }: {
   area: ResultAreaData
   excluded?: boolean
@@ -42,11 +43,9 @@ export function ResultAreaCard({
   // 그룹 헤더가 이미 시군구명을 보여주는 목록(ResultAreaGroupList)에서는
   // 카드 안 시군구 표기가 중복이라 꺼둔다.
   showSigungu?: boolean
+  // 조율 직후 새로 추가된 동네에만 표시(Figma node 310:1715 — badge + 타이틀).
+  isNew?: boolean
 }) {
-  const satisfiedCodes = Object.entries(area.satisfied ?? {})
-    .filter(([, ok]) => ok)
-    .map(([code]) => code)
-
   return (
     <div
       onClick={onSelect}
@@ -63,6 +62,11 @@ export function ResultAreaCard({
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-baseline gap-1">
+          {isNew && (
+            <span className="shrink-0 text-[16px] leading-[22.4px] font-bold tracking-[-0.48px] text-pink-500">
+              New
+            </span>
+          )}
           <span className="text-body-sb font-medium text-neutral-900">{area.name}</span>
           <span className="whitespace-nowrap text-[12px] font-medium text-neutral-900">
             {formatEok(area.avg_price_krw)}
@@ -88,41 +92,29 @@ export function ResultAreaCard({
                 }}
                 className="shrink-0 text-[12px] font-medium tracking-[-0.42px] text-neutral-500 underline decoration-1 underline-offset-4"
               >
-                제외하기
+                제외
               </button>
             )}
       </div>
 
       <div className="flex items-center gap-1.5">
-        {satisfiedCodes.length > 0 && (
-          <div className="flex shrink-0 items-center gap-1">
-            {satisfiedCodes.map((code) => (
-              <span
-                key={code}
-                className="whitespace-nowrap rounded-full bg-neutral-100 px-[5px] py-[2px] text-caption-m font-semibold text-neutral-500"
-              >
-                {CONDITION_LABEL[code] ?? code} 충족
-              </span>
-            ))}
-          </div>
-        )}
-        {showSigungu && (
-          <span className="min-w-0 shrink truncate text-caption-l font-medium text-neutral-500">
-            {area.sigungu}
+        <span className="flex shrink-0 items-center gap-1 text-[12px] font-semibold">
+          <span className="flex items-center gap-1 text-pink-500">
+            <CarIcon className="size-3.5" />A {area.a_minutes}분
           </span>
-        )}
-        {(satisfiedCodes.length > 0 || showSigungu) && (
-          <span className="h-3 w-px shrink-0 bg-neutral-100" />
-        )}
-        <span className="flex shrink-0 items-center gap-1 text-[12px] font-semibold text-pink-500">
-          <CarIcon className="size-3.5" />
-          {area.a_minutes}분
+          {area.b_minutes != null && (
+            <span className="flex items-center gap-1 text-accent-teal">
+              <CarIcon className="size-3.5" />B {area.b_minutes}분
+            </span>
+          )}
         </span>
-        {area.b_minutes != null && (
-          <span className="flex shrink-0 items-center gap-1 text-[12px] font-semibold text-accent-teal">
-            <CarIcon className="size-3.5" />
-            {area.b_minutes}분
-          </span>
+        {showSigungu && (
+          <>
+            <span className="h-3 w-px shrink-0 bg-neutral-100" />
+            <span className="min-w-0 shrink truncate text-caption-l font-medium text-neutral-500">
+              {area.sigungu}
+            </span>
+          </>
         )}
       </div>
     </div>

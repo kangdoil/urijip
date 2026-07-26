@@ -24,6 +24,32 @@ function markResultViewed(sessionId: string, role: 'A' | 'B'): boolean {
   return isFirst
 }
 
+// 조율(재조정) 화면으로 나가기 직전, 지금 보고 있던 동네 코드를 세션스토리지에
+// 남겨둔다 — 서버엔 매칭 이력을 남기지 않아(get_matches는 매번 새로 계산) 이
+// 스냅샷이 유일한 "조율 전" 기준이다. sessionStorage라 탭을 닫으면 사라지고,
+// 1회 대조 후엔 명시적으로 지운다(preAdjustAreaCodes 참고).
+function preAdjustSnapshotKey(sessionId: string) {
+  return `urijib:pre_adjust_codes:${sessionId}`
+}
+
+function snapshotAreaCodesBeforeAdjust(sessionId: string, codes: string[]) {
+  if (typeof window === 'undefined') return
+  window.sessionStorage.setItem(preAdjustSnapshotKey(sessionId), JSON.stringify(codes))
+}
+
+// 조율 후 돌아와 get_matches를 다시 부른 직후 1회 호출 — 스냅샷이 있으면 거기
+// 없던 코드만 "새로 추가됨"으로 판정하고, 다음 새로고침엔 다시 안 뜨도록
+// 스냅샷을 지운다. 스냅샷이 없으면(조율을 거치지 않은 첫 방문 등) 빈 Set.
+function diffNewAreaCodes(sessionId: string, currentCodes: string[]): Set<string> {
+  if (typeof window === 'undefined') return new Set()
+  const key = preAdjustSnapshotKey(sessionId)
+  const prevRaw = window.sessionStorage.getItem(key)
+  if (!prevRaw) return new Set()
+  window.sessionStorage.removeItem(key)
+  const prevCodes = new Set<string>(JSON.parse(prevRaw))
+  return new Set(currentCodes.filter((code) => !prevCodes.has(code)))
+}
+
 interface ParticipantSummary {
   role: 'A' | 'B'
   display_name: string | null
@@ -99,6 +125,10 @@ export default function ResultPage() {
 
   const [result, setResult] = useState<MatchResult | null>(null)
   const [concession, setConcession] = useState<ConcessionMatchResult | null>(null)
+  // 조율하기로 나가기 직전 보고 있던 동네 코드 스냅샷과 대조해, 조율 후 새로
+  // 생긴 동네만 골라둔다(New 뱃지 + 상단 정렬용). 1회성 — 계산 직후 스냅샷은
+  // 지운다(다음 새로고침에선 "새로 추가됨"이 아니므로).
+  const [newAreaCodes, setNewAreaCodes] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [resolved, setResolved] = useState(false)
@@ -208,7 +238,14 @@ export default function ResultPage() {
           setLoading(false)
           return
         }
-        setResult(data as MatchResult)
+        const matchResult = data as MatchResult
+        setResult(matchResult)
+        setNewAreaCodes(
+          diffNewAreaCodes(
+            sessionId,
+            matchResult.matches.map((m) => m.code)
+          )
+        )
 
         if (me?.role) {
           track(
@@ -314,6 +351,12 @@ export default function ResultPage() {
     if (retrying) return
     if (myRole) {
       track('result_retry', { session_id: sessionId, role: myRole }, {})
+    }
+    if (result) {
+      snapshotAreaCodesBeforeAdjust(
+        sessionId,
+        result.matches.map((m) => m.code)
+      )
     }
     setRetrying(true)
     try {
@@ -446,14 +489,25 @@ export default function ResultPage() {
   if (!result) return null
 
   const budgetLabel = `예산 ${formatEok(result.budget.applied_krw)} 이하`
+  // 새로 추가된 동네를 랭킹 순서는 유지한 채 맨 앞 블록으로 옮긴다(요구사항:
+  // 새 동네가 리스트 최상단에). groupBySigungu가 이 순서를 그대로 시군구
+  // 그룹핑에 반영하므로, 새 동네가 속한 시군구 그룹째로 위로 올라온다.
+  const orderedMatches =
+    newAreaCodes.size > 0
+      ? [
+          ...result.matches.filter((m) => newAreaCodes.has(m.code)),
+          ...result.matches.filter((m) => !newAreaCodes.has(m.code)),
+        ]
+      : result.matches
 
   return (
     <main className="flex-1">
       <ResultMapSheet
         sessionId={sessionId}
         myParticipantId={myParticipantId}
-        areas={result.matches}
+        areas={orderedMatches}
         matchCount={result.match_count}
+        newAreaCodes={newAreaCodes}
         concession={concession}
         priorities={result.priorities}
         budgetLabel={budgetLabel}

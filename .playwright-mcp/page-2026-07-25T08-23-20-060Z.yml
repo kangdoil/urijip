@@ -1,5 +1,0 @@
-- generic [active] [ref=f18e1]:
-  - button "Open Next.js Dev Tools" [ref=f18e7] [cursor=pointer]
-  - alert [ref=f18e11]
-  - main [ref=f18e12]:
-    - paragraph [ref=f18e13]: 불러오는 중...

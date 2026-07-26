@@ -22,25 +22,13 @@ const ICON_SRC: Record<string, string> = {
   infra: '/asset/icon/infrastructure.svg',
 }
 
-// 1위 카드만 핑크 보더+그림자로 강조하고, 2·3위는 동일한 톤으로 묶는다
-// (Figma: 무엇이 가장 중요한가요 프레임 — 순위별 크기 차등 없이 1위만 강조).
-function badgeClass(rank: number) {
-  return rank === 1
-    ? 'flex size-6 shrink-0 items-center justify-center rounded-full bg-pink-500 text-[11.5px] font-extrabold text-white'
-    : 'flex size-6 shrink-0 items-center justify-center rounded-full bg-pink-100 text-[11.5px] font-extrabold text-pink-500'
-}
+// 순위와 무관하게 모든 카드가 동일한 톤을 유지하고, 순위 배지만 핑크500으로 강조한다.
+const badgeClassName =
+  'flex size-6 shrink-0 items-center justify-center rounded-full bg-pink-500 text-[11.5px] font-extrabold text-white'
 
-function iconWrapClass(rank: number) {
-  return rank === 1
-    ? 'flex size-11 shrink-0 items-center justify-center rounded-full bg-pink-100'
-    : 'flex size-11 shrink-0 items-center justify-center rounded-full bg-neutral-100'
-}
+const iconWrapClassName = 'flex size-11 shrink-0 items-center justify-center rounded-full bg-neutral-100'
 
-function nameClass(rank: number) {
-  return rank === 1
-    ? 'text-base leading-6 font-bold text-neutral-900'
-    : 'text-[15px] leading-[22.5px] font-bold text-neutral-900'
-}
+const nameClassName = 'text-[15px] leading-[22.5px] font-bold text-neutral-900'
 
 export default function ConditionsStepPage() {
   const router = useRouter()
@@ -206,7 +194,7 @@ export default function ConditionsStepPage() {
               무엇이 가장 중요한가요?
             </h1>
             <p className="text-base leading-[1.4] tracking-[-0.015em] text-neutral-500">
-              위로 올릴수록 결과에 더 크게 반영돼요
+              카드를 눌러서 위아래로 옮겨보세요
             </p>
           </div>
 
@@ -226,22 +214,19 @@ export default function ConditionsStepPage() {
                   onPointerUp={() => endDrag(code)}
                   onPointerCancel={() => endDrag(code)}
                   className={cn(
-                    'flex touch-none items-center gap-3 rounded-xl border bg-white p-[15px] select-none',
+                    'flex touch-none items-center gap-3 rounded-xl border border-neutral-100 bg-white p-[15px] select-none',
                     draggingCode === code
                       ? 'z-20 cursor-grabbing shadow-[0_18px_36px_rgba(20,20,30,0.16)]'
-                      : 'cursor-grab transition-[border-color,box-shadow,background-color] duration-300',
-                    rank === 1
-                      ? 'border-pink-500 drop-shadow-[0px_10px_10px_rgba(0,0,0,0.04)]'
-                      : 'border-neutral-100'
+                      : 'cursor-grab transition-[border-color,box-shadow,background-color] duration-300'
                   )}
                 >
-                  <span className={badgeClass(rank)}>{rank}</span>
-                  <span className={iconWrapClass(rank)} aria-hidden>
+                  <span className={badgeClassName}>{rank}</span>
+                  <span className={iconWrapClassName} aria-hidden>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={ICON_SRC[code]} alt="" className="size-6" />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className={cn('block', nameClass(rank))}>{cond.name}</span>
+                    <span className={cn('block', nameClassName)}>{cond.name}</span>
                     <span className="mt-0.5 block text-[13px] leading-[1.4] text-neutral-500">
                       {cond.descr}
                     </span>
@@ -256,7 +241,7 @@ export default function ConditionsStepPage() {
 
           <div className="h-px w-[294px] bg-neutral-100" />
 
-          <p className="text-center text-[13px] text-neutral-500">카드를 눌러서 위아래로 옮겨보세요</p>
+          <p className="text-center text-[13px] text-neutral-500">위로 올릴수록 결과에 더 크게 반영돼요</p>
 
           {error && <p className="text-center text-sm text-red-600">{error}</p>}
         </div>
