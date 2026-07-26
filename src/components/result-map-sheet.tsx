@@ -797,7 +797,7 @@ export function ResultMapSheet({
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src="/asset/icon/message-fill.svg" alt="" className="size-5 shrink-0" />
                         <span className="truncate text-[14px] font-medium tracking-[-0.35px] text-neutral-900">
-                          왜 이 동네들을 추천했을까?
+                          왜 이 동네들을 추천했을까요?
                         </span>
                       </span>
                       <ChevronRight className="size-5 shrink-0 text-neutral-400" />
