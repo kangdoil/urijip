@@ -29,7 +29,7 @@ function getDevice(): 'mobile' | 'desktop' {
   return /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? 'mobile' : 'desktop'
 }
 
-// docs/metrics-events.md §2의 MVP 11개 이벤트만 이 유니언에 존재한다 — 목록 밖
+// docs/metrics-events.md §2의 MVP 이벤트만 이 유니언에 존재한다 — 목록 밖
 // 이벤트명은 타입 에러가 나도록 해서 "임의 이벤트 추가 금지"(§4 운영 원칙)를 강제한다.
 interface EventMap {
   session_created: { source: 'organic' | 'share_link' }
@@ -43,6 +43,22 @@ interface EventMap {
   feedback_submitted: { reaction: 'up' | 'down'; has_comment: boolean; trigger: 'resolved' | 'dwell' }
   result_exported: { format: 'image' | 'text' }
   solo_preview_viewed: { candidate_count: number }
+  // 콜드 스테이션(candidate_count=0) 결과 화면에서 "이 조건으로 바꾸고 동네
+  // 보러 가기"를 눌러 완화 사다리 추천을 적용한 시점 — 회복률의 분자.
+  ladder_recommendation_clicked: { ladder_step: 0 | 1 | 2 | 3 | 4; candidate_count_after: number }
+  // 조율 화면(/adjust) 로드 완료 — result_retry(버튼 클릭)와 실제 화면 도달
+  // 사이의 이탈을 구분하기 위한 조율 이탈률의 분모.
+  adjust_viewed: { entry_source: 'empty_page' | 'result_retry'; candidate_count_before: number }
+  // 조율 화면에서 "총 N곳 제안하고 동네 보러 가기" CTA로 제안을 보낸 시점 —
+  // 승인율의 분모.
+  proposal_sent: { candidate_count: number; changed_fields: string[] }
+  // 제안 수신자가 수락/거절 버튼을 누른 시점 — 승인율의 분자.
+  proposal_responded: {
+    response: 'approved' | 'rejected'
+    who: 'A' | 'B'
+    candidate_count: number
+    candidate_count_delta: number
+  }
 }
 
 interface CommonProps {

@@ -2,7 +2,7 @@
 
 | 항목 | 내용 |
 |---|---|
-| 문서 버전 | v1.4 (먼저 둘러보기 이벤트 추가) |
+| 문서 버전 | v1.5 (조율/제안 플로우 이벤트 4개 추가) |
 | 기준 문서 | PRD-우리집.md v0.8 |
 | 트래킹 도구 | Mixpanel |
 | 분석 단위 | 세션(session_id) 기준. 모든 이벤트에 session_id, role(A/B) 공통 프로퍼티 부착 |
@@ -53,7 +53,9 @@ PRD-우리집_v2.md §"진단" 기준. 조율 진입률은 방향이 양가적(�
 | 지표 | 정의 | 소스 |
 |---|---|---|
 | 조율 진입률 | 결과 도달 세션 중 "조율하기" 클릭 비율 | `result_viewed` → `result_retry` |
-| 제안 수락률 | 세션 내 발송된 제안 중 accepted 비율 | `proposals` 테이블 쿼리 (Mixpanel 미대상 — 2번 참고) |
+| 조율 이탈률 | `result_retry` 클릭 대비 실제 `/adjust` 화면 도달 비율 (버튼 클릭과 화면 도달 사이 이탈 구분) | `result_retry` → `adjust_viewed` |
+| 콜드 스테이션 회복률 | `candidate_count=0` 결과 세션 중 완화 사다리 추천을 적용한 비율 | `result_viewed`(candidate_count=0) → `ladder_recommendation_clicked` |
+| 제안 승인율 | 조율 화면에서 발송된 제안 중 승인(approved) 비율 | `proposal_sent` → `proposal_responded`(response=approved) |
 | 저장 포맷 선호 | 저장 시트에서 이미지/텍스트 각각 선택된 비율 | `result_exported`의 `format` 분포 |
 | 먼저 둘러보기 사용률 | A 입력 완료 세션 중 B 미완료 상태에서 solo 미리보기를 연 비율, 그리고 그 세션이 이후 실제로 `b_started`로 이어지는지 | `input_completed(A)` → `solo_preview_viewed` → `b_started` |
 
@@ -61,10 +63,11 @@ PRD-우리집_v2.md §"진단" 기준. 조율 진입률은 방향이 양가적(�
 
 > 저장 포맷 선호는 결정 연결이 생겨 §3 보류 목록에서 승격했다(v1.3). 특정 포맷(이미지/텍스트) 선택 비율이 현저히 낮으면 저장 시트에서 해당 옵션의 노출 순서를 낮추거나 제거하는 결정에 쓴다.
 > 먼저 둘러보기 사용률은 v1.4에서 신설(B 접속률 저하 완화용 기능과 함께 추가). 사용률은 높은데 이후 `b_started` 전환이 낮으면 "먼저 둘러보기가 초대 재촉 대신 대체재가 되고 있다"는 신호로 보고, 배너/카피로 초대를 다시 유도하는 결정에 쓴다.
+> 조율 이탈률·콜드 스테이션 회복률·제안 승인율은 v1.5에서 신설. 이전엔 `proposals` 테이블 쿼리로만 대체하던 제안 수락률을 Mixpanel 이벤트(`proposal_sent`/`proposal_responded`)로 승격했다 — §3 보류 목록의 `proposal_*`가 이번에 승격된 것이다.
 
 ---
 
-## 2. MVP 이벤트 (11개)
+## 2. MVP 이벤트 (15개)
 
 공통 프로퍼티(전 이벤트): `session_id`, `role`(A/B/미참여), `device`
 
@@ -81,11 +84,15 @@ PRD-우리집_v2.md §"진단" 기준. 조율 진입률은 방향이 양가적(�
 | 9 | `feedback_submitted` | 결과 | 피드백 배너 응답 | `reaction`: up / down, `has_comment`, `trigger`: resolved / dwell | H1 선언 |
 | 10 | `result_exported` | 결과 | 저장 시트에서 이미지/텍스트 저장 버튼 클릭 | `role`, `format`: image / text | 진단 지표(저장 포맷 선호) |
 | 11 | `solo_preview_viewed` | 결과(`?solo=1`) | B 미완료 상태에서 "먼저 둘러보기" 미리보기 로드 완료 | `role`(A), `candidate_count` | 진단 지표(먼저 둘러보기 사용률) |
+| 12 | `ladder_recommendation_clicked` | 결과(candidate_count=0) | "이 조건으로 바꾸고 동네 보러 가기" 클릭 (완화 사다리 추천 적용) | `role`, `ladder_step`(0~4), `candidate_count_after` | 진단 지표(콜드 스테이션 회복률) 분자 |
+| 13 | `adjust_viewed` | 조율(/adjust) | 화면 로드 완료 | `role`, `entry_source`: empty_page / result_retry, `candidate_count_before` | 진단 지표(조율 이탈률) 분모 |
+| 14 | `proposal_sent` | 조율(/adjust) | "총 N곳 제안하고 동네 보러 가기" 클릭 (proposals insert 성공) | `role`, `candidate_count`, `changed_fields`(예: `["priority_order", "budget"]`) | 진단 지표(제안 승인율) 분모 |
+| 15 | `proposal_responded` | 조율(/adjust, 제안 수신 시) | "다시 조율하기" / "이 조건 수락하기" 클릭 | `role`, `response`: approved / rejected, `who`, `candidate_count`, `candidate_count_delta` | 진단 지표(제안 승인율) 분자 |
 
 ## 3. 보류 이벤트 (v2 후보 — 지금은 구현하지 않음)
 
 - `onboarding_step_completed` — 단계별 이탈 상세. MVP는 페이지뷰 + `input_completed` 유무로 갈음
-- `adjust_changed`, `proposal_*` — 조율 진단 매트릭스용. `proposals` 테이블 쿼리로 대체
+- `adjust_changed` — 슬라이더/우선순위 조정 중간 상태. `proposal_sent`의 `changed_fields`로 최종 변경 항목만 갈음(v1.5)
 - `area_excluded` / `area_restored` / `confirm_revoked` — `area_exclusions`·`confirmations` 테이블로 대체
 - `must_limit_hit` — 필수 제한 완화 판단용. 필요해지면 추가
 - `invite_reminder_sent`, `absence_summary_shown`, `shared_view_opened` — 결정 연결이 아직 없음
@@ -97,6 +104,7 @@ PRD-우리집_v2.md §"진단" 기준. 조율 진입률은 방향이 양가적(�
 ## 4. 운영 원칙
 
 - 핵심 퍼널: `session_created → invite_sent → invite_opened → b_started → input_completed(B) → result_viewed(A·B) → result_saved(role별)`. 공동 확정은 한 세션에서 role=A·B 모두 발화했는지로 분석 단계에서 도출한다.
+- 조율 퍼널(v1.5): `result_retry → adjust_viewed → proposal_sent → proposal_responded`. `result_retry`와 `adjust_viewed` 사이의 차이가 화면 이탈이다.
 - `result_saved`의 `is_joint_complete`는 서버 응답(confirmations 2행 성립 여부)으로 채운다 — 클라이언트 자체 판단 시 동시 클릭 경합 오류.
-- 위 11개 외 이벤트를 구현 중 임의로 추가하지 않는다. 보류 이벤트를 승격할 땐 §3의 승격 규칙(결정 연결)을 먼저 문서에 남긴다.
+- 위 15개 외 이벤트를 구현 중 임의로 추가하지 않는다. 보류 이벤트를 승격할 땐 §3의 승격 규칙(결정 연결)을 먼저 문서에 남긴다.
 - 개인정보: 거점 좌표·주소는 프로퍼티에 절대 넣지 않는다. 구역 코드(area_code)까지만 허용.

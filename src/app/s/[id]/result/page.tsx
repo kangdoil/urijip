@@ -307,7 +307,10 @@ export default function ResultPage() {
     }
   }, [isSolo, sessionId])
 
-  async function handleRetry() {
+  // source는 adjust_viewed의 entry_source로 이어진다 — 같은 화면 이동
+  // 함수를 콜드 스테이션 "직접 조율하기" 링크와 일반 "조율하기" 버튼이
+  // 공유하므로, 호출부(ResultMapSheet)가 어느 트리거였는지 구분해 넘겨준다.
+  async function handleRetry(source: 'empty_page' | 'result_retry') {
     if (retrying) return
     if (myRole) {
       track('result_retry', { session_id: sessionId, role: myRole }, {})
@@ -321,7 +324,7 @@ export default function ResultPage() {
         })
         if (reopenError) throw reopenError
       }
-      router.push(`/s/${sessionId}/adjust`)
+      router.push(`/s/${sessionId}/adjust?entry_source=${source}`)
     } catch (e) {
       setActionError(e instanceof Error ? e.message : '다시 조율하기에 실패했어요')
       setRetrying(false)
@@ -340,6 +343,13 @@ export default function ResultPage() {
       const supabase = createClient()
       const { error: applyError } = await supabase.rpc('apply_concession', { sid: sessionId })
       if (applyError) throw applyError
+      if (myRole && concession?.main.ladder_step != null) {
+        track(
+          'ladder_recommendation_clicked',
+          { session_id: sessionId, role: myRole },
+          { ladder_step: concession.main.ladder_step, candidate_count_after: concession.main.total_count }
+        )
+      }
       window.location.href = `/s/${sessionId}/result?notice=concession`
     } catch (e) {
       setActionError(e instanceof Error ? e.message : '조건 반영에 실패했어요')

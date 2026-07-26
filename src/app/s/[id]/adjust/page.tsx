@@ -1,12 +1,11 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowRight, ArrowUpDown, Compass, Home } from 'lucide-react'
-import { useParams, useRouter } from 'next/navigation'
+import { ArrowRight, Compass } from 'lucide-react'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { getMyParticipant, type MyParticipant } from '@/lib/get-my-participant'
 import { CONDITION_LABEL, formatEok, type Priority } from '@/lib/condition-labels'
-import { CarIcon } from '@/components/icons/car-icon'
 import { AdjustAreaPreviewList } from '@/components/adjust-area-preview-list'
 import { PriorityOrderList } from '@/components/priority-order-list'
 import { useCommuteStatus } from '@/lib/use-commute-status'
@@ -15,6 +14,7 @@ import { OnboardBackBar } from '@/components/onboard-back-bar'
 import { DecisionResultSheet } from '@/components/decision-result-sheet'
 import { FindingBestAreasScreen } from '@/components/finding-best-areas-screen'
 import { cn } from '@/lib/utils'
+import { track } from '@/lib/mixpanel'
 import type { ConcessionMatchResult } from '@/lib/concession-copy'
 
 const CODES = ['area_size', 'build_year', 'infra'] as const
@@ -134,6 +134,17 @@ function formatMinDelta(deltaMin: number) {
   return `${sign}${Math.abs(deltaMin)}분`
 }
 
+// proposal_sent의 changed_fields용 — payload의 원본 키(area_size 등 순열
+// 3개, budget_max_krw, commute_max_min)를 리포트에서 바로 쓸 이름으로
+// 묶는다. 순위 3개는 항상 함께 오므로 'priority_order' 하나로 합친다.
+function changedFieldsFrom(payload: Record<string, string | number>): string[] {
+  const fields: string[] = []
+  if ('budget_max_krw' in payload) fields.push('budget')
+  if ('commute_max_min' in payload) fields.push('commute')
+  if (CODES.some((code) => code in payload)) fields.push('priority_order')
+  return fields
+}
+
 function buildChanges(payload: Record<string, string | number>, original: ParticipantAdjust) {
   const changes: {
     key: string
@@ -191,11 +202,23 @@ function buildChanges(payload: Record<string, string | number>, original: Partic
 export default function AdjustPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const sessionId = params.id
+
+  // handleRetry(result/page.tsx)가 붙여주는 쿼리 — 콜드 스테이션 "직접
+  // 조율하기" 링크와 일반 "조율하기" 버튼을 구분한다. 파라미터가 없거나
+  // 값이 예상 밖이면(북마크·직접 진입 등) 더 흔한 경로인 result_retry로
+  // 기본 처리한다.
+  const entrySource: 'empty_page' | 'result_retry' =
+    searchParams.get('entry_source') === 'empty_page' ? 'empty_page' : 'result_retry'
 
   const [me, setMe] = useState<MyParticipant | null>(null)
   const [data, setData] = useState<AdjustData | null>(null)
   const [pending, setPending] = useState<Proposal | null>(null)
+  // "받은 제안" 헤더의 "{이름}님의 조율 제안이 도착했어요" 문구용 — proposals에는
+  // 이름이 없어 refresh()에서 participants를 한 번 더 조회해 채운다
+  // (proposal-snackbar.tsx와 동일 패턴). 못 가져오면 렌더 시점에 "상대방"으로 대체.
+  const [proposerName, setProposerName] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -266,6 +289,20 @@ export default function AdjustPage() {
       .limit(1)
     const pendingProposal = (proposals?.[0] as Proposal) ?? null
     setPending(pendingProposal)
+
+    // "받은 제안" 헤더의 "{이름}님의 조율 제안이 도착했어요" 문구용 — proposals에는
+    // 이름이 없어 participants에서 한 번 더 조회한다(proposal-snackbar.tsx와
+    // 동일 패턴). 못 가져오면 "상대방"으로 대체(렌더 시점에서 처리).
+    if (pendingProposal) {
+      const { data: proposer } = await supabase
+        .from('participants')
+        .select('display_name')
+        .eq('id', pendingProposal.proposer_id)
+        .single()
+      setProposerName(proposer?.display_name ?? null)
+    } else {
+      setProposerName(null)
+    }
 
     // 대기 중인 제안이 있으면, 제안자 쪽 순위는 "제안된 순서"로 덮어써서
     // 보여준다 (아직 실제로 저장되진 않았지만, 상대가 검토할 값은 이거니까).
@@ -425,7 +462,55 @@ export default function AdjustPage() {
       .sort((x, y) => y.score - x.score || x.a_minutes + x.b_minutes - (y.a_minutes + y.b_minutes))
   }, [data, aOrder, bOrder, appliedBudget, aCommuteValue, bCommuteValue])
 
+  // 상대에게 보여줄 "제안 전/후 총 N곳" — 원래 iAmDeciding 렌더 분기 안에서만
+  // 계산했지만, proposal_responded 트래킹(decide())에서도 같은 값이 필요해
+  // 컴포넌트 스코프로 끌어올렸다(로직 중복 방지).
+  const sigunguCountBefore = useMemo(() => {
+    if (!data) return 0
+    const beforeBudget = Math.min(data.a.budget_max_krw, data.b.budget_max_krw)
+    return countMatches(
+      data.candidates, beforeBudget, data.a.commute_max_min, data.b.commute_max_min, aOrder, bOrder
+    )
+  }, [data, aOrder, bOrder])
+  const sigunguCountAfter = useMemo(() => {
+    if (!data) return 0
+    return countMatches(data.candidates, appliedBudget, aCommuteValue, bCommuteValue, aOrder, bOrder)
+  }, [data, appliedBudget, aCommuteValue, bCommuteValue, aOrder, bOrder])
+  const displayCountBefore = sigunguCountBefore * RECOMMENDED_PER_SIGUNGU
+  const displayCountAfter = sigunguCountAfter * RECOMMENDED_PER_SIGUNGU
+
+  // adjust_viewed는 화면 진입당 1회만 — data/me가 처음 채워진 시점의
+  // passing.length를 "진입 시점의 곳 수"로 기록한다.
+  const adjustViewedFired = useRef(false)
+  useEffect(() => {
+    if (!data || !me || adjustViewedFired.current) return
+    adjustViewedFired.current = true
+    track(
+      'adjust_viewed',
+      { session_id: sessionId, role: me.role },
+      { entry_source: entrySource, candidate_count_before: passing.length }
+    )
+  }, [data, me, sessionId, entrySource, passing])
+
   const iAmDeciding = pending && !isProposer
+
+  // "받은 제안" 화면(Figma: 조율 제안 받은 화면) 전용 — 위 제안 카드 전체가
+  // 스크롤아웃되면(스티키 뒤로가기 바 아래로 완전히 넘어가면) 콤팩트 헤더로
+  // 바꿔 보여준다. rootMargin의 -54px는 뒤로가기 바 높이만큼 관찰 기준선을
+  // 당겨, 카드 하단이 그 바로 아래로 넘어가는 순간 전환되게 한다.
+  const proposalCardRef = useRef<HTMLDivElement>(null)
+  const [showCompactHeader, setShowCompactHeader] = useState(false)
+  useEffect(() => {
+    if (!pending || !iAmDeciding) return
+    const el = proposalCardRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowCompactHeader(!entry.isIntersecting),
+      { rootMargin: '-54px 0px 0px 0px', threshold: 0 }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [pending, iAmDeciding])
 
   function myDiff() {
     if (!me || !data) return {}
@@ -456,12 +541,18 @@ export default function AdjustPage() {
     setError(null)
     try {
       const supabase = createClient()
+      const payload = myDiff()
       const { error: insertError } = await supabase.from('proposals').insert({
         session_id: sessionId,
         proposer_id: me.id,
-        payload: myDiff(),
+        payload,
       })
       if (insertError) throw insertError
+      track(
+        'proposal_sent',
+        { session_id: sessionId, role: me.role },
+        { candidate_count: passing.length, changed_fields: changedFieldsFrom(payload) }
+      )
       await refresh()
     } catch (e) {
       setError(e instanceof Error ? e.message : '제안에 실패했어요')
@@ -528,6 +619,17 @@ export default function AdjustPage() {
         accept,
       })
       if (decideError) throw decideError
+
+      track(
+        'proposal_responded',
+        { session_id: sessionId, role: me.role },
+        {
+          response: accept ? 'approved' : 'rejected',
+          who: me.role,
+          candidate_count: displayCountAfter,
+          candidate_count_delta: displayCountAfter - displayCountBefore,
+        }
+      )
 
       if (accept) {
         router.push(`/s/${sessionId}/result?notice=accepted`)
@@ -641,102 +743,128 @@ export default function AdjustPage() {
   if (pending && iAmDeciding) {
     const proposerRole = pending.proposer_id === data.a.id ? 'A' : 'B'
     const proposerOriginal = proposerRole === 'A' ? data.a : data.b
-    const badgeColors = roleTokens(proposerRole)
     const changes = buildChanges(pending.payload, proposerOriginal)
-
-    const beforeBudget = Math.min(data.a.budget_max_krw, data.b.budget_max_krw)
-    const sigunguCountBefore = countMatches(
-      data.candidates, beforeBudget, data.a.commute_max_min, data.b.commute_max_min, aOrder, bOrder
-    )
-    const sigunguCountAfter = countMatches(
-      data.candidates, appliedBudget, aCommuteValue, bCommuteValue, aOrder, bOrder
-    )
-    // "총 N곳" 배지 전용 — "N개 시군구에 걸쳐 있어요" 문구는 시군구 수 그대로 쓴다.
-    const displayCountBefore = sigunguCountBefore * RECOMMENDED_PER_SIGUNGU
-    const displayCountAfter = sigunguCountAfter * RECOMMENDED_PER_SIGUNGU
+    const isRoleA = proposerRole === 'A'
+    const heading = `${proposerName ?? '상대방'}님의 조율 제안이 도착했어요`
+    // sigunguCountBefore/After, displayCountBefore/After는 컴포넌트 스코프로
+    // 끌어올려졌다(위 참고) — decide()의 proposal_responded 트래킹과 공유.
+    // "함께 살 수 있는 동네" 요약 배지 톤 — 제안자 role 색을 그대로 쓴다
+    // (Figma: 조율 제안 받은 화면, A=핑크/B=에메랄드).
+    const summary = isRoleA
+      ? {
+          pill: 'bg-pink-50',
+          label: 'text-pink-600',
+          strike: 'text-pink-300',
+          value: 'text-pink-600',
+          arrow: 'text-pink-400',
+        }
+      : {
+          pill: 'bg-emerald-50',
+          label: 'text-emerald-700',
+          strike: 'text-emerald-300',
+          value: 'text-emerald-600',
+          arrow: 'text-emerald-400',
+        }
+    const avatarSrc = isRoleA ? '/asset/role-avatar-a.png' : '/asset/role-avatar-b.png'
 
     return (
       <main className="flex flex-1 justify-center bg-neutral-50">
         <div className="w-full max-w-sm pb-40">
-          <div className="sticky top-0 z-10 bg-neutral-50">
+          <div className="sticky top-0 z-30 bg-neutral-50">
             <OnboardBackBar onBack={() => router.push(`/s/${sessionId}/result`)} />
           </div>
 
-          <div className="flex flex-col gap-4 px-4 pt-2">
-            <div
-              className={cn(
-                'flex flex-col gap-5 rounded-2xl border bg-white p-6',
-                badgeColors.cardBorder,
-                badgeColors.cardGlow
-              )}
-            >
+          {/* 콤팩트 헤더 — 아래 제안 카드 전체가 스크롤아웃되면 나타난다
+              (Figma: 조율 제안 받은 화면의 스크롤 상태 프레임). sticky는 숨겨진
+              상태에서도(opacity-0) 문서 흐름에 자기 높이만큼 공간을 차지해
+              카드 위에 빈 여백이 생기는 버그가 있었다 — fixed로 흐름 밖에
+              띄워서 숨김 상태일 땐 공간을 아예 차지하지 않게 한다. */}
+          <div
+            className={cn(
+              'fixed inset-x-0 top-[54px] z-20 mx-auto w-full max-w-sm px-4 pb-3 transition-all duration-200 ease-out',
+              showCompactHeader
+                ? 'translate-y-0 opacity-100'
+                : 'pointer-events-none -translate-y-1 opacity-0'
+            )}
+          >
+            <div className="flex flex-col gap-3 rounded-[32px] bg-white p-6 shadow-[0_4px_16px_rgba(11,13,15,0.08)]">
               <div className="flex items-center gap-2.5">
-                <span
-                  className={cn(
-                    'flex size-8 shrink-0 items-center justify-center rounded-full text-body-sb font-bold text-white',
-                    badgeColors.avatarBg
-                  )}
-                >
-                  {proposerRole}
-                </span>
-                <h1 className="text-body-m font-bold text-neutral-900">
-                  상대방이 이렇게 조율을 제안했어요
-                </h1>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={avatarSrc} alt={proposerRole} className="size-8 shrink-0" />
+                <h1 className="truncate text-body-m font-bold text-neutral-900">{heading}</h1>
               </div>
 
-              <div className="flex flex-col gap-4">
-                {changes.map((change) => (
-                  <div key={change.key} className="flex items-center justify-between gap-2">
-                    <span className="flex w-24 shrink-0 items-center gap-1.5 text-body-sb font-semibold text-neutral-400">
-                      {change.key === 'budget_max_krw' && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src="/asset/icon/money.svg" alt="" className="size-4" />
-                      )}
-                      {change.key === 'commute_max_min' && <CarIcon className="size-4 text-neutral-400" />}
-                      {change.key === 'priorities' && <ArrowUpDown className="size-4 text-neutral-400" />}
-                      {change.key === 'priorities' ? `${proposerRole}의 우선순위` : change.label}
-                    </span>
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span className="truncate text-body-sb font-medium text-neutral-300 line-through">
-                        {change.oldValue}
-                      </span>
-                      <ArrowRight className="size-4 shrink-0 text-neutral-300" />
-                      <span className="shrink-0 text-body-m font-bold text-neutral-900">{change.newValue}</span>
-                      {change.deltaLabel && (
-                        <span className="shrink-0 text-body-sb font-bold text-emerald-500">
-                          {change.deltaLabel}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex items-center justify-between rounded-xl bg-emerald-50 px-4 py-3">
-                <span className="flex items-center gap-1.5 text-body-sb font-semibold text-emerald-700">
-                  <Home className="size-4" />
-                  함께 살 수 있는 동네
-                </span>
+              <div className={cn('flex items-center justify-between rounded-2xl px-4 py-3', summary.pill)}>
+                <span className={cn('text-body-sb font-semibold', summary.label)}>함께 살 수 있는 동네</span>
                 <div className="flex items-center gap-2">
-                  <span className="text-body-sb font-medium text-emerald-300 line-through">
+                  <span className={cn('text-body-sb font-medium line-through', summary.strike)}>
                     {displayCountBefore}곳
                   </span>
-                  <ArrowRight className="size-4 text-emerald-400" />
-                  <span className="text-body-m font-bold text-emerald-600">{displayCountAfter}곳</span>
+                  <ArrowRight className={cn('size-4', summary.arrow)} />
+                  <span className={cn('text-body-m font-bold', summary.value)}>{displayCountAfter}곳</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-4 px-4 pt-2">
+            <div ref={proposalCardRef} className="flex flex-col gap-3 rounded-[32px] bg-white p-6">
+              <div className="flex items-center gap-2.5">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={avatarSrc} alt={proposerRole} className="size-16 shrink-0" />
+                <h1 className="text-body-m leading-[1.4] font-bold text-neutral-900">{heading}</h1>
+              </div>
+
+              <div className="h-px w-full bg-neutral-100" />
+
+              <div className="flex items-center justify-between gap-4 px-4 py-1.5">
+                <span className="shrink-0 text-body-sb font-semibold text-neutral-900">변경 사항</span>
+                <div className="flex min-w-0 flex-col items-end gap-1 py-1">
+                  {changes.map((change) => (
+                    <span
+                      key={change.key}
+                      className="max-w-full truncate text-body-sb font-semibold text-neutral-900"
+                    >
+                      {change.label} {change.newValue}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className={cn('flex items-center justify-between rounded-2xl px-4 py-3', summary.pill)}>
+                <span className={cn('text-body-sb font-semibold', summary.label)}>함께 살 수 있는 동네</span>
+                <div className="flex items-center gap-2">
+                  <span className={cn('text-body-sb font-medium line-through', summary.strike)}>
+                    {displayCountBefore}곳
+                  </span>
+                  <ArrowRight className={cn('size-4', summary.arrow)} />
+                  <span className={cn('text-body-m font-bold', summary.value)}>{displayCountAfter}곳</span>
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-col gap-5 rounded-2xl bg-white p-6 shadow-[0_10px_24px_rgba(0,0,0,0.04)]">
-              <p className="flex items-center justify-center gap-1.5 text-center text-body-m font-bold text-neutral-900">
-                <Home className="size-4" />
-                이 조건으로 열리는 동네예요
-              </p>
-              <AdjustAreaPreviewList areas={passing} emptyMessage="이 조건을 만족하는 동네가 아직 없어요" />
+            <div className="flex flex-col gap-4 rounded-t-[40px] bg-neutral-100 px-5 py-6">
+              <div className="flex flex-col items-center gap-2">
+                <p className="flex items-center gap-1 text-body-m font-semibold text-neutral-900">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/asset/icon/house.svg" alt="" className="size-6" />
+                  우리가 함께 할 수 있는 동네 미리보기
+                </p>
+                {passing.length > 0 ? (
+                  <p className="text-center text-title-sb font-bold text-neutral-900">
+                    총 <span className="font-montserrat text-mont-title-l text-pink-500">{passing.length}</span>곳
+                  </p>
+                ) : (
+                  <p className="text-center text-title-sb font-bold text-neutral-900">함께 할 수 있는 곳이 없어요</p>
+                )}
+              </div>
+              {passing.length > 0 && (
+                <AdjustAreaPreviewList areas={passing} emptyMessage="이 조건을 만족하는 동네가 아직 없어요" />
+              )}
             </div>
           </div>
 
-          {error && <p className="mt-3 text-center text-sm text-red-600">{error}</p>}
+          {error && <p className="mt-3 px-4 text-center text-sm text-red-600">{error}</p>}
         </div>
 
         <div className="fixed inset-x-0 bottom-0 z-20 mx-auto flex w-full max-w-md gap-3 bg-white px-4 py-5">

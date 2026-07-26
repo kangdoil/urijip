@@ -32,7 +32,10 @@ interface ResultMapSheetProps {
   participants: ParticipantConditionSummary[] | null
   partnerConfirmed: boolean | null
   retrying: boolean
-  onRetry: () => void
+  // source는 mixpanel의 adjust_viewed.entry_source로 이어진다 — 일반
+  // "조율하기" 버튼과 콜드 스테이션 "직접 조율하기" 링크가 이 콜백을
+  // 공유하므로 호출부에서 어느 트리거인지 구분해 넘긴다.
+  onRetry: (source: 'empty_page' | 'result_retry') => void
   // 콜드 스테이션 팁 카드의 "이 조건으로 바꾸고 동네 보러 가기" 전용 —
   // onRetry(그냥 /adjust로 이동)와 달리 apply_concession RPC로 두 참여자의
   // 조건을 실제로 반영한 뒤 이동한다.
@@ -856,7 +859,7 @@ export function ResultMapSheet({
           className="fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-md"
           applying={applyingConcession}
           onApply={onApplyConcession}
-          onAdjust={onRetry}
+          onAdjust={() => onRetry('empty_page')}
         />
       )}
 
@@ -866,7 +869,7 @@ export function ResultMapSheet({
           solo={solo}
           retrying={retrying}
           saving={saving}
-          onRetry={onRetry}
+          onRetry={() => onRetry('result_retry')}
           onSave={() => onSave(savedAreaCodes)}
           onBackToWaiting={onBackToWaiting}
         />
@@ -908,7 +911,7 @@ export function ResultMapSheet({
             solo={solo}
             retrying={retrying}
             saving={saving}
-            onRetry={onRetry}
+            onRetry={() => onRetry('result_retry')}
             onSave={() => onSave(savedAreaCodes)}
             onBackToWaiting={onBackToWaiting}
           />
