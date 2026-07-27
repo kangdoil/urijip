@@ -174,7 +174,14 @@ function SwipeHintBubble() {
     if (!open) return
     function measure() {
       const rect = iconRef.current?.getBoundingClientRect()
-      if (rect) setPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right })
+      if (!rect) return
+      let right = window.innerWidth - rect.right
+      // 한 줄 문구라 폭이 꽤 넓다 — 아이콘에 딱 맞춰 오른쪽 정렬하면 좁은
+      // 화면에서 왼쪽으로 넘칠 수 있어, 패널이 이미 그려진 뒤(panelRef)엔
+      // 실제 폭으로 왼쪽 여백 12px을 보장하도록 보정한다.
+      const panelWidth = panelRef.current?.getBoundingClientRect().width
+      if (panelWidth) right = Math.min(right, window.innerWidth - panelWidth - 12)
+      setPos({ top: rect.bottom + 8, right })
     }
     // 마운트 직후엔 지도·시트 레이아웃이 아직 자리잡기 전이라(요소 위치가
     // 뒤늦게 안정화됨) 두 번 잰다 — 페인트 직후 한 번, 레이아웃이 마저
@@ -215,9 +222,9 @@ function SwipeHintBubble() {
           <div
             ref={panelRef}
             style={{ top: pos.top, right: pos.right }}
-            className="fixed z-50 flex w-max max-w-[240px] items-start gap-1 rounded-[32px] border border-neutral-100 bg-white px-[17px] py-[13px] shadow-[0_4px_4px_rgba(0,0,0,0.06)]"
+            className="fixed z-50 flex w-max items-center gap-1 rounded-[32px] border border-neutral-100 bg-white px-[17px] py-[13px] shadow-[0_4px_4px_rgba(0,0,0,0.06)]"
           >
-            <p className="text-[12px] font-bold tracking-[-0.42px] text-neutral-900">
+            <p className="text-[12px] whitespace-nowrap text-neutral-900 tracking-[-0.42px] font-bold">
               동네를 왼쪽으로 밀면 목록에서 제외할 수 있어요.
             </p>
             <button
@@ -942,7 +949,7 @@ export function ResultMapSheet({
               max-h만 안전장치로 둔 자연 높이를 유지한다(범위 밖 — 그대로). */}
           <Drawer.Content
             className={cn(
-              'fixed inset-x-0 bottom-0 z-10 mx-auto flex w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-neutral-50 shadow-[0_-8px_32px_rgba(0,0,0,0.1)] outline-none',
+              'fixed inset-x-0 bottom-0 z-10 mx-auto flex w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-neutral-0 shadow-[0_-8px_32px_rgba(0,0,0,0.1)] outline-none',
               isFallback || solo ? 'max-h-[92dvh]' : 'h-dvh'
             )}
             {...stopMapPropagation}
