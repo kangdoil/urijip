@@ -59,6 +59,14 @@ interface EventMap {
     candidate_count: number
     candidate_count_delta: number
   }
+  // 결과 카드의 "매물 보기"로 네이버부동산 외부 링크를 연 시점 — 결과 화면이
+  // 실제 매물 탐색 행동으로 이어지는지, PC/모바일 간 클릭률 차이가 있는지 본다.
+  external_listing_clicked: {
+    dong_name: string
+    price: number | null
+    is_confirmed: boolean
+    platform: 'naver_pc' | 'naver_mobile'
+  }
 }
 
 interface CommonProps {

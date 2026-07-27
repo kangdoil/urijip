@@ -2,7 +2,7 @@
 
 | 항목 | 내용 |
 |---|---|
-| 문서 버전 | v1.5 (조율/제안 플로우 이벤트 4개 추가) |
+| 문서 버전 | v1.6 (네이버부동산 매물 보기 이벤트 추가) |
 | 기준 문서 | PRD-우리집.md v0.8 |
 | 트래킹 도구 | Mixpanel |
 | 분석 단위 | 세션(session_id) 기준. 모든 이벤트에 session_id, role(A/B) 공통 프로퍼티 부착 |
@@ -58,16 +58,18 @@ PRD-우리집_v2.md §"진단" 기준. 조율 진입률은 방향이 양가적(�
 | 제안 승인율 | 조율 화면에서 발송된 제안 중 승인(approved) 비율 | `proposal_sent` → `proposal_responded`(response=approved) |
 | 저장 포맷 선호 | 저장 시트에서 이미지/텍스트 각각 선택된 비율 | `result_exported`의 `format` 분포 |
 | 먼저 둘러보기 사용률 | A 입력 완료 세션 중 B 미완료 상태에서 solo 미리보기를 연 비율, 그리고 그 세션이 이후 실제로 `b_started`로 이어지는지 | `input_completed(A)` → `solo_preview_viewed` → `b_started` |
+| 외부 매물 탐색 전환율 | 결과 도달 세션 중 네이버부동산 "매물 보기"를 클릭한 비율, PC/모바일 플랫폼별 분포 | `result_viewed` → `external_listing_clicked` |
 
 해석: 진입高×수락高 = 건강한 협상 / 진입高×수락低 = 조건 설계 마찰 / 진입低×확정高 = 첫 결과가 충분 / 진입低×확정低 = 가치 전달 실패
 
 > 저장 포맷 선호는 결정 연결이 생겨 §3 보류 목록에서 승격했다(v1.3). 특정 포맷(이미지/텍스트) 선택 비율이 현저히 낮으면 저장 시트에서 해당 옵션의 노출 순서를 낮추거나 제거하는 결정에 쓴다.
 > 먼저 둘러보기 사용률은 v1.4에서 신설(B 접속률 저하 완화용 기능과 함께 추가). 사용률은 높은데 이후 `b_started` 전환이 낮으면 "먼저 둘러보기가 초대 재촉 대신 대체재가 되고 있다"는 신호로 보고, 배너/카피로 초대를 다시 유도하는 결정에 쓴다.
 > 조율 이탈률·콜드 스테이션 회복률·제안 승인율은 v1.5에서 신설. 이전엔 `proposals` 테이블 쿼리로만 대체하던 제안 수락률을 Mixpanel 이벤트(`proposal_sent`/`proposal_responded`)로 승격했다 — §3 보류 목록의 `proposal_*`가 이번에 승격된 것이다.
+> 외부 매물 탐색 전환율은 v1.6에서 신설. `platform`별 클릭률이 유의미하게 낮으면 해당 플랫폼의 링크 방식(줌 레벨, URL 파라미터)을 재점검하는 데 쓴다.
 
 ---
 
-## 2. MVP 이벤트 (15개)
+## 2. MVP 이벤트 (16개)
 
 공통 프로퍼티(전 이벤트): `session_id`, `role`(A/B/미참여), `device`
 
@@ -88,6 +90,7 @@ PRD-우리집_v2.md §"진단" 기준. 조율 진입률은 방향이 양가적(�
 | 13 | `adjust_viewed` | 조율(/adjust) | 화면 로드 완료 | `role`, `entry_source`: empty_page / result_retry, `candidate_count_before` | 진단 지표(조율 이탈률) 분모 |
 | 14 | `proposal_sent` | 조율(/adjust) | "총 N곳 제안하고 동네 보러 가기" 클릭 (proposals insert 성공) | `role`, `candidate_count`, `changed_fields`(예: `["priority_order", "budget"]`) | 진단 지표(제안 승인율) 분모 |
 | 15 | `proposal_responded` | 조율(/adjust, 제안 수신 시) | "다시 조율하기" / "이 조건 수락하기" 클릭 | `role`, `response`: approved / rejected, `who`, `candidate_count`, `candidate_count_delta` | 진단 지표(제안 승인율) 분자 |
+| 16 | `external_listing_clicked` | 결과 | 동네 카드 "매물 보기" 클릭(네이버부동산 새 탭 오픈) | `role`, `dong_name`, `price`, `is_confirmed`(상대 확정 여부), `platform`: naver_pc / naver_mobile | 진단 지표(외부 매물 탐색 전환) |
 
 ## 3. 보류 이벤트 (v2 후보 — 지금은 구현하지 않음)
 

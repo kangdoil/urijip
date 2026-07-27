@@ -507,6 +507,7 @@ export default function ResultPage() {
       <ResultMapSheet
         sessionId={sessionId}
         myParticipantId={myParticipantId}
+        myRole={myRole}
         areas={orderedMatches}
         matchCount={result.match_count}
         newAreaCodes={newAreaCodes}

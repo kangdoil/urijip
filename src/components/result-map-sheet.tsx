@@ -1,12 +1,15 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Drawer } from 'vaul'
-import { Check, ChevronDown, ChevronRight } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, Info, X } from 'lucide-react'
 import { Map, CustomOverlayMap, useKakaoLoader } from 'react-kakao-maps-sdk'
 import { createClient } from '@/lib/supabase/client'
 import { ensureRealtimeAuth } from '@/lib/supabase/realtime-auth'
 import { groupBySigungu } from '@/lib/group-by-sigungu'
+import { getNaverLandLink } from '@/lib/naver-land-url'
+import { track } from '@/lib/mixpanel'
 import { cn } from '@/lib/utils'
 import { ResultHeaderPill } from '@/components/result-header-pill'
 import { ResultAreaCard, type ResultAreaData } from '@/components/result-area-card'
@@ -20,6 +23,8 @@ import { buildConcessionCopy, buildStatsComparisonProps, type ConcessionMatchRes
 interface ResultMapSheetProps {
   sessionId: string
   myParticipantId: string | null
+  // "매물 보기" 클릭 시 external_listing_clicked의 role 프로퍼티로 쓴다.
+  myRole: 'A' | 'B' | null
   areas: ResultAreaData[]
   matchCount: number
   // 통근·예산 조건에 맞는 후보 0건(콜드 스테이션)일 때 get_concession_matches가 계산한
@@ -139,6 +144,97 @@ function Pin({
   )
 }
 
+// 스와이프 안내 말풍선은 "다시 보지 않기"가 아니라 유저 브라우저당 딱 한 번만
+// 자동 노출한다 — 이후엔 정보 아이콘을 눌러야만 다시 볼 수 있다.
+const SWIPE_HINT_SEEN_KEY = 'urijib:swipe-hint-seen'
+
+// "제외된 동네 포함" 옆 정보 아이콘 — 누르면 스와이프 안내 말풍선을 띄운다.
+// 처음 방문한 브라우저에서는 누르지 않아도 한 번 자동으로 뜨고, 다른 곳을
+// 클릭하면 닫힌다(Figma bubble node 323:1318 — 닫기 X 버튼도 함께 있음).
+function SwipeHintBubble() {
+  const iconRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
+  // 최초 노출 여부는 렌더 중(지연 초기화) 한 번만 판단한다 — 이펙트에서
+  // setState하면 불필요한 추가 렌더가 생기고, 이 값은 마운트 때 결정되면
+  // 그 뒤로 바뀔 일이 없는 값이라 이펙트로 동기화할 대상도 아니다.
+  const [open, setOpen] = useState(() => {
+    if (typeof window === 'undefined') return false
+    if (window.localStorage.getItem(SWIPE_HINT_SEEN_KEY)) return false
+    window.localStorage.setItem(SWIPE_HINT_SEEN_KEY, '1')
+    return true
+  })
+  const [pos, setPos] = useState<{ top: number; right: number } | null>(null)
+
+  // 필터 칩 줄은 접힘 애니메이션용 overflow-hidden grid 안에 있어서, 그냥
+  // absolute로 아이콘 위에 띄우면 말풍선이 그 grid 밖으로 나가는 부분이
+  // 잘려서 안 보인다(실측 확인). document.body에 포털로 그려 완전히
+  // 벗어나고, 아이콘의 실제 화면 좌표를 재서 fixed로 위치를 잡는다 — 레이아웃
+  // 측정은 페인트 이후에만 가능해 이펙트가 불가피하다.
+  useEffect(() => {
+    if (!open) return
+    function measure() {
+      const rect = iconRef.current?.getBoundingClientRect()
+      if (rect) setPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right })
+    }
+    // 마운트 직후엔 지도·시트 레이아웃이 아직 자리잡기 전이라(요소 위치가
+    // 뒤늦게 안정화됨) 두 번 잰다 — 페인트 직후 한 번, 레이아웃이 마저
+    // 안정된 뒤 한 번 더.
+    const raf = requestAnimationFrame(() => requestAnimationFrame(measure))
+    const timer = setTimeout(measure, 400)
+    return () => {
+      cancelAnimationFrame(raf)
+      clearTimeout(timer)
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+    function handlePointerDown(e: PointerEvent) {
+      const target = e.target as Node
+      if (iconRef.current?.contains(target) || panelRef.current?.contains(target)) return
+      setOpen(false)
+    }
+    document.addEventListener('pointerdown', handlePointerDown)
+    return () => document.removeEventListener('pointerdown', handlePointerDown)
+  }, [open])
+
+  return (
+    <>
+      <button
+        ref={iconRef}
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-label="스와이프로 제외하기 안내"
+        className="flex size-4 shrink-0 items-center justify-center text-neutral-400"
+      >
+        <Info className="size-4" />
+      </button>
+      {open &&
+        pos &&
+        createPortal(
+          <div
+            ref={panelRef}
+            style={{ top: pos.top, right: pos.right }}
+            className="fixed z-50 flex w-max max-w-[240px] items-start gap-1 rounded-[32px] border border-neutral-100 bg-white px-[17px] py-[13px] shadow-[0_4px_4px_rgba(0,0,0,0.06)]"
+          >
+            <p className="text-[12px] font-bold tracking-[-0.42px] text-neutral-900">
+              동네를 왼쪽으로 밀면 목록에서 제외할 수 있어요.
+            </p>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              aria-label="닫기"
+              className="shrink-0 text-neutral-400"
+            >
+              <X className="size-4" />
+            </button>
+          </div>,
+          document.body
+        )}
+    </>
+  )
+}
+
 function sigunguTriggerLabel(selected: Set<string>) {
   const list = Array.from(selected)
   if (list.length === 0) return '시군구 선택'
@@ -168,22 +264,25 @@ function FilterChipRow({
         {label}
         <ChevronDown className="size-4" />
       </button>
-      <button
-        type="button"
-        onClick={onToggleIncludeExcluded}
-        aria-pressed={includeExcluded}
-        className="flex shrink-0 items-center gap-1.5 rounded-full pl-4 py-2 text-[12px] font-medium tracking-[-0.3px] text-neutral-500"
-      >
-        <span
-          className={cn(
-            'flex size-4 shrink-0 items-center justify-center rounded border',
-            includeExcluded ? 'border-neutral-900 bg-neutral-900' : 'border-neutral-300 bg-white'
-          )}
+      <div className="flex shrink-0 items-center gap-1">
+        <button
+          type="button"
+          onClick={onToggleIncludeExcluded}
+          aria-pressed={includeExcluded}
+          className="flex shrink-0 items-center gap-1.5 rounded-full pl-4 py-2 text-[12px] font-medium tracking-[-0.3px] text-neutral-500"
         >
-          {includeExcluded && <Check className="size-3 text-white" strokeWidth={3} />}
-        </span>
-        제외된 동네 포함
-      </button>
+          <span
+            className={cn(
+              'flex size-4 shrink-0 items-center justify-center rounded border',
+              includeExcluded ? 'border-neutral-900 bg-neutral-900' : 'border-neutral-300 bg-white'
+            )}
+          >
+            {includeExcluded && <Check className="size-3 text-white" strokeWidth={3} />}
+          </span>
+          제외된 동네 포함
+        </button>
+        <SwipeHintBubble />
+      </div>
     </div>
   )
 }
@@ -287,6 +386,7 @@ function ConcessionApplyFooter({
 export function ResultMapSheet({
   sessionId,
   myParticipantId,
+  myRole,
   areas,
   matchCount,
   concession,
@@ -350,12 +450,22 @@ export function ResultMapSheet({
   // 새로고침해도 유지된다. 낙관적 업데이트로 먼저 반영하고 실패하면 되돌린다.
   const [excludedCodes, setExcludedCodes] = useState<Set<string>>(new Set())
   const [exclusionError, setExclusionError] = useState<string | null>(null)
+  // 카드 스와이프로 제외했을 때 보여주는 "실행취소" 토스트 — 실수로 민 경우의
+  // 안전망이다. excludeArea가 실패해 낙관적 업데이트를 되돌릴 땐 이 토스트도
+  // 같이 지운다(성공 토스트와 실패 토스트가 동시에 뜨는 모순을 막기 위해).
+  const [excludeToast, setExcludeToast] = useState<{ code: string; name: string } | null>(null)
 
   useEffect(() => {
     if (!exclusionError) return
     const timer = setTimeout(() => setExclusionError(null), 2500)
     return () => clearTimeout(timer)
   }, [exclusionError])
+
+  useEffect(() => {
+    if (!excludeToast) return
+    const timer = setTimeout(() => setExcludeToast(null), 4000)
+    return () => clearTimeout(timer)
+  }, [excludeToast])
   // 필터 칩이 3개(시군구/구역필터/체크박스)로 늘어나면서 한 줄에 안 들어가
   // 잘리는 문제가 있어 "구역 필터" 시트는 제거하고 체크박스 하나로 정리했다.
   // 디폴트는 꺼짐(선택된 동네만 노출) — 체크하면 제외된 동네도 같이 보여준다.
@@ -441,7 +551,22 @@ export function ResultMapSheet({
         return next
       })
       setExclusionError('제외에 실패했어요')
+      setExcludeToast(null)
     }
+  }
+
+  // 카드 스와이프/호버 아이콘에서 호출 — 제외를 실행함과 동시에 실행취소
+  // 토스트를 띄운다.
+  function handleExclude(code: string) {
+    const name = groups.flatMap((g) => g.list).find((a) => a.code === code)?.name ?? ''
+    excludeArea(code)
+    setExcludeToast({ code, name })
+  }
+
+  function handleUndoExclude() {
+    if (!excludeToast) return
+    restoreArea(excludeToast.code)
+    setExcludeToast(null)
   }
 
   async function restoreArea(code: string) {
@@ -695,6 +820,25 @@ export function ResultMapSheet({
     setFocusedSigungu(best)
   }
 
+  // "매물 보기" 클릭 — 네이버부동산을 새 탭으로 열고 클릭 사실을 기록한다.
+  // 좌표 없는 동네는 ResultAreaCard가 애초에 버튼을 안 그리므로 여기 오지 않지만,
+  // getNaverLandLink도 방어적으로 null을 반환한다.
+  function handleListingClick(area: ResultAreaData) {
+    const link = getNaverLandLink(area)
+    if (!link) return
+    window.open(link.url, '_blank', 'noopener,noreferrer')
+    track(
+      'external_listing_clicked',
+      { session_id: sessionId, role: myRole ?? '미참여' },
+      {
+        dong_name: area.name,
+        price: area.avg_price_krw,
+        is_confirmed: partnerConfirmed ?? false,
+        platform: link.platform,
+      }
+    )
+  }
+
   // 카드를 직접 클릭했을 때 — 테두리 강조 + 지도 줌인(기존 focusPin 그대로).
   function handleCardSelect(area: ResultAreaData) {
     setSelectedAreaCode(area.code)
@@ -889,7 +1033,7 @@ export function ResultMapSheet({
                       <ResultAreaGroupList
                         groups={visibleGroups}
                         excludedCodes={excludedCodes}
-                        onExclude={excludeArea}
+                        onExclude={handleExclude}
                         onRestore={restoreArea}
                         selectedAreaCode={selectedAreaCode}
                         focusedSigungu={effectiveFocusedSigungu}
@@ -901,6 +1045,7 @@ export function ResultMapSheet({
                         onAtTopChange={setFilterVisible}
                         emptyLabel="이 조건을 만족하는 구역이 없어요"
                         newAreaCodes={newAreaCodes}
+                        onListingClick={handleListingClick}
                       />
                     </div>
                   </>
@@ -1015,8 +1160,23 @@ export function ResultMapSheet({
         onSaveText={onSaveText}
       />
 
+      {excludeToast && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-24 z-[60] flex justify-center px-4">
+          <span className="pointer-events-auto flex items-center gap-2 rounded-full bg-neutral-900 px-5 py-3 text-body-sb font-semibold text-white shadow-lg">
+            {excludeToast.name} 제외됨
+            <button
+              type="button"
+              onClick={handleUndoExclude}
+              className="font-bold text-pink-300 underline underline-offset-2"
+            >
+              실행취소
+            </button>
+          </span>
+        </div>
+      )}
+
       {exclusionError && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-24 z-30 flex justify-center px-4">
+        <div className="pointer-events-none fixed inset-x-0 bottom-24 z-[60] flex justify-center px-4">
           <span className="rounded-full bg-red-600 px-5 py-3 text-body-sb font-semibold text-white shadow-lg">
             {exclusionError}
           </span>
