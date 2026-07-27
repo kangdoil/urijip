@@ -482,14 +482,17 @@ export function ResultMapSheet({
   // 위로 돌아오면 다시 펼친다(ResultAreaGroupList의 onAtTopChange가 알려줌).
   const [filterVisible, setFilterVisible] = useState(true)
 
-  // 매칭 성공 분기만 3단 스냅(접힘/중간/전체)을 쓴다 — fallback·solo는 그 콘텐츠에
-  // 맞춘 자연 높이(접힘/전체 2단)를 그대로 유지한다(범위 밖).
+  // 매칭이 있는 화면(solo 미리보기 포함)은 3단 스냅(접힘/중간/전체)을 쓴다 —
+  // isFallback(매칭 0건)만 그 콘텐츠에 맞춘 자연 높이(접힘/전체 2단)를 쓴다.
+  // solo는 매칭 유무와 무관하게 항상 2단이었으나, 매칭이 있으면 일반 결과
+  // 화면과 똑같은 카드 리스트 UI를 쓰면서 핸들로 중간 높이 조절이 안 되던
+  // 문제라 isFallback 기준으로 통일한다.
   const snapPoints = useMemo(
-    () => (isFallback || solo ? [SNAP_COLLAPSED, SNAP_FULL] : [SNAP_COLLAPSED, SNAP_MID, SNAP_FULL]),
-    [isFallback, solo]
+    () => (isFallback ? [SNAP_COLLAPSED, SNAP_FULL] : [SNAP_COLLAPSED, SNAP_MID, SNAP_FULL]),
+    [isFallback]
   )
   const [snap, setSnap] = useState<number | string | null>(() =>
-    isFallback || solo ? SNAP_FULL : SNAP_MID
+    isFallback ? SNAP_FULL : SNAP_MID
   )
   const [sigunguSheetOpen, setSigunguSheetOpen] = useState(false)
   const [conditionSheetOpen, setConditionSheetOpen] = useState(false)
@@ -520,7 +523,7 @@ export function ResultMapSheet({
   function handleCollapsedHandlePointerMove(e: React.PointerEvent<HTMLButtonElement>) {
     if (collapsedDragStartY.current === null) return
     if (collapsedDragStartY.current - e.clientY > 24) {
-      setSnap(isFallback || solo ? SNAP_FULL : SNAP_MID)
+      setSnap(isFallback ? SNAP_FULL : SNAP_MID)
       collapsedDragStartY.current = null
     }
   }
@@ -751,11 +754,11 @@ export function ResultMapSheet({
   // 지도 핀을 클릭하면 그 좌표로 확대하는 것과 동시에, 시트를 항상 중간
   // 스냅으로 맞춘다(요구사항: 접힘/전체 어느 상태였든 좌표 클릭 시엔 풀페이지도
   // 접힘도 아닌 중간 높이로) — 바텀시트 안 해당 카드로 스크롤 + 선택 표시(카드
-  // 클릭과 동일하게 핑크 테두리 활성화)해 정보를 보여준다. fallback·solo는
+  // 클릭과 동일하게 핑크 테두리 활성화)해 정보를 보여준다. isFallback은
   // 애초에 중간 스냅이 없는(SNAP_COLLAPSED/SNAP_FULL 2단) 레이아웃이라 그대로
   // 전체화면을 유지한다.
   function focusArea(code: string, lat: number, lng: number) {
-    const nextSnap = isFallback || solo ? SNAP_FULL : SNAP_MID
+    const nextSnap = isFallback ? SNAP_FULL : SNAP_MID
     focusPin(lat, lng, nextSnap)
     setSnap(nextSnap)
     setSelectedAreaCode(code)
@@ -944,13 +947,13 @@ export function ResultMapSheet({
       >
         <Drawer.Portal>
           <Drawer.Overlay className="pointer-events-none fixed inset-0 bg-black/40" />
-          {/* 매칭 성공 분기는 h-dvh로 고정해 SNAP_FULL(offset=0)이 실제
-              전체화면이 되도록 하고(요구사항 4), fallback·solo는 기존처럼
-              max-h만 안전장치로 둔 자연 높이를 유지한다(범위 밖 — 그대로). */}
+          {/* 매칭이 있는 분기(solo 포함)는 h-dvh로 고정해 SNAP_FULL(offset=0)이
+              실제 전체화면이 되도록 하고, isFallback만 max-h를 안전장치로 둔
+              자연 높이를 유지한다. */}
           <Drawer.Content
             className={cn(
               'fixed inset-x-0 bottom-0 z-10 mx-auto flex w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-neutral-0 shadow-[0_-8px_32px_rgba(0,0,0,0.1)] outline-none',
-              isFallback || solo ? 'max-h-[92dvh]' : 'h-dvh'
+              isFallback ? 'max-h-[92dvh]' : 'h-dvh'
             )}
             {...stopMapPropagation}
           >
@@ -1102,7 +1105,7 @@ export function ResultMapSheet({
 
           <button
             type="button"
-            onClick={() => setSnap(isFallback || solo ? SNAP_FULL : SNAP_MID)}
+            onClick={() => setSnap(isFallback ? SNAP_FULL : SNAP_MID)}
             onPointerDown={handleCollapsedHandlePointerDown}
             onPointerMove={handleCollapsedHandlePointerMove}
             onPointerUp={handleCollapsedHandlePointerUp}
