@@ -417,12 +417,35 @@ export default function ResultPage() {
   async function handleSaveImage() {
     if (!exportRef.current) return
     try {
-      const { toPng } = await import('html-to-image')
-      const dataUrl = await toPng(exportRef.current, { pixelRatio: 2, backgroundColor: '#ffffff' })
-      const link = document.createElement('a')
-      link.download = '우리집-추천동네.png'
-      link.href = dataUrl
-      link.click()
+      const { toBlob } = await import('html-to-image')
+      const blob = await toBlob(exportRef.current, { pixelRatio: 2, backgroundColor: '#ffffff' })
+      if (!blob) throw new Error('이미지 생성에 실패했어요')
+
+      const filename = '우리집-추천동네.png'
+      const file = new File([blob], filename, { type: 'image/png' })
+
+      // 모바일(iOS Safari 등)은 <a download href="data:...">가 신뢰할 수 없다 —
+      // 실측 확인: 다운로드 프롬프트까지는 뜨지만 실제로 저장된 파일이 열리지
+      // 않거나 빈 이미지가 되는 경우가 있었다. Web Share API(파일 공유)가 되면
+      // OS 공유 시트로 보내 "사진에 저장"으로 이어지게 하고, 데스크톱처럼 공유
+      // API가 없는 환경에서만 기존 다운로드 링크 방식을 쓴다.
+      if (navigator.canShare?.({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: filename })
+        } catch (shareError) {
+          // 사용자가 공유 시트를 취소한 경우(AbortError)는 실패가 아니다.
+          if (shareError instanceof Error && shareError.name === 'AbortError') return
+          throw shareError
+        }
+      } else {
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.download = filename
+        link.href = url
+        link.click()
+        setTimeout(() => URL.revokeObjectURL(url), 10_000)
+      }
+
       if (myRole) track('result_exported', { session_id: sessionId, role: myRole }, { format: 'image' })
     } catch {
       setActionError('이미지 저장에 실패했어요')
