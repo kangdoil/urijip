@@ -2,7 +2,7 @@
 
 | 항목 | 내용 |
 |---|---|
-| 문서 버전 | v1.6 (네이버부동산 매물 보기 이벤트 추가) |
+| 문서 버전 | v1.7 (대표 조건 pill → 조건 상세 시트 열람 이벤트 추가) |
 | 기준 문서 | PRD-우리집.md v0.8 |
 | 트래킹 도구 | Mixpanel |
 | 분석 단위 | 세션(session_id) 기준. 모든 이벤트에 session_id, role(A/B) 공통 프로퍼티 부착 |
@@ -59,6 +59,7 @@ PRD-우리집_v2.md §"진단" 기준. 조율 진입률은 방향이 양가적(�
 | 저장 포맷 선호 | 저장 시트에서 이미지/텍스트 각각 선택된 비율 | `result_exported`의 `format` 분포 |
 | 먼저 둘러보기 사용률 | A 입력 완료 세션 중 B 미완료 상태에서 solo 미리보기를 연 비율, 그리고 그 세션이 이후 실제로 `b_started`로 이어지는지 | `input_completed(A)` → `solo_preview_viewed` → `b_started` |
 | 외부 매물 탐색 전환율 | 결과 도달 세션 중 네이버부동산 "매물 보기"를 클릭한 비율, PC/모바일 플랫폼별 분포 | `result_viewed` → `external_listing_clicked` |
+| 대표 조건 확인율 | 결과 도달 세션 중 상단 대표 조건 pill을 눌러 조건 상세 + 추천 이유를 확인한 비율, 그리고 그 세션이 이후 `result_retry`/`result_saved`로 이어지는지 | `result_viewed` → `condition_summary_viewed` |
 
 해석: 진입高×수락高 = 건강한 협상 / 진입高×수락低 = 조건 설계 마찰 / 진입低×확정高 = 첫 결과가 충분 / 진입低×확정低 = 가치 전달 실패
 
@@ -66,10 +67,11 @@ PRD-우리집_v2.md §"진단" 기준. 조율 진입률은 방향이 양가적(�
 > 먼저 둘러보기 사용률은 v1.4에서 신설(B 접속률 저하 완화용 기능과 함께 추가). 사용률은 높은데 이후 `b_started` 전환이 낮으면 "먼저 둘러보기가 초대 재촉 대신 대체재가 되고 있다"는 신호로 보고, 배너/카피로 초대를 다시 유도하는 결정에 쓴다.
 > 조율 이탈률·콜드 스테이션 회복률·제안 승인율은 v1.5에서 신설. 이전엔 `proposals` 테이블 쿼리로만 대체하던 제안 수락률을 Mixpanel 이벤트(`proposal_sent`/`proposal_responded`)로 승격했다 — §3 보류 목록의 `proposal_*`가 이번에 승격된 것이다.
 > 외부 매물 탐색 전환율은 v1.6에서 신설. `platform`별 클릭률이 유의미하게 낮으면 해당 플랫폼의 링크 방식(줌 레벨, URL 파라미터)을 재점검하는 데 쓴다.
+> 대표 조건 확인율은 v1.7에서 신설 — 결과 화면 개편으로 조건 상세 진입점이 별도 버튼에서 상단 pill 탭으로 바뀌면서, 이 UI가 실제로 발견·사용되는지부터 확인해야 했다. 확인율이 낮으면 pill의 발견성(코치마크 문구·위치)을 재검토하고, 확인한 세션의 `result_retry`/`result_saved` 비율이 그렇지 않은 세션보다 유의미하게 높으면 조건 상세 노출을 더 적극적으로(예: 첫 방문 자동 오픈) 바꾸는 결정에 쓴다.
 
 ---
 
-## 2. MVP 이벤트 (16개)
+## 2. MVP 이벤트 (17개)
 
 공통 프로퍼티(전 이벤트): `session_id`, `role`(A/B/미참여), `device`
 
@@ -91,6 +93,7 @@ PRD-우리집_v2.md §"진단" 기준. 조율 진입률은 방향이 양가적(�
 | 14 | `proposal_sent` | 조율(/adjust) | "총 N곳 제안하고 동네 보러 가기" 클릭 (proposals insert 성공) | `role`, `candidate_count`, `changed_fields`(예: `["priority_order", "budget"]`) | 진단 지표(제안 승인율) 분모 |
 | 15 | `proposal_responded` | 조율(/adjust, 제안 수신 시) | "다시 조율하기" / "이 조건 수락하기" 클릭 | `role`, `response`: approved / rejected, `who`, `candidate_count`, `candidate_count_delta` | 진단 지표(제안 승인율) 분자 |
 | 16 | `external_listing_clicked` | 결과 | 동네 카드 "매물 보기" 클릭(네이버부동산 새 탭 오픈) | `role`, `dong_name`, `price`, `is_confirmed`(상대 확정 여부), `platform`: naver_pc / naver_mobile | 진단 지표(외부 매물 탐색 전환) |
+| 17 | `condition_summary_viewed` | 결과 | 상단 대표 조건 pill 탭 → 조건 상세 + 추천 이유 시트 오픈 | `role`, `candidate_count` | 진단 지표(대표 조건 확인율) |
 
 ## 3. 보류 이벤트 (v2 후보 — 지금은 구현하지 않음)
 
@@ -109,5 +112,5 @@ PRD-우리집_v2.md §"진단" 기준. 조율 진입률은 방향이 양가적(�
 - 핵심 퍼널: `session_created → invite_sent → invite_opened → b_started → input_completed(B) → result_viewed(A·B) → result_saved(role별)`. 공동 확정은 한 세션에서 role=A·B 모두 발화했는지로 분석 단계에서 도출한다.
 - 조율 퍼널(v1.5): `result_retry → adjust_viewed → proposal_sent → proposal_responded`. `result_retry`와 `adjust_viewed` 사이의 차이가 화면 이탈이다.
 - `result_saved`의 `is_joint_complete`는 서버 응답(confirmations 2행 성립 여부)으로 채운다 — 클라이언트 자체 판단 시 동시 클릭 경합 오류.
-- 위 15개 외 이벤트를 구현 중 임의로 추가하지 않는다. 보류 이벤트를 승격할 땐 §3의 승격 규칙(결정 연결)을 먼저 문서에 남긴다.
+- 위 17개 외 이벤트를 구현 중 임의로 추가하지 않는다. 보류 이벤트를 승격할 땐 §3의 승격 규칙(결정 연결)을 먼저 문서에 남긴다.
 - 개인정보: 거점 좌표·주소는 프로퍼티에 절대 넣지 않는다. 구역 코드(area_code)까지만 허용.

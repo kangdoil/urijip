@@ -67,6 +67,10 @@ interface EventMap {
     is_confirmed: boolean
     platform: 'naver_pc' | 'naver_mobile'
   }
+  // 결과 화면 상단 대표 조건 pill을 눌러 조건 상세 + 추천 이유 시트를 연
+  // 시점 — 이 UI가 실제로 발견·사용되는지, 확인한 세션이 조율/확정으로 더
+  // 잘 이어지는지 보는 데 쓴다(v1.7, docs/metrics-events.md §3 승격).
+  condition_summary_viewed: { candidate_count: number }
 }
 
 interface CommonProps {

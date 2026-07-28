@@ -916,6 +916,18 @@ export function ResultMapSheet({
   // 구역이 몇 곳인지"를 그대로 설명할 때 쓴다(우선순위 시트 문구).
   const totalMatchCount = cappedAreas.length
 
+  // 대표 조건 pill 탭 — 조건 상세 + 추천 이유 시트를 실제로 열어보는지는
+  // 이 UI가 발견·사용되는지 검증하는 데 쓴다(추후 result_retry/result_saved와
+  // 교차해 "이유를 확인한 세션이 더 잘 결정하는지" 볼 근거).
+  function handleOpenConditionSheet() {
+    track(
+      'condition_summary_viewed',
+      { session_id: sessionId, role: myRole ?? '미참여' },
+      { candidate_count: totalMatchCount }
+    )
+    setConditionSheetOpen(true)
+  }
+
   return (
     <div className="relative mx-auto h-dvh w-full max-w-md overflow-hidden">
       <div className="absolute inset-0">
@@ -946,7 +958,7 @@ export function ResultMapSheet({
         className="absolute inset-x-4 z-10 flex flex-col items-center gap-2"
         style={{ top: 'calc(env(safe-area-inset-top) + 16px)' }}
       >
-        <TopConditionPills participants={participants} onClick={() => setConditionSheetOpen(true)} />
+        <TopConditionPills participants={participants} onClick={handleOpenConditionSheet} />
         <PillCoachmark />
         {subtitle && (
           <span className="rounded-full bg-neutral-900 px-4 py-2 text-body-sb font-semibold text-white shadow-[0_10px_15px_rgba(0,0,0,0.2)]">
