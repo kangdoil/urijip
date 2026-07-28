@@ -117,6 +117,11 @@ export default function ResultPage() {
   const [saving, setSaving] = useState(false)
   const [saveSheetOpen, setSaveSheetOpen] = useState(false)
   const [savedCodes, setSavedCodes] = useState<string[]>([])
+  // 저장 시트가 열리는 즉시(사용자가 "이미지로 저장하기"를 탭하기 전에)
+  // 미리 렌더링해둔다 — iOS Safari는 navigator.share(파일)가 사용자 제스처
+  // (탭) 도중 동기적으로 호출돼야만 공유 시트를 띄운다. 탭 시점에 toBlob을
+  // 기다리면(비동기) 그 사이 제스처가 만료돼 아무 반응이 없다(실측 확인).
+  const [exportBlob, setExportBlob] = useState<Blob | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [copiedText, setCopiedText] = useState(false)
   // 조율 화면에서 제안이 수락/거절돼 결과 화면으로 넘어온 직후 — 무슨 일이
@@ -414,42 +419,86 @@ export default function ResultPage() {
     }
   }
 
-  async function handleSaveImage() {
-    if (!exportRef.current) return
-    try {
-      const { toBlob } = await import('html-to-image')
-      const blob = await toBlob(exportRef.current, { pixelRatio: 2, backgroundColor: '#ffffff' })
-      if (!blob) throw new Error('이미지 생성에 실패했어요')
+  // 저장 시트가 열리면 곧바로(사용자가 "이미지로 저장하기"를 탭하기 전에)
+  // 내보내기 이미지를 미리 렌더링해둔다 — iOS Safari는 navigator.share(파일)를
+  // 탭 이벤트의 동기 구간 안에서 호출해야만 공유 시트를 띄운다. 탭 시점에
+  // toBlob(비동기, 수백ms)을 기다리면 그 사이 사용자 제스처가 만료돼 탭해도
+  // 아무 반응이 없다(실측 확인) — handleSaveImage는 이 사전 렌더 결과를
+  // 동기적으로 넘겨받아 share를 즉시 호출한다.
+  useEffect(() => {
+    if (!saveSheetOpen) return
+    const node = exportRef.current
+    if (!node) return
+    let cancelled = false
+    ;(async () => {
+      // 시트를 다시 열었을 때 이전(다른 선택 기준) 이미지를 그대로 공유해
+      // 버리지 않도록, 새로 여는 시점엔 일단 비워두고 새로 렌더링한다.
+      setExportBlob(null)
+      try {
+        const { toBlob } = await import('html-to-image')
+        const blob = await toBlob(node, { pixelRatio: 2, backgroundColor: '#ffffff' })
+        if (!cancelled) setExportBlob(blob)
+      } catch {
+        // handleSaveImage가 탭 시점에 다시 생성을 시도한다(폴백).
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [saveSheetOpen])
 
-      const filename = '우리집-추천동네.png'
-      const file = new File([blob], filename, { type: 'image/png' })
+  // 모바일(iOS Safari 등)은 <a download href="data:...">가 신뢰할 수 없다 —
+  // 실측 확인: 다운로드 프롬프트까지는 뜨지만 실제로 저장된 파일이 열리지
+  // 않거나 빈 이미지가 되는 경우가 있었다. Web Share API(파일 공유)가 되면
+  // OS 공유 시트로 보내 "사진에 저장"으로 이어지게 하고, 데스크톱처럼 공유
+  // API가 없는 환경에서만 기존 다운로드 링크 방식을 쓴다.
+  function shareOrDownloadImage(blob: Blob) {
+    const filename = '우리집-추천동네.png'
+    const file = new File([blob], filename, { type: 'image/png' })
 
-      // 모바일(iOS Safari 등)은 <a download href="data:...">가 신뢰할 수 없다 —
-      // 실측 확인: 다운로드 프롬프트까지는 뜨지만 실제로 저장된 파일이 열리지
-      // 않거나 빈 이미지가 되는 경우가 있었다. Web Share API(파일 공유)가 되면
-      // OS 공유 시트로 보내 "사진에 저장"으로 이어지게 하고, 데스크톱처럼 공유
-      // API가 없는 환경에서만 기존 다운로드 링크 방식을 쓴다.
-      if (navigator.canShare?.({ files: [file] })) {
-        try {
-          await navigator.share({ files: [file], title: filename })
-        } catch (shareError) {
+    if (navigator.canShare?.({ files: [file] })) {
+      navigator
+        .share({ files: [file], title: filename })
+        .then(() => {
+          if (myRole) track('result_exported', { session_id: sessionId, role: myRole }, { format: 'image' })
+        })
+        .catch((shareError) => {
           // 사용자가 공유 시트를 취소한 경우(AbortError)는 실패가 아니다.
           if (shareError instanceof Error && shareError.name === 'AbortError') return
-          throw shareError
-        }
-      } else {
-        const url = URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.download = filename
-        link.href = url
-        link.click()
-        setTimeout(() => URL.revokeObjectURL(url), 10_000)
-      }
-
-      if (myRole) track('result_exported', { session_id: sessionId, role: myRole }, { format: 'image' })
-    } catch {
-      setActionError('이미지 저장에 실패했어요')
+          setActionError('이미지 저장에 실패했어요')
+        })
+      return
     }
+
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.download = filename
+    link.href = url
+    link.click()
+    setTimeout(() => URL.revokeObjectURL(url), 10_000)
+    if (myRole) track('result_exported', { session_id: sessionId, role: myRole }, { format: 'image' })
+  }
+
+  function handleSaveImage() {
+    if (exportBlob) {
+      shareOrDownloadImage(exportBlob)
+      return
+    }
+    // 사전 렌더링이 아직 안 끝난 드문 경우 — 그 자리에서 생성한다. 이 경로는
+    // 비동기 대기가 끼어들어 iOS에서 사용자 제스처가 만료돼 탭해도 공유
+    // 시트가 안 뜰 수 있다(Safari 특성, 폴백으로 감수).
+    const node = exportRef.current
+    if (!node) return
+    ;(async () => {
+      try {
+        const { toBlob } = await import('html-to-image')
+        const blob = await toBlob(node, { pixelRatio: 2, backgroundColor: '#ffffff' })
+        if (!blob) throw new Error('이미지 생성에 실패했어요')
+        shareOrDownloadImage(blob)
+      } catch {
+        setActionError('이미지 저장에 실패했어요')
+      }
+    })()
   }
 
   function handleSaveText() {
