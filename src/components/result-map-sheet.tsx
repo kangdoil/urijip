@@ -1,9 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { Drawer } from 'vaul'
-import { Check, ChevronDown, ChevronRight, Info, X } from 'lucide-react'
+import { Check, ChevronDown } from 'lucide-react'
 import { Map, CustomOverlayMap, useKakaoLoader } from 'react-kakao-maps-sdk'
 import { createClient } from '@/lib/supabase/client'
 import { ensureRealtimeAuth } from '@/lib/supabase/realtime-auth'
@@ -11,7 +10,8 @@ import { groupBySigungu } from '@/lib/group-by-sigungu'
 import { getNaverLandLink } from '@/lib/naver-land-url'
 import { track } from '@/lib/mixpanel'
 import { cn } from '@/lib/utils'
-import { ResultHeaderPill } from '@/components/result-header-pill'
+import { TopConditionPills } from '@/components/top-condition-pills'
+import { PillCoachmark } from '@/components/pill-coachmark'
 import { ResultAreaCard, type ResultAreaData } from '@/components/result-area-card'
 import { ResultAreaGroupList } from '@/components/result-area-group-list'
 import { SigunguFilterSheet } from '@/components/sigungu-filter-sheet'
@@ -97,7 +97,9 @@ const stopMapPropagation = {
 // 중간 스냅에서 리스트가 너무 조금 보인다는 피드백으로 399px(0.47)에서
 // 480px(0.57)로 올렸다(844px 프레임 기준 비율 유지).
 const SNAP_COLLAPSED = 0.19
-const SNAP_MID = 0.57
+// 시군구 필터 칩이 중간 스냅에서만 시트 위 8px 여백에 떠 있어야 해서, 그
+// 칩+여백이 들어갈 공간만큼 중간 스냅 값을 기존(0.57)보다 낮춘다.
+const SNAP_MID = 0.52
 const SNAP_FULL = 1
 
 interface PinData {
@@ -144,104 +146,6 @@ function Pin({
   )
 }
 
-// 스와이프 안내 말풍선은 "다시 보지 않기"가 아니라 유저 브라우저당 딱 한 번만
-// 자동 노출한다 — 이후엔 정보 아이콘을 눌러야만 다시 볼 수 있다.
-const SWIPE_HINT_SEEN_KEY = 'urijib:swipe-hint-seen'
-
-// "제외된 동네 포함" 옆 정보 아이콘 — 누르면 스와이프 안내 말풍선을 띄운다.
-// 처음 방문한 브라우저에서는 누르지 않아도 한 번 자동으로 뜨고, 다른 곳을
-// 클릭하면 닫힌다(Figma bubble node 323:1318 — 닫기 X 버튼도 함께 있음).
-function SwipeHintBubble() {
-  const iconRef = useRef<HTMLButtonElement>(null)
-  const panelRef = useRef<HTMLDivElement>(null)
-  // 최초 노출 여부는 렌더 중(지연 초기화) 한 번만 판단한다 — 이펙트에서
-  // setState하면 불필요한 추가 렌더가 생기고, 이 값은 마운트 때 결정되면
-  // 그 뒤로 바뀔 일이 없는 값이라 이펙트로 동기화할 대상도 아니다.
-  const [open, setOpen] = useState(() => {
-    if (typeof window === 'undefined') return false
-    if (window.localStorage.getItem(SWIPE_HINT_SEEN_KEY)) return false
-    window.localStorage.setItem(SWIPE_HINT_SEEN_KEY, '1')
-    return true
-  })
-  const [pos, setPos] = useState<{ top: number; right: number } | null>(null)
-
-  // 필터 칩 줄은 접힘 애니메이션용 overflow-hidden grid 안에 있어서, 그냥
-  // absolute로 아이콘 위에 띄우면 말풍선이 그 grid 밖으로 나가는 부분이
-  // 잘려서 안 보인다(실측 확인). document.body에 포털로 그려 완전히
-  // 벗어나고, 아이콘의 실제 화면 좌표를 재서 fixed로 위치를 잡는다 — 레이아웃
-  // 측정은 페인트 이후에만 가능해 이펙트가 불가피하다.
-  useEffect(() => {
-    if (!open) return
-    function measure() {
-      const rect = iconRef.current?.getBoundingClientRect()
-      if (!rect) return
-      let right = window.innerWidth - rect.right
-      // 한 줄 문구라 폭이 꽤 넓다 — 아이콘에 딱 맞춰 오른쪽 정렬하면 좁은
-      // 화면에서 왼쪽으로 넘칠 수 있어, 패널이 이미 그려진 뒤(panelRef)엔
-      // 실제 폭으로 왼쪽 여백 12px을 보장하도록 보정한다.
-      const panelWidth = panelRef.current?.getBoundingClientRect().width
-      if (panelWidth) right = Math.min(right, window.innerWidth - panelWidth - 12)
-      setPos({ top: rect.bottom + 8, right })
-    }
-    // 마운트 직후엔 지도·시트 레이아웃이 아직 자리잡기 전이라(요소 위치가
-    // 뒤늦게 안정화됨) 두 번 잰다 — 페인트 직후 한 번, 레이아웃이 마저
-    // 안정된 뒤 한 번 더.
-    const raf = requestAnimationFrame(() => requestAnimationFrame(measure))
-    const timer = setTimeout(measure, 400)
-    return () => {
-      cancelAnimationFrame(raf)
-      clearTimeout(timer)
-    }
-  }, [open])
-
-  useEffect(() => {
-    if (!open) return
-    function handlePointerDown(e: PointerEvent) {
-      const target = e.target as Node
-      if (iconRef.current?.contains(target) || panelRef.current?.contains(target)) return
-      setOpen(false)
-    }
-    document.addEventListener('pointerdown', handlePointerDown)
-    return () => document.removeEventListener('pointerdown', handlePointerDown)
-  }, [open])
-
-  return (
-    <>
-      <button
-        ref={iconRef}
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-label="스와이프로 제외하기 안내"
-        className="flex size-4 shrink-0 items-center justify-center text-neutral-400"
-      >
-        <Info className="size-4" />
-      </button>
-      {open &&
-        pos &&
-        createPortal(
-          <div
-            ref={panelRef}
-            style={{ top: pos.top, right: pos.right }}
-            className="fixed z-50 flex w-max items-center gap-1 rounded-[32px] border border-neutral-100 bg-white px-[17px] py-[13px] shadow-[0_4px_4px_rgba(0,0,0,0.06)]"
-          >
-            <p className="text-[12px] whitespace-nowrap text-neutral-900 tracking-[-0.42px] font-bold">
-              동네를 왼쪽으로 밀면 목록에서 제외할 수 있어요.
-            </p>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              aria-label="닫기"
-              className="shrink-0 text-neutral-400"
-            >
-              <X className="size-4" />
-            </button>
-          </div>,
-          document.body
-        )}
-    </>
-  )
-}
-
 function sigunguTriggerLabel(selected: Set<string>) {
   const list = Array.from(selected)
   if (list.length === 0) return '시군구 선택'
@@ -249,71 +153,138 @@ function sigunguTriggerLabel(selected: Set<string>) {
   return `${list[0]} 외 ${list.length - 1}`
 }
 
-// 시군구 선택 칩 + "제외된 동네 포함" 체크박스 — 펼친 상태와 접힌 상태(요구사항:
-// 접혔을 때도 핸들/필터칩/버튼은 보여줄 것) 양쪽에서 재사용한다.
-function FilterChipRow({
-  label,
-  onOpenSigunguSheet,
-  includeExcluded,
-  onToggleIncludeExcluded,
+// "추천 동네 총 N곳" + 상대 확정 배지 헤더 — 펼친 상태와 접힌 상태(요구사항:
+// 접혔을 때는 핸들/이 헤더/하단 버튼만 노출) 양쪽에서 재사용한다.
+function SheetHeaderRow({
+  title,
+  count,
+  solo,
+  partnerConfirmed,
 }: {
-  label: string
-  onOpenSigunguSheet: () => void
-  includeExcluded: boolean
-  onToggleIncludeExcluded: () => void
+  title: string
+  count: number
+  solo: boolean
+  partnerConfirmed: boolean | null
 }) {
   return (
-    <div className="flex w-full items-center justify-between gap-1.5 px-4 pt-0 pb-3">
-      <button
-        onClick={onOpenSigunguSheet}
-        className="flex shrink-0 items-center gap-1 rounded-full bg-neutral-900 px-[12px] py-[6px] text-[12px] font-medium tracking-[-0.3px] text-white"
-      >
-        {label}
-        <ChevronDown className="size-4" />
-      </button>
-      <div className="flex shrink-0 items-center gap-1">
-        <button
-          type="button"
-          onClick={onToggleIncludeExcluded}
-          aria-pressed={includeExcluded}
-          className="flex shrink-0 items-center gap-1.5 rounded-full pl-4 py-2 text-[12px] font-medium tracking-[-0.3px] text-neutral-500"
-        >
-          <span
-            className={cn(
-              'flex size-4 shrink-0 items-center justify-center rounded border',
-              includeExcluded ? 'border-neutral-900 bg-neutral-900' : 'border-neutral-300 bg-white'
-            )}
-          >
-            {includeExcluded && <Check className="size-3 text-white" strokeWidth={3} />}
+    <div className="flex w-full shrink-0 items-center justify-between px-4 py-2">
+      <span className="flex items-center gap-2">
+        <span className="flex items-center gap-1">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/asset/icon/house.svg" alt="" className="size-5 shrink-0" />
+          <span className="text-[18px] font-semibold tracking-[-0.03em] text-neutral-900">
+            {title}
           </span>
-          제외된 동네 포함
-        </button>
-        <SwipeHintBubble />
-      </div>
+        </span>
+        <span className="whitespace-nowrap text-[14px] font-semibold tracking-[-0.03em] text-neutral-900">
+          총 {count}곳
+        </span>
+      </span>
+      {!solo && partnerConfirmed != null && (
+        <span className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-[rgba(255,194,211,0.5)] px-2 py-1 text-[10px] leading-[19.6px] font-bold tracking-[-0.42px] text-pink-500">
+          <span className="size-1.5 shrink-0 rounded-full bg-pink-500" />
+          {partnerConfirmed ? '상대 확정' : '상대 미확정'}
+        </span>
+      )}
     </div>
   )
 }
 
-// 조율하기/저장하기(또는 solo의 단일 버튼) 액션바 — 리스트 위에 겹쳐서(absolute)
-// 쓸 때 그라디언트로 아래 콘텐츠가 자연스럽게 페이드아웃되도록 fill 대신
-// bg-gradient-to-t를 쓴다(요구사항: 패딩 영역에 fill 말고 그라디언트).
+// "포함된 동네"/"제외된 동네" 탭 + "전체 선택" 체크박스. 펼친 상태와 접힌
+// 상태(요구사항: 접혔을 때도 핸들/탭/버튼은 보여줄 것) 양쪽에서 재사용한다.
+// "전체 선택"은 매물 선택→내보내기 플로우 전용이라 제외된 동네 탭에서는 숨긴다.
+function TabRow({
+  activeTab,
+  onTabChange,
+  allSelected,
+  onToggleSelectAll,
+}: {
+  activeTab: 'included' | 'excluded'
+  onTabChange: (tab: 'included' | 'excluded') => void
+  allSelected: boolean
+  onToggleSelectAll: () => void
+}) {
+  return (
+    // items-stretch로 탭 버튼·"전체 선택"·행 자신을 전부 같은 높이로 맞춰야,
+    // 각 버튼의 border-b-2(밑줄)와 행 자신의 border-b-2(뉴트럴 구분선)가 같은
+    // y 좌표에 겹친다 — 절대 위치로 별도 오버레이를 두는 방식은 collapse
+    // 애니메이션용 grid(overflow-hidden) 조상 안에서 높이 계산이 어긋나 아예
+    // 안 보이는 문제가 있었다(실측 확인). 실제 border로 겹치면 그 문제가 없다.
+    <div className="flex w-full items-stretch justify-between border-b-2 border-neutral-100 px-4">
+      <div className="flex items-stretch gap-2">
+        <button
+          type="button"
+          onClick={() => onTabChange('included')}
+          className={cn(
+            'flex items-center justify-center border-b-2 px-1 py-1.5 text-[12px] font-medium tracking-[-0.3px]',
+            activeTab === 'included'
+              ? 'border-neutral-900 text-neutral-900'
+              : 'border-transparent text-neutral-500'
+          )}
+        >
+          포함된 동네
+        </button>
+        <button
+          type="button"
+          onClick={() => onTabChange('excluded')}
+          className={cn(
+            'flex items-center justify-center border-b-2 px-1 py-1.5 text-[12px] font-medium tracking-[-0.3px]',
+            activeTab === 'excluded'
+              ? 'border-neutral-900 text-neutral-900'
+              : 'border-transparent text-neutral-500'
+          )}
+        >
+          제외된 동네
+        </button>
+      </div>
+      {activeTab === 'included' && (
+        <button
+          type="button"
+          onClick={onToggleSelectAll}
+          aria-pressed={allSelected}
+          className="flex h-[28px] shrink-0 items-center gap-1 pt-[6px] pb-[8px] text-[12px] font-medium tracking-[-0.3px] text-neutral-500"
+        >
+          <span
+            className={cn(
+              'flex size-4 shrink-0 items-center justify-center rounded border',
+              allSelected ? 'border-neutral-900 bg-neutral-900' : 'border-neutral-300 bg-white'
+            )}
+          >
+            {allSelected && <Check className="size-3 text-white" strokeWidth={3} />}
+          </span>
+          전체 선택
+        </button>
+      )}
+    </div>
+  )
+}
+
+// 조율하기/선택 내보내기(또는 solo의 단일 버튼) 액션바 — 리스트 위에 겹쳐서
+// (absolute) 쓸 때 그라디언트로 아래 콘텐츠가 자연스럽게 페이드아웃되도록 fill
+// 대신 bg-gradient-to-t를 쓴다. 두 버튼 모두 높이 52px로 통일한다.
 function ActionButtonsFooter({
   solo,
   retrying,
-  saving,
+  selectedCount,
+  exporting,
   onRetry,
-  onSave,
+  onExport,
   onBackToWaiting,
   className,
 }: {
   solo: boolean
   retrying: boolean
-  saving: boolean
+  // 체크박스로 고른 매물 개수 — 0개면 내보내기 버튼이 비활성 상태로 보인다.
+  selectedCount: number
+  // onSave(확정 기록 + 저장 시트 열기)가 진행 중인 동안 중복 클릭을 막는다.
+  exporting: boolean
   onRetry: () => void
-  onSave: () => void
+  onExport: () => void
   onBackToWaiting?: () => void
   className?: string
 }) {
+  const hasSelection = selectedCount > 0
+  const canExport = hasSelection && !exporting
   // 버튼 자체는 배경이 불투명해 그라디언트 위에 있어도 상관없다 — 그라디언트
   // (페이드)는 버튼 위 여백에만 짧게 주고, 버튼은 불투명한 흰 배경 블록에 둔다.
   return (
@@ -323,7 +294,7 @@ function ActionButtonsFooter({
         {solo ? (
           <button
             onClick={onBackToWaiting}
-            className="flex w-full items-center justify-center rounded-full bg-pink-500 px-10 py-4 text-body-m font-bold text-white"
+            className="flex h-[52px] w-full items-center justify-center rounded-full bg-pink-500 text-body-m font-bold text-white"
           >
             대기 화면으로 돌아가기
           </button>
@@ -332,16 +303,19 @@ function ActionButtonsFooter({
             <button
               onClick={onRetry}
               disabled={retrying}
-              className="flex flex-1 items-center justify-center rounded-full border-2 border-pink-500 bg-neutral-0 px-[42px] py-[18px] text-body-m font-bold text-pink-500 disabled:opacity-50"
+              className="flex h-[52px] flex-1 items-center justify-center rounded-full border-2 border-pink-500 bg-neutral-0 text-body-m font-bold text-pink-500 disabled:opacity-50"
             >
               조율하기
             </button>
             <button
-              onClick={onSave}
-              disabled={saving}
-              className="flex flex-1 items-center justify-center rounded-full bg-pink-500 px-[40px] py-[16px] text-body-m font-bold text-white disabled:opacity-50"
+              onClick={onExport}
+              disabled={!canExport}
+              className={cn(
+                'flex h-[52px] flex-1 items-center justify-center rounded-full text-body-m font-bold text-white disabled:opacity-100',
+                hasSelection ? 'bg-pink-500' : 'bg-neutral-300'
+              )}
             >
-              저장하기
+              {hasSelection ? `선택 ${selectedCount}개 내보내기` : '매물을 선택하세요'}
             </button>
           </div>
         )}
@@ -473,10 +447,22 @@ export function ResultMapSheet({
     const timer = setTimeout(() => setExcludeToast(null), 4000)
     return () => clearTimeout(timer)
   }, [excludeToast])
-  // 필터 칩이 3개(시군구/구역필터/체크박스)로 늘어나면서 한 줄에 안 들어가
-  // 잘리는 문제가 있어 "구역 필터" 시트는 제거하고 체크박스 하나로 정리했다.
-  // 디폴트는 꺼짐(선택된 동네만 노출) — 체크하면 제외된 동네도 같이 보여준다.
-  const [includeExcluded, setIncludeExcluded] = useState(false)
+  // "제외된 동네 포함" 체크박스 대신 탭으로 분리한다 — 포함된 동네/제외된
+  // 동네를 동시에 보여주지 않고 탭으로 전환한다.
+  const [activeTab, setActiveTab] = useState<'included' | 'excluded'>('included')
+
+  // 매물 선택→내보내기 체크박스 상태. "포함된 동네" 탭의 카드에서만 노출되고,
+  // 저장/확정(onSave)은 항상 이 선택 집합을 기준으로 한다.
+  const [selectedCodes, setSelectedCodes] = useState<Set<string>>(new Set())
+
+  function toggleSelect(code: string, checked: boolean) {
+    setSelectedCodes((prev) => {
+      const next = new Set(prev)
+      if (checked) next.add(code)
+      else next.delete(code)
+      return next
+    })
+  }
 
   // 리스트를 스크롤하면 필터 영역을 접어 카드가 보이는 공간을 넓히고, 맨
   // 위로 돌아오면 다시 펼친다(ResultAreaGroupList의 onAtTopChange가 알려줌).
@@ -666,24 +652,58 @@ export function ResultMapSheet({
     : groups
         .filter((g) => selectedSigungus.has(g.sigungu))
         .flatMap((g) => g.list)
-        .filter((a) => includeExcluded || !excludedCodes.has(a.code))
+        .filter((a) => !excludedCodes.has(a.code))
 
   // 세로 그룹 리스트(ResultAreaGroupList)용 — activeAreas와 같은 필터를 시군구
-  // 그룹 구조를 유지한 채 적용한다. selectedSigungus는 매 렌더 새로 파생되는
-  // Set이라 deps에 넣으면 매번 재계산되므로, 실제 의존은 groups/manualSigungus다
-  // (파일 전반에 이미 쓰인 패턴 — 아래 bounds-fit effect와 동일).
+  // 그룹 구조를 유지한 채 적용한다("포함된 동네" 탭). selectedSigungus는 매
+  // 렌더 새로 파생되는 Set이라 deps에 넣으면 매번 재계산되므로, 실제 의존은
+  // groups/manualSigungus다(파일 전반에 이미 쓰인 패턴 — 아래 bounds-fit
+  // effect와 동일).
   const visibleGroups = useMemo(
     () =>
       groups
         .filter((g) => selectedSigungus.has(g.sigungu))
         .map((g) => ({
           sigungu: g.sigungu,
-          list: g.list.filter((a) => includeExcluded || !excludedCodes.has(a.code)),
+          list: g.list.filter((a) => !excludedCodes.has(a.code)),
         }))
         .filter((g) => g.list.length > 0),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [groups, manualSigungus, includeExcluded, excludedCodes]
+    [groups, manualSigungus, excludedCodes]
   )
+
+  // "제외된 동네" 탭용 — 같은 시군구 필터를 적용하되 제외된 구역만 남긴다.
+  const excludedGroups = useMemo(
+    () =>
+      groups
+        .filter((g) => selectedSigungus.has(g.sigungu))
+        .map((g) => ({
+          sigungu: g.sigungu,
+          list: g.list.filter((a) => excludedCodes.has(a.code)),
+        }))
+        .filter((g) => g.list.length > 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [groups, manualSigungus, excludedCodes]
+  )
+
+  const visibleIncludedCodes = useMemo(
+    () => visibleGroups.flatMap((g) => g.list.map((a) => a.code)),
+    [visibleGroups]
+  )
+  const allIncludedSelected =
+    visibleIncludedCodes.length > 0 && visibleIncludedCodes.every((code) => selectedCodes.has(code))
+
+  function toggleSelectAll() {
+    setSelectedCodes((prev) => {
+      const next = new Set(prev)
+      if (allIncludedSelected) {
+        for (const code of visibleIncludedCodes) next.delete(code)
+      } else {
+        for (const code of visibleIncludedCodes) next.add(code)
+      }
+      return next
+    })
+  }
 
   // 필터 변경으로 포커스 중인 시군구가 화면에서 사라지면(예: 그 시군구를
   // 선택 해제하거나 "제외된 동네 포함"을 꺼서 그룹이 비면) 첫 번째로 보이는
@@ -883,20 +903,18 @@ export function ResultMapSheet({
 
   const isCollapsed = snap === SNAP_COLLAPSED
 
-  // 시군구별 상위 MAX_PER_GROUP개로 캡한 전체 목록 — 저장·안내 문구 모두 이
-  // 캡이 반영된 수를 기준으로 한다("총 N곳"이 실제 보여주는/저장되는 개수와
-  // 어긋나지 않도록).
+  // 시군구별 상위 MAX_PER_GROUP개로 캡한 전체 목록 — "총 N곳" 안내 문구가 이
+  // 캡이 반영된 수를 기준으로 하도록 쓴다.
   const cappedAreas = groups.flatMap((g) => g.list)
 
-  // 저장 리스트는 지금 보이는 시군구 필터와 무관하게, 캡 반영 후 제외하지
-  // 않은(X 안 누른) 구역 전부를 기준으로 한다.
-  const savedAreaCodes = cappedAreas.filter((a) => !excludedCodes.has(a.code)).map((a) => a.code)
+  // 내보내기 대상 = 체크박스로 고른 코드 그대로. onSave(확정+저장 시트 열기)와
+  // 이미지/텍스트 내보내기 모두 이 배열을 기준으로 한다("매물 선택→내보내기"
+  // 플로우 — 더 이상 "제외 안 한 전체"가 아니다).
+  const selectedAreaCodes = Array.from(selectedCodes)
 
   // 캡 반영 후 전체 후보 수 — 시군구 뷰 필터·제외와 무관하게 "조건에 맞는
   // 구역이 몇 곳인지"를 그대로 설명할 때 쓴다(우선순위 시트 문구).
   const totalMatchCount = cappedAreas.length
-  // 실제로 저장될 개수 — 제외 반영, 시군구 뷰 필터와는 무관하다.
-  const remainingMatchCount = savedAreaCodes.length
 
   return (
     <div className="relative mx-auto h-dvh w-full max-w-md overflow-hidden">
@@ -925,15 +943,16 @@ export function ResultMapSheet({
       </div>
 
       <div
-        className="absolute inset-x-4 z-10"
+        className="absolute inset-x-4 z-10 flex flex-col items-center gap-2"
         style={{ top: 'calc(env(safe-area-inset-top) + 16px)' }}
       >
-        <ResultHeaderPill
-          title={title}
-          subtitle={subtitle}
-          count={isFallback ? undefined : activeAreas.length}
-          partnerConfirmed={isFallback ? undefined : partnerConfirmed ?? undefined}
-        />
+        <TopConditionPills participants={participants} onClick={() => setConditionSheetOpen(true)} />
+        <PillCoachmark />
+        {subtitle && (
+          <span className="rounded-full bg-neutral-900 px-4 py-2 text-body-sb font-semibold text-white shadow-[0_10px_15px_rgba(0,0,0,0.2)]">
+            {subtitle}
+          </span>
+        )}
       </div>
 
      {!isCollapsed && (
@@ -1004,22 +1023,15 @@ export function ResultMapSheet({
                   )
                 ) : (
                   <>
-                    {/* Figma: 힌트 메시지가 위, 그 아래 필터 영역이 온다 — "왜 이
-                        동네들이 추천됐을까요?"는 우선순위 근거 시트(ConditionSummarySheet)를
-                        여는 트리거로, 예전 "우선순위 : ..." 요약 버튼을 대체한다. */}
-                    <button
-                      onClick={() => setConditionSheetOpen(true)}
-                      className="flex w-full shrink-0 items-center justify-between px-5 py-4"
-                    >
-                      <span className="flex min-w-0 items-center gap-1">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src="/asset/icon/message-fill.svg" alt="" className="size-5 shrink-0" />
-                        <span className="truncate text-[14px] font-medium tracking-[-0.35px] text-neutral-900">
-                          왜 이 동네들을 추천했을까요?
-                        </span>
-                      </span>
-                      <ChevronRight className="size-5 shrink-0 text-neutral-400" />
-                    </button>
+                    {/* 예전 "왜 이 동네들을 추천했을까요?" 트리거는 상단 대표 조건
+                        pill(TopConditionPills)이 대신한다 — 여기는 "추천 동네 총
+                        N곳" + 상대 확정 배지만 상시 노출한다(Figma hint message). */}
+                    <SheetHeaderRow
+                      title={title}
+                      count={activeAreas.length}
+                      solo={solo}
+                      partnerConfirmed={partnerConfirmed}
+                    />
 
                     {groups.length > 0 && (
                       <div
@@ -1028,35 +1040,58 @@ export function ResultMapSheet({
                           filterVisible ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
                         )}
                       >
-                        <div className="min-h-0">
-                          <FilterChipRow
-                            label={sigunguTriggerLabel(selectedSigungus)}
-                            onOpenSigunguSheet={() => setSigunguSheetOpen(true)}
-                            includeExcluded={includeExcluded}
-                            onToggleIncludeExcluded={() => setIncludeExcluded((v) => !v)}
+                        <div className="flex min-h-0 flex-col">
+                          <TabRow
+                            activeTab={activeTab}
+                            onTabChange={setActiveTab}
+                            allSelected={allIncludedSelected}
+                            onToggleSelectAll={toggleSelectAll}
                           />
                         </div>
                       </div>
                     )}
 
                     <div className="min-h-0 flex-1">
-                      <ResultAreaGroupList
-                        groups={visibleGroups}
-                        excludedCodes={excludedCodes}
-                        onExclude={handleExclude}
-                        onRestore={restoreArea}
-                        selectedAreaCode={selectedAreaCode}
-                        focusedSigungu={effectiveFocusedSigungu}
-                        onCardSelect={handleCardSelect}
-                        onGroupFocusChange={handleGroupFocusChange}
-                        registerCardRef={(code, el) => {
-                          cardRefs.current[code] = el
-                        }}
-                        onAtTopChange={setFilterVisible}
-                        emptyLabel="이 조건을 만족하는 구역이 없어요"
-                        newAreaCodes={newAreaCodes}
-                        onListingClick={handleListingClick}
-                      />
+                      {activeTab === 'included' ? (
+                        <ResultAreaGroupList
+                          groups={visibleGroups}
+                          excludedCodes={excludedCodes}
+                          onExclude={handleExclude}
+                          onRestore={restoreArea}
+                          selectedAreaCode={selectedAreaCode}
+                          focusedSigungu={effectiveFocusedSigungu}
+                          onCardSelect={handleCardSelect}
+                          onGroupFocusChange={handleGroupFocusChange}
+                          registerCardRef={(code, el) => {
+                            cardRefs.current[code] = el
+                          }}
+                          onAtTopChange={setFilterVisible}
+                          emptyLabel="이 조건을 만족하는 구역이 없어요"
+                          newAreaCodes={newAreaCodes}
+                          onListingClick={handleListingClick}
+                          showCheckbox
+                          selectedCodes={selectedCodes}
+                          onToggleSelect={toggleSelect}
+                        />
+                      ) : (
+                        <ResultAreaGroupList
+                          groups={excludedGroups}
+                          excludedCodes={excludedCodes}
+                          onExclude={handleExclude}
+                          onRestore={restoreArea}
+                          selectedAreaCode={selectedAreaCode}
+                          focusedSigungu={effectiveFocusedSigungu}
+                          onCardSelect={handleCardSelect}
+                          onGroupFocusChange={handleGroupFocusChange}
+                          registerCardRef={(code, el) => {
+                            cardRefs.current[code] = el
+                          }}
+                          onAtTopChange={setFilterVisible}
+                          emptyLabel="제외한 동네가 없어요"
+                          emptySubLabel="동네를 왼쪽으로 밀면 목록에서 제외할 수 있어요"
+                          onListingClick={handleListingClick}
+                        />
+                      )}
                     </div>
                   </>
                 )}
@@ -1066,6 +1101,28 @@ export function ResultMapSheet({
         </Drawer.Portal>
       </Drawer.Root>
      )}
+
+      {/* 시군구 필터 칩 — 바텀시트가 접히거나(SNAP_COLLAPSED) 풀로 펼쳐지면
+          (SNAP_FULL) 사라지고, 중간 스냅(SNAP_MID)일 때만 시트 위 8px 여백에
+          뜬다. 시트 자체(Drawer.Content)는 transform이 걸려 그 안에 두면
+          absolute/fixed 자손의 containing block이 바뀌어버리므로(위 주석과
+          동일한 이유) 여기서도 뷰포트 기준 fixed로 따로 띄운다. */}
+      {!isFallback && !isCollapsed && snap === SNAP_MID && groups.length > 0 && (
+        <div
+          className="pointer-events-none fixed inset-x-0 z-20 mx-auto w-full max-w-md"
+          style={{ bottom: `calc(${SNAP_MID * 100}dvh + 8px)` }}
+        >
+          <button
+            type="button"
+            onClick={() => setSigunguSheetOpen(true)}
+            className="pointer-events-auto ml-4 flex items-center gap-1 rounded-full border border-neutral-100 bg-white px-2 py-2 text-[12px] font-medium tracking-[-0.3px] text-neutral-900 drop-shadow-[0_4px_5px_rgba(0,0,0,0.04)]"
+            {...stopMapPropagation}
+          >
+            {sigunguTriggerLabel(selectedSigungus)}
+            <ChevronDown className="size-4" />
+          </button>
+        </div>
+      )}
 
       {/* vaul이 snapPoint 오프셋을 Drawer.Content 자체에 transform으로 적용하는데,
           CSS상 transform이 걸린 조상은 그 안의 fixed/absolute 자손의 containing
@@ -1088,9 +1145,10 @@ export function ResultMapSheet({
           className="fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-md"
           solo={solo}
           retrying={retrying}
-          saving={saving}
+          selectedCount={selectedCodes.size}
+          exporting={saving}
           onRetry={() => onRetry('result_retry')}
-          onSave={() => onSave(savedAreaCodes)}
+          onExport={() => onSave(selectedAreaCodes)}
           onBackToWaiting={onBackToWaiting}
         />
       )}
@@ -1116,26 +1174,25 @@ export function ResultMapSheet({
             <span className="h-1 w-10 rounded-full bg-neutral-300" />
           </button>
 
-        {/* 시트를 끝까지 내렸을 때만 이 축약 버전이 버튼 바로 위에 보인다.
-            펼쳐져 있을 땐 시트 안(이전 디자인)에서 대신 보여준다. Figma
-            State A(접힘)는 우선순위 요약 대신 필터칩 영역을 보여준다. */}
+        {/* 접힌 상태에서는 핸들 + 헤더("추천 동네 총 N곳" + 상대 확정 배지) +
+            하단 버튼만 노출한다 — 탭/전체 선택/시군구 칩 등은 펼쳤을 때만
+            의미가 있는 조작이라 접힘에서는 뺀다. */}
         {!isFallback && isCollapsed && (
           <>
-          {groups.length > 0 && (
-            <FilterChipRow
-              label={sigunguTriggerLabel(selectedSigungus)}
-              onOpenSigunguSheet={() => setSigunguSheetOpen(true)}
-              includeExcluded={includeExcluded}
-              onToggleIncludeExcluded={() => setIncludeExcluded((v) => !v)}
-            />
-          )}
+          <SheetHeaderRow
+            title={title}
+            count={activeAreas.length}
+            solo={solo}
+            partnerConfirmed={partnerConfirmed}
+          />
           <ActionButtonsFooter
             className="w-full"
             solo={solo}
             retrying={retrying}
-            saving={saving}
+            selectedCount={selectedCodes.size}
+            exporting={saving}
             onRetry={() => onRetry('result_retry')}
-            onSave={() => onSave(savedAreaCodes)}
+            onExport={() => onSave(selectedAreaCodes)}
             onBackToWaiting={onBackToWaiting}
           />
           </>
@@ -1165,7 +1222,7 @@ export function ResultMapSheet({
       <SaveOptionsSheet
         open={saveSheetOpen}
         onOpenChange={onSaveSheetOpenChange}
-        count={remainingMatchCount}
+        count={selectedCodes.size}
         onSaveImage={onSaveImage}
         onSaveText={onSaveText}
       />
@@ -1201,14 +1258,14 @@ export function ResultMapSheet({
               <p className="text-body-m text-neutral-500">우리가 함께 할 수 있는 동네</p>
               <p className="text-title-l font-bold text-neutral-900">
                 총 <span className="font-montserrat text-mont-title-l text-pink-500">
-                  {activeAreas.length}
+                  {selectedAreaCodes.length}
                 </span>
                 곳
               </p>
             </div>
             <div className="flex flex-col gap-3">
               {areas
-                .filter((a) => savedAreaCodes.includes(a.code))
+                .filter((a) => selectedAreaCodes.includes(a.code))
                 .map((area) => (
                   <ResultAreaCard key={area.code} area={area} fullWidth />
                 ))}

@@ -15,6 +15,9 @@ interface ResultAreaGroupListProps {
   onGroupFocusChange: (sigungu: string | null) => void
   registerCardRef: (code: string, el: HTMLDivElement | null) => void
   emptyLabel: string
+  // emptyLabel 바로 아래, 가운데 정렬로 붙는 보조 안내 문구(선택) — "제외된
+  // 동네" 탭의 빈 상태에서 스와이프 힌트를 붙일 때 쓴다.
+  emptySubLabel?: string
   // 조율 직후 새로 추가된 동네 코드 — 해당 카드에만 New 뱃지를 표시한다.
   newAreaCodes?: Set<string>
   // 리스트가 맨 위에 있는지 알려준다 — 부모(ResultMapSheet)가 필터 영역을
@@ -22,6 +25,10 @@ interface ResultAreaGroupListProps {
   onAtTopChange?: (atTop: boolean) => void
   // 네이버부동산 "매물 보기" 클릭 — 넘겨주지 않으면 카드에 버튼이 안 뜬다.
   onListingClick?: (area: ResultAreaData) => void
+  // "포함된 동네" 탭에서만 켠다 — 매물 선택→내보내기 체크박스.
+  showCheckbox?: boolean
+  selectedCodes?: Set<string>
+  onToggleSelect?: (code: string, checked: boolean) => void
 }
 
 // 결과 화면 바텀시트의 시군구별 세로 리스트. 리스트 자체를 스크롤 컨테이너로
@@ -41,9 +48,13 @@ export function ResultAreaGroupList({
   onGroupFocusChange,
   registerCardRef,
   emptyLabel,
+  emptySubLabel,
   onAtTopChange,
   newAreaCodes,
   onListingClick,
+  showCheckbox = false,
+  selectedCodes,
+  onToggleSelect,
 }: ResultAreaGroupListProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const groupRefs = useRef<Record<string, HTMLDivElement | null>>({})
@@ -130,7 +141,12 @@ export function ResultAreaGroupList({
   }, [groups])
 
   if (groups.length === 0) {
-    return <p className="py-4 text-center text-body-s text-neutral-400">{emptyLabel}</p>
+    return (
+      <div className="flex flex-col items-center gap-1 py-4 text-center">
+        <p className="text-body-s text-neutral-400">{emptyLabel}</p>
+        {emptySubLabel && <p className="text-body-s text-neutral-400">{emptySubLabel}</p>}
+      </div>
+    )
   }
 
   return (
@@ -143,7 +159,7 @@ export function ResultAreaGroupList({
             groupRefs.current[sigungu] = el
           }}
           className={cn(
-            'flex flex-col gap-3 px-[16px] py-[20px]',
+            'flex flex-col gap-[10px] p-[16px]',
             sigungu === focusedSigungu && 'bg-pink-50/60'
           )}
         >
@@ -167,6 +183,9 @@ export function ResultAreaGroupList({
                     area.lat != null && area.lng != null ? () => onCardSelect(area) : undefined
                   }
                   onListingClick={onListingClick}
+                  showCheckbox={showCheckbox}
+                  checked={selectedCodes?.has(area.code) ?? false}
+                  onCheckedChange={onToggleSelect}
                 />
               </div>
             ))}

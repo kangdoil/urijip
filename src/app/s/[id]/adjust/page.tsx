@@ -13,6 +13,7 @@ import { Slider } from '@/components/ui/slider'
 import { OnboardBackBar } from '@/components/onboard-back-bar'
 import { DecisionResultSheet } from '@/components/decision-result-sheet'
 import { FindingBestAreasScreen } from '@/components/finding-best-areas-screen'
+import { snapshotAreaCodesBeforeAdjust } from '@/lib/pre-adjust-snapshot'
 import { cn } from '@/lib/utils'
 import { track } from '@/lib/mixpanel'
 import type { ConcessionMatchResult } from '@/lib/concession-copy'
@@ -652,6 +653,12 @@ export default function AdjustPage() {
       )
 
       if (accept) {
+        // 결정자(피제안자) 본인 기기의 세션스토리지엔 이 스냅샷이 없어서
+        // (제안자만 결과 화면에서 "조율하기"를 눌러 스냅샷을 남기므로)
+        // 결과 화면에 돌아가도 New 뱃지가 전혀 안 뜨는 문제가 있었다 — 조건이
+        // 바뀌기 직전 상태(beforeCodes, 원래 예산·통근·순위 기준)를 여기서도
+        // 같은 방식으로 남겨 제안자·결정자 모두 New 판정이 되게 한다.
+        snapshotAreaCodesBeforeAdjust(sessionId, Array.from(beforeCodes))
         router.push(`/s/${sessionId}/result?notice=accepted`)
       } else {
         setDecisionSheet('rejected')
@@ -895,14 +902,14 @@ export default function AdjustPage() {
           <button
             onClick={() => decide(false)}
             disabled={submitting}
-            className="flex flex-1 items-center justify-center rounded-full border-2 border-pink-500 px-4 py-4 text-body-m font-bold whitespace-nowrap text-pink-500 disabled:opacity-50"
+            className="flex h-[52px] flex-1 items-center justify-center rounded-full border-2 border-pink-500 px-4 text-body-m font-bold whitespace-nowrap text-pink-500 disabled:opacity-50"
           >
             다시 조율하기
           </button>
           <button
             onClick={() => decide(true)}
             disabled={submitting}
-            className="flex flex-1 items-center justify-center rounded-full bg-pink-500 px-4 py-4 text-body-m font-bold whitespace-nowrap text-white disabled:opacity-50"
+            className="flex h-[52px] flex-1 items-center justify-center rounded-full bg-pink-500 px-4 text-body-m font-bold whitespace-nowrap text-white disabled:opacity-50"
           >
             이 조건 수락하기
           </button>

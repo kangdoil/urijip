@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { ArrowUpRight } from 'lucide-react'
+import { ArrowUpRight, Check } from 'lucide-react'
 import { CarIcon } from '@/components/icons/car-icon'
 import { formatEok } from '@/lib/condition-labels'
 import { cn } from '@/lib/utils'
@@ -40,6 +40,9 @@ export function ResultAreaCard({
   showSigungu = true,
   isNew = false,
   onListingClick,
+  showCheckbox = false,
+  checked = false,
+  onCheckedChange,
 }: {
   area: ResultAreaData
   excluded?: boolean
@@ -61,8 +64,15 @@ export function ResultAreaCard({
   // (내보내기용 카드 스냅샷 등 클릭이 의미 없는 곳). 좌표 없는 동네는 이 prop이
   // 있어도 버튼을 숨긴다.
   onListingClick?: (area: ResultAreaData) => void
+  // "포함된 동네" 탭에서만 켠다 — 매물 선택→내보내기 플로우 전용 체크박스.
+  showCheckbox?: boolean
+  checked?: boolean
+  onCheckedChange?: (code: string, checked: boolean) => void
 }) {
-  const swipeable = !excluded && !!onExclude
+  // 제외되지 않은 카드는 왼쪽 스와이프로 "제외", 이미 제외된 카드(제외된 동네
+  // 탭)는 같은 스와이프로 "복구" — 방향은 같고 끝에 실행되는 액션만 다르다.
+  const swipeAction: 'exclude' | 'restore' | null = !excluded && onExclude ? 'exclude' : excluded && onRestore ? 'restore' : null
+  const swipeable = swipeAction != null
 
   const [dragX, setDragX] = useState(0)
   const [open, setOpen] = useState(false)
@@ -83,9 +93,10 @@ export function ResultAreaCard({
     setDragX(0)
   }
 
-  function commitExclude() {
+  function commitSwipeAction() {
     closeSwipe()
-    onExclude?.(area.code)
+    if (swipeAction === 'exclude') onExclude?.(area.code)
+    else if (swipeAction === 'restore') onRestore?.(area.code)
   }
 
   function handlePointerDown(e: React.PointerEvent) {
@@ -166,18 +177,39 @@ export function ResultAreaCard({
         (onSelect || swipeable) && 'cursor-pointer'
       )}
     >
+      {showCheckbox && !excluded && (
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={checked}
+          aria-label={`${area.name} 선택`}
+          onClick={(e) => {
+            e.stopPropagation()
+            onCheckedChange?.(area.code, !checked)
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          className={cn(
+            'flex size-4 shrink-0 items-center justify-center rounded border',
+            checked ? 'border-neutral-900 bg-neutral-900' : 'border-neutral-300 bg-white'
+          )}
+        >
+          {checked && <Check className="size-3 text-white" strokeWidth={3} />}
+        </button>
+      )}
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <div className="flex items-start justify-between gap-2">
-          <div className="flex min-w-0 items-baseline gap-1">
+          <div className="flex min-w-0 items-center gap-[6px]">
+            <div className="flex min-w-0 items-baseline gap-1">
+              <span className="text-body-sb font-semibold text-neutral-900">{area.name}</span>
+              <span className="whitespace-nowrap text-[12px] font-medium text-neutral-900">
+                {formatEok(area.avg_price_krw)}
+              </span>
+            </div>
             {isNew && (
-              <span className="shrink-0 text-[16px] leading-[22.4px] font-bold tracking-[-0.48px] text-pink-500">
+              <span className="shrink-0 text-[12px] leading-[1.4] font-bold tracking-[-0.48px] text-pink-500">
                 New
               </span>
             )}
-            <span className="text-body-sb font-semibold text-neutral-900">{area.name}</span>
-            <span className="whitespace-nowrap text-[12px] font-medium text-neutral-900">
-              {formatEok(area.avg_price_krw)}
-            </span>
           </div>
           {excluded && onRestore && (
             <button
@@ -230,12 +262,12 @@ export function ResultAreaCard({
         </button>
       )}
 
-      {swipeable && (
+      {swipeable && swipeAction === 'exclude' && (
         <button
           type="button"
           onClick={(e) => {
             e.stopPropagation()
-            commitExclude()
+            commitSwipeAction()
           }}
           aria-label="제외"
           className="absolute top-2 right-2 hidden text-[12px] font-medium tracking-[-0.42px] text-neutral-500 underline decoration-1 underline-offset-4 opacity-0 transition-opacity [@media(hover:hover)]:block [@media(hover:hover)]:group-hover:opacity-100"
@@ -255,11 +287,14 @@ export function ResultAreaCard({
           type="button"
           onClick={(e) => {
             e.stopPropagation()
-            commitExclude()
+            commitSwipeAction()
           }}
-          className="flex w-full items-center justify-center bg-pink-500 text-[14px] font-semibold text-white"
+          className={cn(
+            'flex w-full items-center justify-center text-[14px] font-semibold text-white',
+            swipeAction === 'restore' ? 'bg-neutral-900' : 'bg-pink-500'
+          )}
         >
-          제외
+          {swipeAction === 'restore' ? '복구' : '제외'}
         </button>
       </div>
       {cardBody}

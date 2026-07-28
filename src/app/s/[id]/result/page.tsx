@@ -12,6 +12,7 @@ import { FindingBestAreasScreen } from '@/components/finding-best-areas-screen'
 import { useCommuteStatus } from '@/lib/use-commute-status'
 import { groupBySigungu } from '@/lib/group-by-sigungu'
 import { track } from '@/lib/mixpanel'
+import { snapshotAreaCodesBeforeAdjust, diffNewAreaCodes } from '@/lib/pre-adjust-snapshot'
 import type { ConcessionMatchResult } from '@/lib/concession-copy'
 
 // 세션+역할 조합으로 "이 결과 화면을 처음 보는지"를 기기에 저장해 판단한다
@@ -22,32 +23,6 @@ function markResultViewed(sessionId: string, role: 'A' | 'B'): boolean {
   const isFirst = !window.localStorage.getItem(key)
   window.localStorage.setItem(key, '1')
   return isFirst
-}
-
-// 조율(재조정) 화면으로 나가기 직전, 지금 보고 있던 동네 코드를 세션스토리지에
-// 남겨둔다 — 서버엔 매칭 이력을 남기지 않아(get_matches는 매번 새로 계산) 이
-// 스냅샷이 유일한 "조율 전" 기준이다. sessionStorage라 탭을 닫으면 사라지고,
-// 1회 대조 후엔 명시적으로 지운다(preAdjustAreaCodes 참고).
-function preAdjustSnapshotKey(sessionId: string) {
-  return `urijib:pre_adjust_codes:${sessionId}`
-}
-
-function snapshotAreaCodesBeforeAdjust(sessionId: string, codes: string[]) {
-  if (typeof window === 'undefined') return
-  window.sessionStorage.setItem(preAdjustSnapshotKey(sessionId), JSON.stringify(codes))
-}
-
-// 조율 후 돌아와 get_matches를 다시 부른 직후 1회 호출 — 스냅샷이 있으면 거기
-// 없던 코드만 "새로 추가됨"으로 판정하고, 다음 새로고침엔 다시 안 뜨도록
-// 스냅샷을 지운다. 스냅샷이 없으면(조율을 거치지 않은 첫 방문 등) 빈 Set.
-function diffNewAreaCodes(sessionId: string, currentCodes: string[]): Set<string> {
-  if (typeof window === 'undefined') return new Set()
-  const key = preAdjustSnapshotKey(sessionId)
-  const prevRaw = window.sessionStorage.getItem(key)
-  if (!prevRaw) return new Set()
-  window.sessionStorage.removeItem(key)
-  const prevCodes = new Set<string>(JSON.parse(prevRaw))
-  return new Set(currentCodes.filter((code) => !prevCodes.has(code)))
 }
 
 interface ParticipantSummary {
@@ -94,14 +69,13 @@ interface SoloPreviewResult {
   matches: Omit<MatchArea, 'b_minutes'>[]
 }
 
-// 시군구별 추천 동네 상한(grouped-area-list.tsx의 "상위 최대 5곳" 규칙과 동일) —
-// "총 N곳" 헤더의 숫자를 시군구 수 × 5로 계산하는 기준값이다.
-const RECOMMENDED_PER_SIGUNGU = 5
-
 function buildExportText(matches: MatchArea[], codes: string[]) {
   const selected = matches.filter((m) => codes.includes(m.code))
   const groups = groupBySigungu(selected)
-  const count = groups.length * RECOMMENDED_PER_SIGUNGU
+  // "총 N곳"은 실제로 선택(체크박스)해서 내보내는 개수 그대로 쓴다 — 시군구
+  // 수 × N 같은 파생 계산은 쓰지 않는다(카드 개수 그대로 = 결과 화면 헤더와
+  // 동일 기준).
+  const count = selected.length
   const lines = [`우리가 함께 할 수 있는 동네 (총 ${count}곳)`, '']
   for (const { sigungu, list } of groups) {
     lines.push(`[${sigungu}]`)

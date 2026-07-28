@@ -1,7 +1,7 @@
 # 우리집 — 프로젝트 규칙
 
 신혼부부 2인이 주거 조건을 조율해 함께 살 구역을 찾는 서비스.
-제품 정의는 docs/PRD-우리집.md, DB는 docs/schema.sql이 단일 기준(source of truth).
+제품 정의는 docs/PRD-우리집_v2.md, DB는 docs/schema.sql이 단일 기준(source of truth).
 
 ## 스택 (변경 금지)
 Next.js App Router + TypeScript, Supabase(Anonymous Auth/Realtime/RLS),
@@ -17,14 +17,19 @@ Zustand, Tailwind + shadcn/ui, Mixpanel, Vercel 배포.
 - "상대 입력 완료 전 조건 비공개"는 RLS가 강제한다.
   프론트에서 이 정책을 우회하는 쿼리를 만들지 않는다.
 - 통근시간 API 호출 전 반드시 commute_cache를 먼저 조회한다.
-- 필수 조건 제한(인당 2개)은 DB 트리거가 최종 방어선이다.
+- 평형/년식/인프라 3개 조건은 "필수/선호" 분류가 아니라 참여자별 1~3순위
+  랭킹이다 (participant_conditions.priority). 1순위 조건만 하드필터로
+  작동하며, 이는 DB 트리거가 아니라 get_matches/get_solo_preview RPC
+  내부의 _priority_hard_ok 함수가 강제한다 (security definer라 클라이언트가
+  우회 불가). "필수 인당 2개 제한" 같은 상한 개념은 없다 — 신규 코드에서
+  이 개념을 되살리지 않는다.
   UI 검증은 UX용이지 보안용이 아니다.
 
 ## 스키마 주의
-schema.sql은 v0.1 기준이라 PRD v0.3과 차이가 있다. 적용 전 다음을 반영할 것:
-sessions.situation 컬럼 삭제, conditions 시드를 5개 조건
-(commute/budget/area_size/build_year/infra)으로 교체, 필수 제한 트리거 3→2,
-result_shares 테이블 추가.
+schema.sql은 supabase/migrations/ 전체를 재생(replay)해 뽑은 실제 최종
+상태와 대조 검증된 v0.4다 (2026-07-27 갱신). 이후 마이그레이션을 추가할
+때 schema.sql은 자동으로 따라가지 않으니, source of truth로 계속 쓰려면
+새 마이그레이션을 반영할 때마다 이 파일도 함께 갱신한다.
 
 ## UI
 mockups/ 폴더의 HTML이 화면 의도의 기준. 컬러 시스템: A=보라, B=청록.
