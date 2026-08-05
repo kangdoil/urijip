@@ -1,7 +1,7 @@
 import { CONDITION_LABEL, formatEok } from '@/lib/condition-labels'
 import type { ParticipantConditionSummary } from '@/components/condition-summary-sheet'
 
-// 지도 상단 pill 전용 표기 — 조건 시트(CONDITION_LABEL: 평형/년식/인프라)와는
+// 지도 상단 pill 전용 표기 — 조건 시트(CONDITION_LABEL: 평형/연식/인프라)와는
 // 다른, 결과 화면 헤드라인용 카피(넓은 집/새 집/인프라)다.
 const PILL_CONDITION_LABEL: Record<string, string> = {
   area_size: '넓은 집',

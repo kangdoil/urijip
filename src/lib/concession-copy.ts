@@ -56,7 +56,7 @@ export interface ConcessionMatchResult {
   extra: ConcessionLadderResult | null
 }
 
-// 참여자 한 명의 양보 내용을 칩 하나로 합친다 — "년식 양보" / "인프라 · 통근
+// 참여자 한 명의 양보 내용을 칩 하나로 합친다 — "연식 양보" / "인프라 · 통근
 // +15분 양보"처럼. 칩 옆에 A/B 아바타가 이미 역할을 보여주므로 role 접두사
 // 없이 "조건 · 통근 · 예산" 순서로 합쳐 "양보"를 한 번만 붙인다. 양보한 게
 // 하나도 없으면(=이 role은 그대로) null을 반환해 칩 자체를 숨긴다.
@@ -132,7 +132,7 @@ export interface StatsComparisonProps {
   benefit: StatsComparisonBenefit | null
 }
 
-// 한국어 명사에 을/를 조사를 붙인다 — "년식을", "인프라를"처럼 받침 유무로
+// 한국어 명사에 을/를 조사를 붙인다 — "연식을", "인프라를"처럼 받침 유무로
 // 갈라진다(유니코드 한글 음절 오프셋: (code - 0xAC00) % 28 === 0이면 받침 없음).
 function withEulReul(word: string): string {
   const last = word.charCodeAt(word.length - 1)

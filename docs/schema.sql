@@ -6,7 +6,7 @@
 --
 -- v0.4 갱신 배경: 이 파일(v0.3)은 2026-07-18까지의 상태만 반영했고, 이후
 -- supabase/migrations/의 20260720000000 ~ 20260726000000 변경분(우선순위
--- 랭킹 모델 전환, 완화 사다리, 년식/평형 판정 비율화 등)이 누락돼 있었다.
+-- 랭킹 모델 전환, 완화 사다리, 연식/평형 판정 비율화 등)이 누락돼 있었다.
 -- 이 버전은 로컬에 마이그레이션 38개를 전부 재생(replay)한 뒤 pg_dump로
 -- 얻은 실제 최종 상태를 기준으로 재작성했다 — 마이그레이션 파일 하나하나를
 -- 손으로 추적한 것이 아니라 기계적으로 검증한 결과다.
@@ -79,7 +79,7 @@ create table public.conditions (
 
 insert into public.conditions (code, name, descr, sort_order) values
   ('area_size',  '평형',   '전용 59㎡ 이상 매물이 많은 곳',      1),
-  ('build_year', '년식',   '지어진 지 10년 이내 매물이 많은 곳', 2),
+  ('build_year', '연식',   '지어진 지 10년 이내 매물이 많은 곳', 2),
   ('infra',      '인프라', '마트·병원·공원이 가까운 곳',         3);
 
 -- -------------------------------------------------------------
@@ -132,13 +132,13 @@ create table public.areas (
 create table public.area_stats (
   area_code         text primary key references public.areas(code),
   avg_price_krw     bigint,              -- 최근 6개월 실거래 평균 (예산, 공유 카드 표시용)
-  built_year_avg    int,                 -- 년식 평균 (공유 카드 표시용, 매칭 판정에는 미사용)
+  built_year_avg    int,                 -- 연식 평균 (공유 카드 표시용, 매칭 판정에는 미사용)
   mart_ok           boolean,             -- 대형마트 차량 10분 이내
   hospital_ok       boolean,             -- 종합병원 차량 20분 이내
   park_ok           boolean,             -- 도보 10분 내 공원
   refreshed_at      timestamptz not null default now(),
   size_59_ok        boolean,             -- 최근 6개월 실거래 중 전용 59㎡ 이상 비중 50%+ (평형 판정용)
-  build_year_ok     boolean              -- 최근 6개월 실거래 중 10년 이내 준공 비중 30%+ (년식 판정용)
+  build_year_ok     boolean              -- 최근 6개월 실거래 중 10년 이내 준공 비중 30%+ (연식 판정용)
 );
 
 comment on column public.area_stats.size_59_ok is

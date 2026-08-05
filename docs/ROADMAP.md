@@ -21,7 +21,7 @@ PRD(`docs/PRD-우리집.md` v0.9) 기준 개발 로드맵. 단계를 마칠 때�
 - [x] ① 거점·통근 상한 입력 화면 (`/s/[id]/onboard/anchor` — 카카오 로컬 키워드 검색 연동 완료.
       `/api/kakao/search` 프록시 통해 실시간 검색 → 선택 시 anchor_lat/lng 저장. 실 API로 검증함)
 - [x] ② 예산 상한 입력 화면 (`/s/[id]/onboard/budget` — mockup 없어 디자인 토큰 기반 자체 구성. 상대와의 충돌 표시는 결과/조율 화면(Phase 2)에서 처리)
-- [x] ③ 조건 분류 화면 (`/s/[id]/onboard/conditions` — 평형·년식·인프라 카드 소팅, 필수 슬롯 2개, DB 트리거 제한 실동작 확인)
+- [x] ③ 조건 분류 화면 (`/s/[id]/onboard/conditions` — 평형·연식·인프라 카드 소팅, 필수 슬롯 2개, DB 트리거 제한 실동작 확인)
 - [ ] ④ 초대/대기 화면 상세 (카카오톡 공유, Realtime으로 B 완료 반영) — 임시 UI는 기반 공사 단계에서 구현됨
 - [x] ⑤ 결과 화면 (`/s/[id]/result` — 구역 카드, 예산 충돌 표시, 0건 시 폴백 UI)
 - [x] ⑤ 결과 화면 지도+바텀시트 리뉴얼 (`src/components/result-map-sheet.tsx`) — 전체화면
@@ -76,14 +76,14 @@ API로 직접 호출해 확인, 테스트 데이터는 정리함). area_stats에
 ## 4. 구역 데이터 배치 (PRD §5, area_stats)
 
 - [x] 국토부 실거래가 API 연동 — 평형(size_59_ok)·예산(avg_price_krw) 통계
-- [x] 년식(build_year_avg) — 건축물대장 API 대신 실거래가 API의 buildYear로 통합 처리 (지번 단위 개별 조회인 건축물대장보다 구역 집계에 효율적, PRD §5-1에 근거 명시)
+- [x] 연식(build_year_avg) — 건축물대장 API 대신 실거래가 API의 buildYear로 통합 처리 (지번 단위 개별 조회인 건축물대장보다 구역 집계에 효율적, PRD §5-1에 근거 명시)
 - [x] 상가정보 + 심평원 + 도시공원 API 연동 — 인프라 3항목(mart/hospital/park)
 - [x] area_stats 배치 갱신 스크립트 — `scripts/refresh-{park,mart,hospital,trade}-stats.ts`, 실 API로 119개 전 구역 채움 완료
 
 ## 5. 결과 공유
 
 - [x] `result_shares` 생성 플로우 + `get_shared_result` 공개 열람 페이지 (`/share/[slug]`, 동적 OG 이미지 포함)
-- [ ] 결과 요약 카드에 매칭률·통근시간 추가 (`get_shared_result`가 현재 구역명·시세·년식만 반환 — PRD는 통근시간도 요구하나 공유 시점 스냅샷 저장이 필요해 후속 작업으로 미룸)
+- [ ] 결과 요약 카드에 매칭률·통근시간 추가 (`get_shared_result`가 현재 구역명·시세·연식만 반환 — PRD는 통근시간도 요구하나 공유 시점 스냅샷 저장이 필요해 후속 작업으로 미룸)
 - [ ] 카카오톡/인스타그램 공유 연동 (지금은 링크 복사만)
 - [ ] 민감정보(예산) 포함 토글 UI (`include_budget` 컬럼은 이미 있음, 기본 false)
 

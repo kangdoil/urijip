@@ -17,7 +17,7 @@ Zustand, Tailwind + shadcn/ui, Mixpanel, Vercel 배포.
 - "상대 입력 완료 전 조건 비공개"는 RLS가 강제한다.
   프론트에서 이 정책을 우회하는 쿼리를 만들지 않는다.
 - 통근시간 API 호출 전 반드시 commute_cache를 먼저 조회한다.
-- 평형/년식/인프라 3개 조건은 "필수/선호" 분류가 아니라 참여자별 1~3순위
+- 평형/연식/인프라 3개 조건은 "필수/선호" 분류가 아니라 참여자별 1~3순위
   랭킹이다 (participant_conditions.priority). 1순위 조건만 하드필터로
   작동하며, 이는 DB 트리거가 아니라 get_matches/get_solo_preview RPC
   내부의 _priority_hard_ok 함수가 강제한다 (security definer라 클라이언트가

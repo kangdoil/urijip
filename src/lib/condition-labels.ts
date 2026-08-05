@@ -1,6 +1,6 @@
 export const CONDITION_LABEL: Record<string, string> = {
   area_size: '평형',
-  build_year: '년식',
+  build_year: '연식',
   infra: '인프라',
 }
 

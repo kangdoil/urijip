@@ -2,9 +2,9 @@
  * area_stats.{avg_price_krw, built_year_avg, size_59_ok} 갱신 스크립트.
  *
  * 국토교통부 "아파트매매 실거래자료" API(RTMSDataSvcAptTradeDev)로 최근 6개월
- * 거래를 모아 예산·년식·평형 세 조건을 한 번에 채운다. 응답에 거래금액
+ * 거래를 모아 예산·연식·평형 세 조건을 한 번에 채운다. 응답에 거래금액
  * (dealAmount)·건축년도(buildYear)·전용면적(excluUseAr)이 모두 들어있어,
- * 년식은 별도 건축물대장 API(지번 단위 개별 조회라 구역 전체 집계에 비효율적)
+ * 연식은 별도 건축물대장 API(지번 단위 개별 조회라 구역 전체 집계에 비효율적)
  * 없이 이 API만으로 처리한다 (사용자 확인).
  *
  * area_stats.size_59_ok는 matching_engine.sql이 이미 참조하고 있었지만 채우는
@@ -225,7 +225,7 @@ async function main() {
   if (upsertError) throw upsertError
 
   console.log(
-    `area_stats 예산/년식/평형 갱신 완료: ${count ?? rows.length}건 ` +
+    `area_stats 예산/연식/평형 갱신 완료: ${count ?? rows.length}건 ` +
       `(법정동 거래 없어 시군구 평균으로 대체 ${fallbackCount}건, 거래 자체 없어 스킵 ${skippedCount}건)`
   )
 }
